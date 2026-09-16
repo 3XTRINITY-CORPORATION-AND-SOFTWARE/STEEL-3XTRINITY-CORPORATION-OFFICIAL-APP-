@@ -1,375 +1,209 @@
-:root {
-  --bg: #000000;
-  --title: #fcfcfc;
-  --white: #ffffff;
-  --text-footnote: 0.9375rem; /* 15 — iOS Subhead */
-  --text-body: 1.0625rem; /* 17 — iOS Body */
-  --text-title: 1.25rem; /* 20 — iOS Title 3 */
-  --text-title-tablet: 1.5rem; /* 24 */
-  --weight-regular: 400;
-  --weight-medium: 500;
-  --weight-semibold: 600;
-  --leading: 1.3;
-  --duration-snappy: 220ms;
-  --ease-snappy: cubic-bezier(0.175, 0.885, 0.32, 1.1);
-  --duration-smooth: 300ms;
-  --ease-smooth: cubic-bezier(0.19, 1, 0.22, 1);
-  --duration-swift: 800ms;
-  --ease-swift: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #111210;
+  --color-raised: #1a1b18;
+  --color-ink: #e8e4d8;
+  --color-muted: #8d8a7e;
+  --color-faint: #6a675e;
+  --color-rule: #2c2d28;
+  --color-stamp: #c45c4a;
+  --color-sage: #6aa56f;
+  --color-live: #6aa56f;
+  --color-clip: #c45c4a;
+  --color-steel: #9aa7b0;
+  --color-ember: #e8783a;
+  --color-ice: #4aa7d4;
+  --color-bg: #111210;
+  --color-fg: #e8e4d8;
+  --color-surface: #1a1b18;
+  --color-primary: #e8e4d8;
+  --color-border: #2c2d28;
+
+  --font-display: "IBM Plex Sans Condensed", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 16px;
+  --radius: 6px;
+
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: clamp(1.5rem, 1.1rem + 1.2vw, 2rem);
+  --text-3xl: clamp(2rem, 1.3rem + 2vw, 2.75rem);
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-quick: 150ms;
+  --motion-fast: 250ms;
+  --motion-slow: 400ms;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html,
+  body,
+  #app {
+    min-height: 100%;
+    background: var(--color-paper);
+    color: var(--color-ink);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  textarea,
+  pre,
+  code {
+    font-family: var(--font-mono);
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-live) 30%, transparent);
+    color: var(--color-ink);
+  }
 }
 
-html,
-body {
-  margin: 0;
-  min-height: 100%;
-  background: var(--bg);
-  color: var(--white);
+.shell-pad {
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
 }
 
-html {
-  font-size: 16px;
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
+@media (min-width: 640px) {
+  .shell-pad {
+    padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
+  }
 }
 
-body {
-  min-height: 100dvh;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-  font-size: var(--text-body);
-  font-weight: var(--weight-regular);
-  font-optical-sizing: auto;
-  line-height: var(--leading);
-  letter-spacing: normal;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+.shell-header {
+  padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
 }
 
-img {
-  display: block;
-  max-width: 100%;
+.shell-footer {
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
+}
+
+.nav-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.find-enter {
+  animation: find-enter 280ms var(--ease-out) both;
+}
+
+@keyframes find-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.desk-busy {
+  isolation: isolate;
+}
+
+.desk-wash {
+  pointer-events: none;
+  position: absolute;
+  inset: -8px;
+  z-index: 2;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    110deg,
+    transparent 20%,
+    color-mix(in oklab, var(--color-stamp) 16%, transparent) 45%,
+    color-mix(in oklab, var(--color-live) 18%, transparent) 62%,
+    transparent 85%
+  );
+  background-size: 220% 100%;
+  animation: desk-wash 1.6s var(--ease-out) infinite;
+  mix-blend-mode: screen;
+}
+
+@keyframes desk-wash {
+  from {
+    background-position: 100% 0;
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  to {
+    background-position: -20% 0;
+    opacity: 0.35;
+  }
+}
+
+.oled-panel {
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-ice) 35%, transparent);
+}
+
+.oled-panel canvas {
+  image-rendering: pixelated;
+  background: #0a0b0a;
+  width: 100%;
+  max-width: 24rem;
   height: auto;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-
-.page {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  min-height: 100dvh;
-  min-height: 100svh;
-  background: var(--bg);
-  overflow-x: hidden;
-  padding:
-    calc(20px + env(safe-area-inset-top))
-    32px
-    calc(24px + env(safe-area-inset-bottom));
-}
-
-.powered {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 20px;
-  margin: 0 auto;
-  flex: 0 0 auto;
-}
-
-.powered-by,
-.powered-grok {
-  font-size: var(--text-footnote);
-  font-weight: var(--weight-medium);
-  letter-spacing: -0.01em;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.powered-by {
-  color: rgba(255, 255, 255, 0.3);
-}
-
-.powered-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 20px;
-}
-
-.grok-logo {
-  display: block;
-  width: 14px;
-  height: 14px;
-  flex: 0 0 14px;
-}
-
-.powered-grok {
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.content {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  max-width: 338px;
-  margin: 0 auto;
-  gap: 40px;
-  padding-top: 28px;
-}
-
-/* The desktop fallback is opt-in: hidden unless the device is a desktop. */
-.content-desktop {
-  display: none;
-}
-
-.ob {
-  width: 100%;
-  max-width: 338px;
-  height: 294px;
-  overflow: hidden;
-  flex: 0 0 auto;
-}
-
-.ob-img {
-  width: 100%;
-  height: 294px;
-  object-fit: cover;
-  object-position: top center;
-}
-
-.ob-ipad {
-  display: none;
-}
-
-.copy {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  width: 100%;
-}
-
-h1 {
-  margin: 0;
-  width: 100%;
-  align-self: stretch;
-  padding: 0;
-  color: var(--title);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
-  font-size: var(--text-title);
-  font-weight: var(--weight-semibold);
-  font-optical-sizing: auto;
-  line-height: var(--leading);
-  letter-spacing: -0.02em;
-  text-align: center;
-  text-wrap: balance;
-  mix-blend-mode: plus-lighter;
-}
-
-.steps {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-
-.step {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin: 0;
-  min-height: 1.5em;
-  white-space: nowrap;
-}
-
-.muted {
-  display: inline-flex;
-  align-items: center;
-  color: var(--white);
-  opacity: 0.5;
-  font-size: 1em;
-  font-weight: var(--weight-regular);
-  letter-spacing: normal;
-  line-height: var(--leading);
-}
-
-.add-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.plus-icon {
-  display: block;
-  width: 16px;
-  height: 16px;
-  flex: 0 0 16px;
-}
-
-.add-text {
-  display: inline-flex;
-  align-items: center;
-  color: var(--white);
-  font-size: 1em;
-  font-weight: var(--weight-medium);
-  letter-spacing: normal;
-  line-height: var(--leading);
-}
-
-.glass {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  flex: 0 0 24px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: transparent;
-}
-
-.glass--icon {
-  background: transparent;
-  box-shadow:
-    inset 0 2px 1px -1px rgba(255, 255, 255, 0.25),
-    inset 0 -2px 1px -1px rgba(255, 255, 255, 0.25);
-  overflow: hidden;
-}
-
-.glass--icon img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.loc-ipad {
-  display: none;
-}
-
-.step-ios27,
-.step-ios-legacy {
-  display: none;
-}
-
-html.device-phone.ios-27-plus .step-ios27,
-html.device-phone.ios-below-27 .step-ios-legacy,
-html.device-phone:not(.ios-27-plus):not(.ios-below-27) .step-ios-legacy,
-html.device-tablet .step-ios-legacy {
-  display: flex;
-}
-
-/* Desktop (also the no-JS default): swap the tutorial for a visible fallback
-   that links back to the app instead of hiding everything. */
-html.device-desktop .content {
-  display: none;
-}
-
-html.device-desktop .content-desktop {
-  display: flex;
-  max-width: 420px;
-}
-
-.desktop-note {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.5);
-  text-align: center;
-  text-wrap: balance;
-}
-
-.desktop-open {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 20px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  box-shadow:
-    inset 0 2px 1px -1px rgba(255, 255, 255, 0.25),
-    inset 0 -2px 1px -1px rgba(255, 255, 255, 0.25);
-  color: var(--white);
-  font-weight: var(--weight-medium);
-  text-decoration: none;
-}
-
-.desktop-open:hover {
-  background: rgba(255, 255, 255, 0.16);
-}
-
-html.device-tablet .page {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding:
-    calc(24px + env(safe-area-inset-top))
-    24px
-    calc(24px + env(safe-area-inset-bottom));
-}
-
-html.device-tablet .powered {
-  display: none;
-}
-
-html.device-tablet .content {
-  max-width: 634px;
-  margin: 0;
-  gap: 40px;
-}
-
-html.device-tablet .ob {
-  max-width: 634px;
-}
-
-html.device-tablet .ob-phone {
-  display: none;
-}
-
-html.device-tablet .ob-ipad {
+  aspect-ratio: 128 / 64;
   display: block;
 }
 
-html.device-tablet h1 {
-  font-size: var(--text-title-tablet);
-  letter-spacing: -0.015em;
+.kare-hair {
+  box-shadow: 0 1px 0 color-mix(in oklab, var(--color-ember) 55%, transparent);
 }
 
-html.device-tablet .step {
-  gap: 10px;
-}
-
-html.device-tablet .glass {
-  width: 30px;
-  height: 30px;
-  flex-basis: 30px;
-}
-
-html.device-tablet .plus-icon {
-  width: 18px;
-  height: 18px;
-  flex-basis: 18px;
-}
-
-html.device-tablet .loc-phone {
-  display: none;
-}
-
-html.device-tablet .loc-ipad {
-  display: inline;
-}
-
-@media (max-height: 700px) {
-  html.device-phone .content {
-    justify-content: center;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
