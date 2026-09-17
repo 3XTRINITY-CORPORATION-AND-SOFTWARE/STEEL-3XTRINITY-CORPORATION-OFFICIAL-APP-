@@ -1,23 +1,92 @@
 /**
  * Desk audio engine — recovered from compiled routes-DFtXkjIc.mjs (App Builder dump history).
  * Not invented; decompiled/restored for canonical src/. Prefer replacing with original TS when VCS recovers.
+ *
+ * F3: restored missing ./fx + ./clips + makeDemoVocal imports (nocheck had hidden ReferenceErrors),
+ * added DeskHandle + export param types so this file typechecks without @ts-nocheck.
  */
-// @ts-nocheck
-import { makeBoomBap, bufferToWav } from "./boom";
-import { EQ_HZ, EQ_Q, clampEq, emptyEq, labelHz, nearestBand, type EqGains } from "./eq";
-import { useDesk, NOTE_NAMES } from "./store";
+import { makeBoomBap, makeDemoVocal, bufferToWav } from "./boom";
+import {
+	composeClips,
+	detectClips,
+	keepBestTakes,
+	makeAdlibClips,
+	makeBackClips,
+	placeOnGrid,
+	pitchToTonic,
+	splitClipOnGrid,
+	type VocalClip,
+} from "./clips";
+import { EQ_HZ, EQ_Q, type EqGains } from "./eq";
+import {
+	classifyMic,
+	delaySeconds,
+	genrePreset,
+	irFor,
+	kareFromV,
+	type DelayId,
+	type GenreId,
+	type ReverbId,
+} from "./fx";
+import { useDesk, type TuneMode } from "./store";
 
-var handle = null;
-var rec = null;
-var recChunks = [];
-var meterRaf = 0;
-var micEq = {
+type DeskSlot = {
+	buffer: AudioBuffer | null;
+	source: AudioBufferSourceNode | null;
+	gain: GainNode;
+};
+
+/** Internal Web Audio graph handle for the Desk mix bus. */
+type DeskHandle = {
+	ctx: AudioContext;
+	beat: DeskSlot;
+	vocal: DeskSlot;
+	vocalRaw: AudioBuffer | null;
+	composed: AudioBuffer | null;
+	tune: AudioWorkletNode;
+	vocalIn: GainNode;
+	mix: GainNode;
+	duck: GainNode;
+	glue: DynamicsCompressorNode;
+	dest: MediaStreamAudioDestinationNode;
+	analyser: AnalyserNode;
+	vocalAn: AnalyserNode;
+	mixBuf: Uint8Array<ArrayBuffer>;
+	vocalBuf: Uint8Array<ArrayBuffer>;
+	mic: MediaStreamAudioSourceNode | null;
+	micStream: MediaStream | null;
+	hpf: BiquadFilterNode;
+	presence: BiquadFilterNode;
+	air: BiquadFilterNode;
+	delay: DelayNode;
+	delayGain: GainNode;
+	delayFb: GainNode;
+	ping: DelayNode;
+	convolver: ConvolverNode;
+	revGain: GainNode;
+	female: GainNode;
+	femaleOsc: OscillatorNode[];
+	tunnelLp: BiquadFilterNode;
+	tunnelGain: GainNode;
+	beatHp: BiquadFilterNode;
+	nest: DelayNode;
+	nestGain: GainNode;
+	mirror: DelayNode;
+	mirrorGain: GainNode;
+	eq: BiquadFilterNode[];
+};
+
+let handle: DeskHandle | null = null;
+let rec: MediaRecorder | null = null;
+let recChunks: Blob[] = [];
+let meterRaf = 0;
+let micEq = {
 	presence: 3.5,
 	air: 1.5,
 	hpf: 90,
-	hz: 3200
+	hz: 3200,
 };
-function estimateBpm(buffer) {
+function estimateBpm(buffer: AudioBuffer) {
 	const ch = buffer.getChannelData(0);
 	const sr = buffer.sampleRate;
 	const hop = Math.max(1, Math.floor(sr / 50));
@@ -50,7 +119,7 @@ function estimateBpm(buffer) {
 	if (bpm > 180) bpm /= 2;
 	return Math.round(Math.min(180, Math.max(70, bpm)));
 }
-function applyGlue(h, glue) {
+function applyGlue(h: DeskHandle, glue: number) {
 	const t = h.ctx.currentTime;
 	const g = Math.min(1, Math.max(0, glue));
 	h.glue.threshold.setTargetAtTime(-8 - g * 16, t, .05);
@@ -59,7 +128,7 @@ function applyGlue(h, glue) {
 	h.glue.attack.setTargetAtTime(.006, t, .02);
 	h.glue.release.setTargetAtTime(.12 + g * .16, t, .05);
 }
-function wireGlue(ctx, glueAmt) {
+function wireGlue(ctx: BaseAudioContext, glueAmt: number) {
 	const glue = ctx.createDynamicsCompressor();
 	const g = Math.min(1, Math.max(0, glueAmt));
 	glue.threshold.value = -8 - g * 16;
@@ -69,7 +138,7 @@ function wireGlue(ctx, glueAmt) {
 	glue.release.value = .12 + g * .16;
 	return glue;
 }
-function femaleMidi(tonic, mode) {
+function femaleMidi(tonic: number, mode: TuneMode | number) {
 	const root = 48 + tonic;
 	const third = mode === 2 ? 4 : 3;
 	return [
@@ -79,13 +148,13 @@ function femaleMidi(tonic, mode) {
 		root + 12 + third
 	];
 }
-function midiHz(m) {
+function midiHz(m: number) {
 	return 440 * Math.pow(2, (m - 69) / 12);
 }
-function retuneFemale(h, tonic, mode) {
+function retuneFemale(h: DeskHandle, tonic: number, mode: TuneMode | number) {
 	const freqs = femaleMidi(tonic, mode).map(midiHz);
 	const t = h.ctx.currentTime;
-	h.femaleOsc.forEach((o, i) => {
+	h.femaleOsc.forEach((o: OscillatorNode, i: number) => {
 		if (freqs[i]) o.frequency.setTargetAtTime(freqs[i], t, .08);
 	});
 }
@@ -171,7 +240,7 @@ async function ensure() {
 	const ping = ctx.createDelay(2);
 	ping.delayTime.value = .02;
 	const convolver = ctx.createConvolver();
-	convolver.buffer = irFor(ctx, "gated");
+	convolver.buffer = irFor(ctx, "gated" as ReverbId);
 	const revGain = ctx.createGain();
 	revGain.gain.value = .16;
 	const mix = ctx.createGain();
@@ -184,7 +253,7 @@ async function ensure() {
 	vocalAn.fftSize = 1024;
 	const female = ctx.createGain();
 	female.gain.value = 0;
-	const femaleOsc = [];
+	const femaleOsc: OscillatorNode[] = [];
 	const tunnelLp = ctx.createBiquadFilter();
 	tunnelLp.type = "lowpass";
 	tunnelLp.frequency.value = 130;
@@ -272,8 +341,8 @@ async function ensure() {
 		dest,
 		analyser,
 		vocalAn,
-		mixBuf: new Uint8Array(analyser.fftSize),
-		vocalBuf: new Uint8Array(vocalAn.fftSize),
+		mixBuf: new Uint8Array(analyser.fftSize) as Uint8Array<ArrayBuffer>,
+		vocalBuf: new Uint8Array(vocalAn.fftSize) as Uint8Array<ArrayBuffer>,
 		mic: null,
 		micStream: null,
 		hpf,
@@ -326,9 +395,9 @@ export function pushParams() {
 		const t = handle.ctx.currentTime;
 		handle.beat.gain.gain.setTargetAtTime(s.beatGain, t, .02);
 		handle.vocal.gain.gain.setTargetAtTime(s.vocalGain, t, .02);
-		handle.delay.delayTime.setTargetAtTime(delaySeconds(s.delay, s.bpm), t, .04);
+		handle.delay.delayTime.setTargetAtTime(delaySeconds(s.delay as DelayId, s.bpm), t, .04);
 		handle.delayGain.gain.setTargetAtTime(s.delay === "off" || !s.applyMix ? 0 : s.delayMix, t, .04);
-		handle.ping.delayTime.setTargetAtTime(s.delay === "ping" ? delaySeconds("1/16", s.bpm) : .004, t, .04);
+		handle.ping.delayTime.setTargetAtTime(s.delay === "ping" ? delaySeconds("1/16" as DelayId, s.bpm) : .004, t, .04);
 		handle.revGain.gain.setTargetAtTime(s.reverb === "off" || !s.applyMix ? 0 : s.reverbMix, t, .04);
 		handle.female.gain.setTargetAtTime(s.female ? .11 : 0, t, .05);
 		handle.hpf.frequency.setTargetAtTime(micEq.hpf, t, .05);
@@ -343,7 +412,7 @@ export function pushParams() {
 		handle.mirrorGain.gain.setTargetAtTime(s.applyMix ? .18 + s.width * .2 : 0, t, .05);
 		if (handle.eq.length) {
 			const bands = s.eq?.length === EQ_HZ.length ? s.eq : EQ_HZ.map(() => 0);
-			handle.eq.forEach((node, i) => {
+			handle.eq.forEach((node: BiquadFilterNode, i: number) => {
 				node.gain.setTargetAtTime(bands[i] ?? 0, t, .05);
 			});
 		}
@@ -352,17 +421,17 @@ export function pushParams() {
 		if (handle.femaleOsc.length) retuneFemale(handle, s.tonic, s.mode);
 	}
 }
-export function setEqGains(gains) {
+export function setEqGains(gains: EqGains) {
 	useDesk.getState().set({ eq: gains.slice(0, EQ_HZ.length) });
 	if (!handle) return;
 	const t = handle.ctx.currentTime;
-	handle.eq.forEach((node, i) => {
+	handle.eq.forEach((node: BiquadFilterNode, i: number) => {
 		node.gain.setTargetAtTime(gains[i] ?? 0, t, .04);
 	});
 }
-export async function setFx(delay, reverb) {
+export async function setFx(delay: DelayId | string, reverb: ReverbId | string) {
 	const h = await ensure();
-	h.convolver.buffer = irFor(h.ctx, reverb === "off" ? "plate" : reverb);
+	h.convolver.buffer = irFor(h.ctx, (reverb === "off" ? "plate" : reverb) as ReverbId);
 	useDesk.getState().set({
 		delay,
 		reverb
@@ -399,7 +468,7 @@ async function ensureFemale() {
 		h.femaleOsc.push(o);
 	}
 }
-export async function setFemale(on) {
+export async function setFemale(on: boolean) {
 	useDesk.getState().set({ female: on });
 	if (on) await ensureFemale();
 	pushParams();
@@ -415,7 +484,7 @@ async function rebuildComposed() {
 	h.vocal.buffer = composed;
 	if (s.playing && !s.liveMic) startLoop(h.vocal, h.vocalIn, h.ctx);
 }
-export async function decodeSlot(file) {
+export async function decodeSlot(file: Blob) {
 	const h = await ensure();
 	const arr = await file.arrayBuffer();
 	try {
@@ -424,7 +493,7 @@ export async function decodeSlot(file) {
 		throw new Error("decode");
 	}
 }
-export async function setBeatBuffer(buffer, name) {
+export async function setBeatBuffer(buffer: AudioBuffer, name: string) {
 	const h = await ensure();
 	h.beat.buffer = buffer;
 	useDesk.getState().set({
@@ -435,12 +504,12 @@ export async function setBeatBuffer(buffer, name) {
 	pushParams();
 	if (h.vocalRaw) await rebuildComposed();
 }
-function strongestTonic(regions, fallback) {
+function strongestTonic(regions: VocalClip[], fallback: number) {
 	const ranked = [...regions].filter((c) => !c.muted && c.pitchHz > 70).sort((a, b) => b.score - a.score);
 	if (!ranked[0]) return fallback;
 	return pitchToTonic(ranked[0].pitchHz);
 }
-export async function setVocalBuffer(buffer, name) {
+export async function setVocalBuffer(buffer: AudioBuffer, name: string) {
 	const h = await ensure();
 	h.vocalRaw = buffer;
 	const s = useDesk.getState();
@@ -454,7 +523,7 @@ export async function setVocalBuffer(buffer, name) {
 		error: null,
 		liveMic: false,
 		regions,
-		selectedId: regions.find((c) => !c.muted)?.id ?? regions[0]?.id ?? null,
+		selectedId: regions.find((c: VocalClip) => !c.muted)?.id ?? regions[0]?.id ?? null,
 		tonic,
 		aiNote: s.autoTakt ? "AI takt · beat + noot" : null
 	});
@@ -472,7 +541,7 @@ export async function loadDemoBeat() {
 export async function loadDemoVocal() {
 	await setVocalBuffer(makeDemoVocal((await ensure()).ctx, 4), "demo-vocal.wav");
 }
-function startLoop(slot, dest, ctx) {
+function startLoop(slot: DeskSlot, dest: AudioNode, ctx: AudioContext) {
 	if (!slot.buffer) return;
 	try {
 		slot.source?.stop();
@@ -522,7 +591,7 @@ export function stopMix() {
 		duck: 1
 	});
 }
-function applyMicToGraph(label, sampleRate, channels) {
+function applyMicToGraph(label: string, sampleRate?: number, channels?: number) {
 	const h = handle;
 	if (!h) return classifyMic(label).tag;
 	const p = classifyMic(label);
@@ -573,16 +642,16 @@ export async function startLiveMic() {
 export function stopLiveMic() {
 	if (!handle) return;
 	handle.mic?.disconnect();
-	handle.micStream?.getTracks().forEach((t) => t.stop());
+	handle.micStream?.getTracks().forEach((t: MediaStreamTrack) => t.stop());
 	handle.mic = null;
 	handle.micStream = null;
 	useDesk.getState().set({ liveMic: false });
 }
 export async function toggleVoiceRec() {
 	if (rec && rec.state === "recording") {
-		const blob = await new Promise((resolve) => {
-			rec.onstop = () => resolve(new Blob(recChunks, { type: rec.mimeType || "audio/webm" }));
-			rec.stop();
+		const blob = await new Promise<Blob>((resolve) => {
+			rec!.onstop = () => resolve(new Blob(recChunks, { type: rec!.mimeType || "audio/webm" }));
+			rec!.stop();
 		});
 		rec = null;
 		useDesk.getState().set({ recording: false });
@@ -675,11 +744,11 @@ export async function bounceWav() {
 			}
 		});
 		const delay = off.createDelay(2);
-		delay.delayTime.value = delaySeconds(s.delay, s.bpm);
+		delay.delayTime.value = delaySeconds(s.delay as DelayId, s.bpm);
 		const dg = off.createGain();
 		dg.gain.value = s.delay === "off" || !s.applyMix ? 0 : s.delayMix;
 		const conv = off.createConvolver();
-		conv.buffer = irFor(off, s.reverb === "off" ? "plate" : s.reverb);
+		conv.buffer = irFor(off, (s.reverb === "off" ? "plate" : s.reverb) as ReverbId);
 		const rg = off.createGain();
 		rg.gain.value = s.reverb === "off" || !s.applyMix ? 0 : s.reverbMix;
 		src.connect(tune);
@@ -723,7 +792,7 @@ export function sharpMix() {
 	});
 	setFx(p.delay, p.reverb);
 }
-export async function applyGenre(g) {
+export async function applyGenre(g: GenreId) {
 	const p = genrePreset(g);
 	useDesk.getState().set({
 		genre: g,
@@ -750,7 +819,7 @@ export async function snapToGrid() {
 export async function deleteSelected() {
 	const s = useDesk.getState();
 	if (!s.selectedId) return;
-	const next = s.regions.filter((c) => c.id !== s.selectedId);
+	const next = s.regions.filter((c: VocalClip) => c.id !== s.selectedId);
 	useDesk.getState().set({
 		regions: next,
 		selectedId: next[0]?.id ?? null
@@ -759,10 +828,10 @@ export async function deleteSelected() {
 }
 export async function cutSelected() {
 	const s = useDesk.getState();
-	const clip = s.regions.find((c) => c.id === s.selectedId);
+	const clip = s.regions.find((c: VocalClip) => c.id === s.selectedId);
 	if (!clip) return;
 	const parts = splitClipOnGrid(clip, s.bpm);
-	const next = s.regions.flatMap((c) => c.id === clip.id ? parts : [c]);
+	const next = s.regions.flatMap((c: VocalClip) => c.id === clip.id ? parts : [c]);
 	useDesk.getState().set({
 		regions: next,
 		selectedId: parts[0]?.id ?? null
@@ -792,14 +861,14 @@ export async function keepBest() {
 	const next = keepBestTakes(useDesk.getState().regions);
 	useDesk.getState().set({
 		regions: next,
-		selectedId: next.find((c) => !c.muted)?.id ?? null,
+		selectedId: next.find((c: VocalClip) => !c.muted)?.id ?? null,
 		aiNote: "Nõrgad takes vaigistatud"
 	});
 	await rebuildComposed();
 }
 export async function applyFix() {
 	const s = useDesk.getState();
-	const kept = keepBestTakes(s.regions.filter((c) => c.score >= .018 || c.kind !== "main"));
+	const kept = keepBestTakes(s.regions.filter((c: VocalClip) => c.score >= .018 || c.kind !== "main"));
 	const snapped = placeOnGrid(kept.length ? kept : s.regions, s.bpm);
 	const p = genrePreset(s.genre);
 	const tonic = strongestTonic(snapped, s.tonic);
@@ -838,7 +907,7 @@ export async function teardownDesk() {
 	}
 	handle = null;
 }
-export function pitchLabel(hz) {
+export function pitchLabel(hz: number) {
 	if (hz < 70) return "—";
 	const midi = 69 + 12 * Math.log2(hz / 440);
 	const q = Math.round(midi);
