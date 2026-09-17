@@ -100,3 +100,7 @@ Legend: **zip** = `grok-workspace.zip` · **root-overlay** = flat `/workspace/st
 | `src/lib/audit/fixtures.ts` | export-draft aligned to zip `AuditReport` |
 | `src/components/jwt-lab.tsx` (ru→en claim label fallback) | synthesized (Lang gained `ru` from root i18n) |
 | `src/lib/desk/engine.ts` / `store.ts` | recovered from `routes-DFtXkjIc.mjs` |
+
+## Not SoT / pruned build artifacts
+- `.vercel/` (incl. `.vercel/output`) — **pruned** 2026-09-17; deploy/build output, not source. Gitignored.
+- `node_modules/`, `dist/`, `.output/`, `.nitro/`, `.vinxi/`, `.turbo/`, `coverage/` — not SoT; gitignored (may exist locally for builds).
