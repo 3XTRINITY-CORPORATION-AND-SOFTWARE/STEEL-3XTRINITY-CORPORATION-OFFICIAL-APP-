@@ -139,6 +139,7 @@ type Persisted = Pick<
   | "hook"
 >;
 
+/** @deprecated Legacy zip-era mixer store (`steel-studio-v1`). Winner for OS-target is `useRack` (see WAVE2-CONTRACT-LOCK, WAVE3-USERACK-MIGRATE). Do not grow new OS-path callers; keep until P4/P5 retire importers. */
 export const useStudio = create<StudioState>((set) => ({
   tab: "desk",
   lang: "et",
@@ -263,6 +264,7 @@ function slicePersist(s: StudioState): Persisted {
   };
 }
 
+/** @deprecated Reads `steel-studio-v1` into `useStudio`. OS-target must not call this (AppShell hydrates steel/desk only). See WAVE2-CONTRACT-LOCK F2 / WAVE3-USERACK-MIGRATE P0. */
 export function hydrateStudio() {
   if (typeof localStorage === "undefined") return;
   try {
@@ -313,6 +315,7 @@ export function hydrateStudio() {
   }
 }
 
+/** @deprecated Persists `useStudio` slice to `steel-studio-v1`. OS-target must not subscribe; legacy StudioShell only. See WAVE2-CONTRACT-LOCK F2 / WAVE3-USERACK-MIGRATE P0. */
 export function watchStudioPersist() {
   return useStudio.subscribe((s, prev) => {
     if (
@@ -352,4 +355,5 @@ export function watchStudioPersist() {
   });
 }
 
+/** Winner store for OS-target place/paste/seed/rhyme/geo/chain/pins (`steel-atlas-pins-v1`). Re-export from `./rack-store` — prefer this over deprecated `useStudio`. */
 export { useRack, type StudioRack, type PlacePins } from "./rack-store";
