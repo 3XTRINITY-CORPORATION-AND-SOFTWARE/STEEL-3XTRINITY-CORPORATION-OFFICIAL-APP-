@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Generate and validate five inert security-deception mirrors.
 
-The 898^5 space is represented symbolically.  This tool materializes exactly
-five deterministic, non-executable source mirrors per batch and validates
-their syntax and safety properties without importing or executing them.
+The 898^5 space is represented symbolically. This tool materializes exactly
+five deterministic, non-executable source mirrors per batch and validates their
+syntax and safety properties without importing or executing them.
 """
 
 from __future__ import annotations
@@ -22,19 +22,11 @@ VARIANT_SPACE = SPACE_BASE**DIMENSIONS
 BATCH_SIZE = 5
 DEFAULT_SEED = "steel-security-deception-v0.1"
 MAX_SOURCE_BYTES = 32 * 1024
+ROUTE_NAMES = ("audio", "visual", "audit", "studio")
 
 _BANNED_TEXT = (
-    "subprocess",
-    "socket",
-    "requests",
-    "urllib",
-    "ctypes",
-    "pickle",
-    "os.system",
-    "eval(",
-    "exec(",
-    "open(",
-    "__import__",
+    "subprocess", "socket", "requests", "urllib", "ctypes", "pickle",
+    "os.system", "eval(", "exec(", "open(", "__import__",
 )
 _BANNED_CALLS = {"eval", "exec", "compile", "open", "__import__", "system", "popen"}
 _SECRET_PATTERNS = (
@@ -75,9 +67,7 @@ def variant_id(seed: str, index: int) -> str:
 def _source_for(seed: str, index: int) -> str:
     coordinates = variant_coordinates(index)
     mirror = variant_id(seed, index)
-    route_hint = (coordinates[0] + coordinates[2]) % 4
-    route_names = ("audio", "visual", "audit", "studio")
-    route = route_names[route_hint]
+    route = ROUTE_NAMES[(coordinates[0] + coordinates[2]) % len(ROUTE_NAMES)]
     return f'''"""Inert {route} mirror for defensive deception testing.
 
 This source is intentionally self-contained. It is a decoy interface only;
@@ -190,8 +180,8 @@ def validate_batch(output: Path) -> dict[str, Any]:
     if not isinstance(entries, list) or len(entries) != BATCH_SIZE:
         raise ValueError("manifest must contain exactly five files")
     listed_names = {entry.get("name") for entry in entries}
-    actual_names = {path.name for path in output.glob("mirror-*.py")}
-    if listed_names != actual_names or len(actual_names) != BATCH_SIZE:
+    actual_names = {path.name for path in output.iterdir()}
+    if listed_names | {"manifest.json"} != actual_names or len(listed_names) != BATCH_SIZE:
         raise ValueError("manifest and output file set differ")
     for entry in entries:
         if not isinstance(entry.get("name"), str) or not isinstance(entry.get("sha256"), str):
@@ -219,12 +209,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "validate":
             manifest = validate_batch(args.input)
-            print(json.dumps({"status": "valid", "count": manifest["count"], "start_index": manifest["start_index"]}))
         else:
             manifest = generate_batch(args.output, start_index=args.start_index, count=args.count, seed=args.seed)
             if args.command == "batch":
                 validate_batch(args.output)
-            print(json.dumps({"status": "valid", "count": manifest["count"], "start_index": manifest["start_index"]}))
+        print(json.dumps({"status": "valid", "count": manifest["count"], "start_index": manifest["start_index"]}))
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"ERROR: {error}")
         return 2
