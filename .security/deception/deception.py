@@ -40,7 +40,7 @@ _BANNED_CALLS = {"eval", "exec", "compile", "open", "__import__", "system", "pop
 _SECRET_PATTERNS = (
     re.compile(r"-----BEGIN [A-Z ]+-----"),
     re.compile(r"(?:ghp_|github_pat_|xox[baprs]-|vcp_)", re.IGNORECASE),
-    re.compile(r"(?:api[_-]?key|secret|private[_-]?key|authorization)\\s*[:=]", re.IGNORECASE),
+    re.compile(r"(?:api[_-]?key|secret|private[_-]?key|authorization)\s*[:=]", re.IGNORECASE),
 )
 
 
