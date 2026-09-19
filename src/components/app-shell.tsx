@@ -6,7 +6,7 @@ import { teardownDesk } from "@/lib/desk/engine";
 import { t, nextLang, type I18nKey } from "@/lib/i18n";
 import { disarmKernel } from "@/lib/steel/engine";
 import { isolateForTab } from "@/lib/steel/isolate";
-import { bindComputerKeys, unbindComputerKeys } from "@/lib/steel/midi";
+import { bindComputerKeys, enableMidi, unbindComputerKeys } from "@/lib/steel/midi";
 import { hydrateSteel, useSteel, watchSteelPersist } from "@/lib/steel/store";
 import type { SteelTab } from "@/lib/steel/types";
 import { checkChannel, versionGte } from "@/lib/steel/updates";
@@ -47,6 +47,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     const stopPersist = watchSteelPersist();
     void checkChannel().catch(() => undefined);
     bindComputerKeys();
+    void enableMidi().catch(() => undefined);
     return () => {
       stopPersist();
       unbindComputerKeys();

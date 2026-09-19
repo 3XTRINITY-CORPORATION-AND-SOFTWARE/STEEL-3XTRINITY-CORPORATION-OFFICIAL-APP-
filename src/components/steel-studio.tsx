@@ -6,6 +6,7 @@ import { EQ_HZ, labelHz } from "@/lib/desk/eq";
 import { setEqGains } from "@/lib/desk/engine";
 import { useDesk } from "@/lib/desk/store";
 import { t } from "@/lib/i18n";
+import { enableMidi, selectMidiIn } from "@/lib/steel/midi";
 import { useSteel } from "@/lib/steel/store";
 import { cn } from "@/lib/utils";
 import { BUS_OBJECTS, busGazette } from "@/lib/studio/bus";
@@ -29,6 +30,8 @@ const SKILLS = [
 
 export function SteelStudio() {
   const lang = useSteel((s) => s.lang);
+  const midiIn = useSteel((s) => s.midiIn);
+  const midiPorts = useSteel((s) => s.midiPorts);
   const rack = useRack();
   const desk = useDesk();
   const [eqOpen, setEqOpen] = useState(true);
@@ -93,6 +96,35 @@ export function SteelStudio() {
           </Button>
         </div>
         <p className="mt-2 font-mono text-2xs text-faint">{t(lang, "chainHint")}</p>
+
+        <div className="mt-4 max-w-md">
+          <p className="font-mono text-2xs tracking-wider text-muted uppercase">MIDI in</p>
+          <select
+            className="mt-1 h-11 w-full rounded-[var(--radius-md)] border border-rule bg-paper px-3 text-sm"
+            value={midiIn ?? ""}
+            onChange={(e) => selectMidiIn(e.target.value || null)}
+            data-qa="studio-midi-in"
+          >
+            <option value="">Computer keyboard (A–K)</option>
+            {midiPorts
+              .filter((p) => p.type === "in")
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+          </select>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="mt-2"
+            data-qa="studio-midi-scan"
+            onClick={() => void enableMidi()}
+          >
+            Scan MIDI
+          </Button>
+        </div>
 
         <div className="mt-6">
           <p className="font-mono text-2xs tracking-wider text-muted uppercase">{t(lang, "rhymeTitle")}</p>
