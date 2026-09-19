@@ -17,9 +17,9 @@
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/sign-in-gate.test.ts src/lib/preview-host-bridge.test.ts",
+    "test:coverage": "c8 --reporter=text --reporter=lcov npm test",
     "lint": "eslint .",
-    "format": "prettier --write .",
-    "test:coverage": "c8 --reporter=text --reporter=lcov npm test"
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",
@@ -87,6 +87,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.2.0",
+    "c8": "^12.0.0",
     "eslint": "^9.20.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.6",
