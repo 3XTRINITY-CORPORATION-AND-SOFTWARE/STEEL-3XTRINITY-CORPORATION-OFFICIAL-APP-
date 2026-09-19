@@ -6,13 +6,13 @@
  */
 
 import { z } from "zod";
-import { resolveParentEmbedderOrigin } from "./preview-embedder-origin";
+import { resolveParentEmbedderOrigin } from "./preview-embedder-origin.ts";
 
 export {
   isGrokEmbedderOrigin,
   isSandboxPreviewGuestHost,
   resolveParentEmbedderOrigin,
-} from "./preview-embedder-origin";
+} from "./preview-embedder-origin.ts";
 
 export const PREVIEW_BRIDGE_CHANNEL = "grok-preview-bridge" as const;
 export const PREVIEW_BRIDGE_VERSION = 1 as const;
