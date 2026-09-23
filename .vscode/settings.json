@@ -1,0 +1,7 @@
+{
+    "mobileApproval.ntfyTopic": "wr",
+    "workbench.experimental.cloudChanges.autoStore": "onShutdown",
+    "json.schemaDownload.trustedDomains": {
+        "\"workbench.experimental.cloudChanges.autoStore\": \"onShutdown\"": true
+    }
+}
