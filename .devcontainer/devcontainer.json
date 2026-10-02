@@ -14,6 +14,3 @@
     }
   }
 }
-  }
-:: Activate in Windows Command Prompt
-.venv\Scripts\activate.bat}
