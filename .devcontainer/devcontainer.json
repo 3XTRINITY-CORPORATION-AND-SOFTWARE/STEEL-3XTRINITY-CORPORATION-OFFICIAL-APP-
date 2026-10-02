@@ -5,6 +5,15 @@
     "ghcr.io/devcontainers/features/node:1": {
       "version": "22"
     }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-containers"
+      ]
+    }
+  }
+}
   }
 :: Activate in Windows Command Prompt
 .venv\Scripts\activate.bat}
