@@ -77,7 +77,7 @@ does not contain production STEEL code.
 
 MIRROR_ID = {mirror!r}
 MIRROR_COORDINATES = {coordinates!r}
-INTERFACE = {route!r}
+INTERFACE = {json.dumps(route)}
 STATUS = "not-executed"
 
 
