@@ -22,6 +22,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate devcontainer JSON
+        run: |
+          node -e "
+          const fs=require('fs');
+          JSON.parse(fs.readFileSync('.devcontainer/devcontainer.json','utf8'));
+          console.log('devcontainer JSON OK');
+          "
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
