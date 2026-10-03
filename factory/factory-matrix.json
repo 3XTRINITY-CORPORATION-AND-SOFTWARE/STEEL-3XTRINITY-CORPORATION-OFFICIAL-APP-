@@ -1,0 +1,68 @@
+{
+  "matrix_version": 2,
+  "note": "PASS means exactly one named, already-existing test passed in this run; per-slot specifications for most slots do not exist, so the counts are provisional and do not prove each slot's whole domain. Counts come from scripts/matrix250/matrix.mjs, never from documentation.",
+  "summary": {
+    "total": 250,
+    "executed": 250,
+    "pass": 250,
+    "fail": 0,
+    "blocked": 0,
+    "not_implemented": 0
+  },
+  "factory_slots": [
+    {
+      "id": "050",
+      "status": "PASS",
+      "expected": "the first node-version in .github/workflows/ci.yml equals the .nvmrc Node major (runtime pin cannot drift from CI); only that first occurrence is checked",
+      "evidence": "test:scripts/node-pin.test.mjs::CI setup-node uses the .nvmrc major"
+    },
+    {
+      "id": "145",
+      "status": "PASS",
+      "expected": "a real hash-files task at the real HEAD runs envelope->KRATT->RÄSTIK->TÖEPÄRA->CERBERUS, ends ADMIT, and every worker transition is logged",
+      "evidence": "test:factory/tests/loop.test.ts::CLOSED LOOP (hash-files, real files at the real HEAD): envelope -> KRATT -> RÄSTIK -> TÖEPÄRA -> CERBERUS = ADMIT, with real worker transitions"
+    },
+    {
+      "id": "146",
+      "status": "PASS",
+      "expected": "a real run-test task is executed by KRATT and independently re-executed by TÖEPÄRA before CERBERUS admits it",
+      "evidence": "test:factory/tests/loop.test.ts::CLOSED LOOP (run-test): a real node:test file is executed by KRATT, re-executed by TÖEPÄRA, and ADMITTED"
+    },
+    {
+      "id": "147",
+      "status": "PASS",
+      "expected": "a receipt that claims VERIFIED itself, with a perfect evidence digest, is not VERIFIED by TÖEPÄRA",
+      "evidence": "test:factory/tests/toepara.test.ts::TÖEPÄRA: KRATT output alone never yields VERIFIED (self-verified receipt, even with a perfect evidence digest)"
+    },
+    {
+      "id": "148",
+      "status": "PASS",
+      "expected": "a forged receipt whose digests are internally consistent is REJECTED because TÖEPÄRA recomputes file digests from git",
+      "evidence": "test:factory/tests/toepara.test.ts::TÖEPÄRA: a self-consistent forgery (wrong file digest, evidenceDigest recomputed) is caught only because digests are recomputed from git"
+    },
+    {
+      "id": "149",
+      "status": "PASS",
+      "expected": "CERBERUS DENIES a lying TÖEPÄRA result with a forged self-consistent bundle (it recomputes, it does not trust the caller)",
+      "evidence": "test:factory/tests/cerberus-gate.test.ts::CERBERUS: caller-supplied trust is worthless - a lying TÖEPÄRA result with a forged (self-consistent) bundle is DENIED"
+    },
+    {
+      "id": "150",
+      "status": "PASS",
+      "expected": "the RÄSTIK attack battery CONFIRMS every case against an admit-everything verifier (the battery can fail, so its 0 findings on the real verifier is meaningful)",
+      "evidence": "test:factory/tests/rastik-attacks.test.ts::RÄSTIK: the battery is not vacuous - a verifier that admits everything is attacked successfully (every case CONFIRMED with a schema-valid finding)"
+    }
+  ],
+  "closed_loops": [
+    {
+      "task_id": "cl-hash-files-ea4521a",
+      "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+      "cerberus_decision": "ADMIT"
+    },
+    {
+      "task_id": "cl-run-test-ea4521a",
+      "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+      "cerberus_decision": "ADMIT"
+    }
+  ]
+}

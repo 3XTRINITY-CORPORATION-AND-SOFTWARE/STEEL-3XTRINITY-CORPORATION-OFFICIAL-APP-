@@ -1,0 +1,2134 @@
+{
+  "queue_version": 1,
+  "tasks": [
+    {
+      "task_id": "cl-hash-files-ea4521a",
+      "agent_id": "FORGE-026",
+      "status": "DONE",
+      "envelope_digest": "aaa2e99b6f4631c52000bf0c7d6cc0f6ce7fa44f4788160a496b2f4ded7d23af",
+      "envelope": {
+        "task_id": "cl-hash-files-ea4521a",
+        "factory": "FORGE",
+        "agent_id": "FORGE-026",
+        "objective": "KRATT hash-files on 4 repo file(s) at ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/core/decide.ts",
+          "cerberus/core/normalize.ts",
+          "cerberus/policy/policy.ts",
+          "cerberus/artifact-trust/artifact-trust.ts"
+        ],
+        "allowed_actions": [
+          "hash-files"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "source_digests",
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-hash-files-ea4521a-rastik",
+      "agent_id": "SERPENT-051",
+      "status": "DONE",
+      "envelope_digest": "52c131ad7dea354f80b61612a1be976fff0290ea8292c36fe4e9840e1667d11b",
+      "envelope": {
+        "task_id": "cl-hash-files-ea4521a-rastik",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-051",
+        "objective": "RÄSTIK attack on action receipt of cl-hash-files-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/core/decide.ts",
+          "cerberus/core/normalize.ts",
+          "cerberus/policy/policy.ts",
+          "cerberus/artifact-trust/artifact-trust.ts"
+        ],
+        "allowed_actions": [
+          "rastik:run-probes"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-hash-files-ea4521a-atk-invalid-input",
+      "agent_id": "SERPENT-052",
+      "status": "DONE",
+      "envelope_digest": "abfc64ce2d2850cf9d313e88221acf7d20259ac1c131c732f3d75c40d8facad7",
+      "envelope": {
+        "task_id": "cl-hash-files-ea4521a-atk-invalid-input",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-052",
+        "objective": "RÄSTIK invalid-input attack on receipt of cl-hash-files-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/core/decide.ts",
+          "cerberus/core/normalize.ts",
+          "cerberus/policy/policy.ts",
+          "cerberus/artifact-trust/artifact-trust.ts"
+        ],
+        "allowed_actions": [
+          "rastik:attack:invalid-input"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-hash-files-ea4521a-atk-boundary",
+      "agent_id": "SERPENT-053",
+      "status": "DONE",
+      "envelope_digest": "a0ad79c94afc6ea750f1810a508a60b47a22d876885147a88b272bb2dd72b40e",
+      "envelope": {
+        "task_id": "cl-hash-files-ea4521a-atk-boundary",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-053",
+        "objective": "RÄSTIK boundary attack on receipt of cl-hash-files-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/core/decide.ts",
+          "cerberus/core/normalize.ts",
+          "cerberus/policy/policy.ts",
+          "cerberus/artifact-trust/artifact-trust.ts"
+        ],
+        "allowed_actions": [
+          "rastik:attack:boundary"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-hash-files-ea4521a-atk-missing-evidence",
+      "agent_id": "SERPENT-064",
+      "status": "DONE",
+      "envelope_digest": "9d65e76e7a10869bc929c5d5e978976f1404bf7769686158792ee69abc03d681",
+      "envelope": {
+        "task_id": "cl-hash-files-ea4521a-atk-missing-evidence",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-064",
+        "objective": "RÄSTIK missing-evidence attack on receipt of cl-hash-files-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/core/decide.ts",
+          "cerberus/core/normalize.ts",
+          "cerberus/policy/policy.ts",
+          "cerberus/artifact-trust/artifact-trust.ts"
+        ],
+        "allowed_actions": [
+          "rastik:attack:missing-evidence"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-hash-files-ea4521a-atk-tampered-evidence",
+      "agent_id": "SERPENT-065",
+      "status": "DONE",
+      "envelope_digest": "736b93d48d877049b64cf12b327764778ca1c54f2b43107b38a2752cd8760113",
+      "envelope": {
+        "task_id": "cl-hash-files-ea4521a-atk-tampered-evidence",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-065",
+        "objective": "RÄSTIK tampered-evidence attack on receipt of cl-hash-files-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/core/decide.ts",
+          "cerberus/core/normalize.ts",
+          "cerberus/policy/policy.ts",
+          "cerberus/artifact-trust/artifact-trust.ts"
+        ],
+        "allowed_actions": [
+          "rastik:attack:tampered-evidence"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-hash-files-ea4521a-atk-unauthorized-action",
+      "agent_id": "SERPENT-062",
+      "status": "DONE",
+      "envelope_digest": "896a281e198cd6e85305d8c60996dc01b199e631335319d869fb09e19ec5001b",
+      "envelope": {
+        "task_id": "cl-hash-files-ea4521a-atk-unauthorized-action",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-062",
+        "objective": "RÄSTIK unauthorized-action attack on receipt of cl-hash-files-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/core/decide.ts",
+          "cerberus/core/normalize.ts",
+          "cerberus/policy/policy.ts",
+          "cerberus/artifact-trust/artifact-trust.ts"
+        ],
+        "allowed_actions": [
+          "rastik:attack:unauthorized-action"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-hash-files-ea4521a-atk-stale-base-sha",
+      "agent_id": "SERPENT-060",
+      "status": "DONE",
+      "envelope_digest": "7a62fa9cd3427378ede06aadae7197f4962de016ee10ba8af3b40708ebaf6572",
+      "envelope": {
+        "task_id": "cl-hash-files-ea4521a-atk-stale-base-sha",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-060",
+        "objective": "RÄSTIK stale-base-sha attack on receipt of cl-hash-files-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/core/decide.ts",
+          "cerberus/core/normalize.ts",
+          "cerberus/policy/policy.ts",
+          "cerberus/artifact-trust/artifact-trust.ts"
+        ],
+        "allowed_actions": [
+          "rastik:attack:stale-base-sha"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-hash-files-ea4521a-atk-malformed-receipt",
+      "agent_id": "SERPENT-056",
+      "status": "DONE",
+      "envelope_digest": "e88143fa51310e0642358ce387d3d5435390e160be45008a270a70b99158b0ab",
+      "envelope": {
+        "task_id": "cl-hash-files-ea4521a-atk-malformed-receipt",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-056",
+        "objective": "RÄSTIK malformed-receipt attack on receipt of cl-hash-files-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/core/decide.ts",
+          "cerberus/core/normalize.ts",
+          "cerberus/policy/policy.ts",
+          "cerberus/artifact-trust/artifact-trust.ts"
+        ],
+        "allowed_actions": [
+          "rastik:attack:malformed-receipt"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-hash-files-ea4521a-atk-replay",
+      "agent_id": "SERPENT-060",
+      "status": "DONE",
+      "envelope_digest": "dcc7155023a90c8bfedd54ce38d99e28f075f4c1cf5b838a0f4faee9a6c7036c",
+      "envelope": {
+        "task_id": "cl-hash-files-ea4521a-atk-replay",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-060",
+        "objective": "RÄSTIK replay attack on receipt of cl-hash-files-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/core/decide.ts",
+          "cerberus/core/normalize.ts",
+          "cerberus/policy/policy.ts",
+          "cerberus/artifact-trust/artifact-trust.ts"
+        ],
+        "allowed_actions": [
+          "rastik:attack:replay"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-hash-files-ea4521a-toepara",
+      "agent_id": "CITADEL-101",
+      "status": "DONE",
+      "envelope_digest": "033e8ef7fdea9eae5159dbd63aa0f2f8207444dfc176bbaec711f1a8005970a7",
+      "envelope": {
+        "task_id": "cl-hash-files-ea4521a-toepara",
+        "factory": "CITADEL",
+        "agent_id": "CITADEL-101",
+        "objective": "TÖEPÄRA independent verification of cl-hash-files-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/core/decide.ts",
+          "cerberus/core/normalize.ts",
+          "cerberus/policy/policy.ts",
+          "cerberus/artifact-trust/artifact-trust.ts"
+        ],
+        "allowed_actions": [
+          "toepara:verify"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "source_digests"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-hash-files-ea4521a-cerberus",
+      "agent_id": "CITADEL-111",
+      "status": "DONE",
+      "envelope_digest": "599ac7f36bbd4d4973347151033b2e1af45ba46a743c76679c7139cd90baeb3c",
+      "envelope": {
+        "task_id": "cl-hash-files-ea4521a-cerberus",
+        "factory": "CITADEL",
+        "agent_id": "CITADEL-111",
+        "objective": "CERBERUS admission decision for cl-hash-files-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/core/decide.ts",
+          "cerberus/core/normalize.ts",
+          "cerberus/policy/policy.ts",
+          "cerberus/artifact-trust/artifact-trust.ts"
+        ],
+        "allowed_actions": [
+          "cerberus:decide"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "source_digests"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-run-test-ea4521a",
+      "agent_id": "FORGE-026",
+      "status": "DONE",
+      "envelope_digest": "06a39a36c7e4260701389a1dffe22b73ba048daa615df744f3b3d8f3c0fda9ac",
+      "envelope": {
+        "task_id": "cl-run-test-ea4521a",
+        "factory": "FORGE",
+        "agent_id": "FORGE-026",
+        "objective": "KRATT run-test on 1 repo file(s) at ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/tests/decide.test.ts"
+        ],
+        "allowed_actions": [
+          "run-test"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "source_digests",
+          "test_evidence",
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-run-test-ea4521a-rastik",
+      "agent_id": "SERPENT-051",
+      "status": "DONE",
+      "envelope_digest": "8d93ba95d0ab92e5be94d498df905dd040da66b3f2422b84527bfd5652542c67",
+      "envelope": {
+        "task_id": "cl-run-test-ea4521a-rastik",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-051",
+        "objective": "RÄSTIK attack on action receipt of cl-run-test-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/tests/decide.test.ts"
+        ],
+        "allowed_actions": [
+          "rastik:run-probes"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-run-test-ea4521a-atk-invalid-input",
+      "agent_id": "SERPENT-052",
+      "status": "DONE",
+      "envelope_digest": "c387e2a1bd40b62efeb3e66f8da35678410c5e8ff249696f161d320a00a4d5a8",
+      "envelope": {
+        "task_id": "cl-run-test-ea4521a-atk-invalid-input",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-052",
+        "objective": "RÄSTIK invalid-input attack on receipt of cl-run-test-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/tests/decide.test.ts"
+        ],
+        "allowed_actions": [
+          "rastik:attack:invalid-input"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-run-test-ea4521a-atk-boundary",
+      "agent_id": "SERPENT-053",
+      "status": "DONE",
+      "envelope_digest": "c8c39eebd630bbb32cafa2925aa8cd89af155238bda6bdf4d672e44ed6bc8e97",
+      "envelope": {
+        "task_id": "cl-run-test-ea4521a-atk-boundary",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-053",
+        "objective": "RÄSTIK boundary attack on receipt of cl-run-test-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/tests/decide.test.ts"
+        ],
+        "allowed_actions": [
+          "rastik:attack:boundary"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-run-test-ea4521a-atk-missing-evidence",
+      "agent_id": "SERPENT-064",
+      "status": "DONE",
+      "envelope_digest": "eb167e78201d93006670d93de53196728a719c7b6a53de36eaac4b251f7e97c9",
+      "envelope": {
+        "task_id": "cl-run-test-ea4521a-atk-missing-evidence",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-064",
+        "objective": "RÄSTIK missing-evidence attack on receipt of cl-run-test-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/tests/decide.test.ts"
+        ],
+        "allowed_actions": [
+          "rastik:attack:missing-evidence"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-run-test-ea4521a-atk-tampered-evidence",
+      "agent_id": "SERPENT-065",
+      "status": "DONE",
+      "envelope_digest": "d3bb10a055653c34c90a8b0f702fa26b02c601765292d774c500556c8170b92e",
+      "envelope": {
+        "task_id": "cl-run-test-ea4521a-atk-tampered-evidence",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-065",
+        "objective": "RÄSTIK tampered-evidence attack on receipt of cl-run-test-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/tests/decide.test.ts"
+        ],
+        "allowed_actions": [
+          "rastik:attack:tampered-evidence"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-run-test-ea4521a-atk-unauthorized-action",
+      "agent_id": "SERPENT-062",
+      "status": "DONE",
+      "envelope_digest": "0ae62a5167f656423bdcd774c8803554e2d3eb4830db98beea87f0a4d693f424",
+      "envelope": {
+        "task_id": "cl-run-test-ea4521a-atk-unauthorized-action",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-062",
+        "objective": "RÄSTIK unauthorized-action attack on receipt of cl-run-test-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/tests/decide.test.ts"
+        ],
+        "allowed_actions": [
+          "rastik:attack:unauthorized-action"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-run-test-ea4521a-atk-stale-base-sha",
+      "agent_id": "SERPENT-060",
+      "status": "DONE",
+      "envelope_digest": "01d84dd428d9859e1cc334ae346b462479e20adb4a1715c237b2ebe9155de7f4",
+      "envelope": {
+        "task_id": "cl-run-test-ea4521a-atk-stale-base-sha",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-060",
+        "objective": "RÄSTIK stale-base-sha attack on receipt of cl-run-test-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/tests/decide.test.ts"
+        ],
+        "allowed_actions": [
+          "rastik:attack:stale-base-sha"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-run-test-ea4521a-atk-malformed-receipt",
+      "agent_id": "SERPENT-056",
+      "status": "DONE",
+      "envelope_digest": "54206e659f3785d7b3dde112f38eaef95cae9e765001974a85e1fdd66a43b28e",
+      "envelope": {
+        "task_id": "cl-run-test-ea4521a-atk-malformed-receipt",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-056",
+        "objective": "RÄSTIK malformed-receipt attack on receipt of cl-run-test-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/tests/decide.test.ts"
+        ],
+        "allowed_actions": [
+          "rastik:attack:malformed-receipt"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-run-test-ea4521a-atk-replay",
+      "agent_id": "SERPENT-060",
+      "status": "DONE",
+      "envelope_digest": "af5ad2626d308e3f42c6a2190175d2ff2a69d64ec622e074991eeb2d82939c72",
+      "envelope": {
+        "task_id": "cl-run-test-ea4521a-atk-replay",
+        "factory": "SERPENT",
+        "agent_id": "SERPENT-060",
+        "objective": "RÄSTIK replay attack on receipt of cl-run-test-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/tests/decide.test.ts"
+        ],
+        "allowed_actions": [
+          "rastik:attack:replay"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "rastik_findings"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-run-test-ea4521a-toepara",
+      "agent_id": "CITADEL-101",
+      "status": "DONE",
+      "envelope_digest": "62511da6bd4a1090c43c25740d8d1c49dbe5f7ff6c3ca99e026963b949febc65",
+      "envelope": {
+        "task_id": "cl-run-test-ea4521a-toepara",
+        "factory": "CITADEL",
+        "agent_id": "CITADEL-101",
+        "objective": "TÖEPÄRA independent verification of cl-run-test-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/tests/decide.test.ts"
+        ],
+        "allowed_actions": [
+          "toepara:verify"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "source_digests"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    },
+    {
+      "task_id": "cl-run-test-ea4521a-cerberus",
+      "agent_id": "CITADEL-111",
+      "status": "DONE",
+      "envelope_digest": "9b7e6f7c72651f85494a0e510add444b59790d3aec3001ade4ae7fb84ce710c4",
+      "envelope": {
+        "task_id": "cl-run-test-ea4521a-cerberus",
+        "factory": "CITADEL",
+        "agent_id": "CITADEL-111",
+        "objective": "CERBERUS admission decision for cl-run-test-ea4521a",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "branch": "factory/closed-loop-v1",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "scope": [
+          "cerberus/tests/decide.test.ts"
+        ],
+        "allowed_actions": [
+          "cerberus:decide"
+        ],
+        "forbidden_actions": [
+          "merge",
+          "deploy",
+          "network",
+          "write-files",
+          "push"
+        ],
+        "required_evidence": [
+          "source_digests"
+        ],
+        "resource_budget": {
+          "max_wall_ms": 60000,
+          "max_output_bytes": 1048576,
+          "max_files": 64
+        },
+        "protocol_version": 1
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "seq": 1,
+      "at": "2026-10-03T03:43:18.283Z",
+      "agent_id": "FORGE-026",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-hash-files-ea4521a",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 2,
+      "at": "2026-10-03T03:43:18.283Z",
+      "agent_id": "FORGE-026",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-hash-files-ea4521a",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 3,
+      "at": "2026-10-03T03:43:18.287Z",
+      "agent_id": "FORGE-026",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-hash-files-ea4521a",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 4,
+      "at": "2026-10-03T03:43:18.287Z",
+      "agent_id": "FORGE-026",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-hash-files-ea4521a",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 5,
+      "at": "2026-10-03T03:43:18.287Z",
+      "agent_id": "FORGE-026",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-hash-files-ea4521a",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 6,
+      "at": "2026-10-03T03:43:18.287Z",
+      "agent_id": "SERPENT-051",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-hash-files-ea4521a-rastik",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 7,
+      "at": "2026-10-03T03:43:18.287Z",
+      "agent_id": "SERPENT-051",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-hash-files-ea4521a-rastik",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 8,
+      "at": "2026-10-03T03:43:18.293Z",
+      "agent_id": "SERPENT-052",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-hash-files-ea4521a-atk-invalid-input",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 9,
+      "at": "2026-10-03T03:43:18.293Z",
+      "agent_id": "SERPENT-052",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-hash-files-ea4521a-atk-invalid-input",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 10,
+      "at": "2026-10-03T03:43:18.342Z",
+      "agent_id": "SERPENT-052",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-hash-files-ea4521a-atk-invalid-input",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 11,
+      "at": "2026-10-03T03:43:18.342Z",
+      "agent_id": "SERPENT-052",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-hash-files-ea4521a-atk-invalid-input",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 12,
+      "at": "2026-10-03T03:43:18.342Z",
+      "agent_id": "SERPENT-052",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-hash-files-ea4521a-atk-invalid-input",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 13,
+      "at": "2026-10-03T03:43:18.342Z",
+      "agent_id": "SERPENT-053",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-hash-files-ea4521a-atk-boundary",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 14,
+      "at": "2026-10-03T03:43:18.342Z",
+      "agent_id": "SERPENT-053",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-hash-files-ea4521a-atk-boundary",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 15,
+      "at": "2026-10-03T03:43:18.419Z",
+      "agent_id": "SERPENT-053",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-hash-files-ea4521a-atk-boundary",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 16,
+      "at": "2026-10-03T03:43:18.419Z",
+      "agent_id": "SERPENT-053",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-hash-files-ea4521a-atk-boundary",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 17,
+      "at": "2026-10-03T03:43:18.419Z",
+      "agent_id": "SERPENT-053",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-hash-files-ea4521a-atk-boundary",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 18,
+      "at": "2026-10-03T03:43:18.419Z",
+      "agent_id": "SERPENT-064",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-hash-files-ea4521a-atk-missing-evidence",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 19,
+      "at": "2026-10-03T03:43:18.419Z",
+      "agent_id": "SERPENT-064",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-hash-files-ea4521a-atk-missing-evidence",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 20,
+      "at": "2026-10-03T03:43:18.477Z",
+      "agent_id": "SERPENT-064",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-hash-files-ea4521a-atk-missing-evidence",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 21,
+      "at": "2026-10-03T03:43:18.477Z",
+      "agent_id": "SERPENT-064",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-hash-files-ea4521a-atk-missing-evidence",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 22,
+      "at": "2026-10-03T03:43:18.477Z",
+      "agent_id": "SERPENT-064",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-hash-files-ea4521a-atk-missing-evidence",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 23,
+      "at": "2026-10-03T03:43:18.477Z",
+      "agent_id": "SERPENT-065",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-hash-files-ea4521a-atk-tampered-evidence",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 24,
+      "at": "2026-10-03T03:43:18.477Z",
+      "agent_id": "SERPENT-065",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-hash-files-ea4521a-atk-tampered-evidence",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 25,
+      "at": "2026-10-03T03:43:18.601Z",
+      "agent_id": "SERPENT-065",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-hash-files-ea4521a-atk-tampered-evidence",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 26,
+      "at": "2026-10-03T03:43:18.601Z",
+      "agent_id": "SERPENT-065",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-hash-files-ea4521a-atk-tampered-evidence",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 27,
+      "at": "2026-10-03T03:43:18.601Z",
+      "agent_id": "SERPENT-065",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-hash-files-ea4521a-atk-tampered-evidence",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 28,
+      "at": "2026-10-03T03:43:18.602Z",
+      "agent_id": "SERPENT-062",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-hash-files-ea4521a-atk-unauthorized-action",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 29,
+      "at": "2026-10-03T03:43:18.602Z",
+      "agent_id": "SERPENT-062",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-hash-files-ea4521a-atk-unauthorized-action",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 30,
+      "at": "2026-10-03T03:43:18.755Z",
+      "agent_id": "SERPENT-062",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-hash-files-ea4521a-atk-unauthorized-action",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 31,
+      "at": "2026-10-03T03:43:18.755Z",
+      "agent_id": "SERPENT-062",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-hash-files-ea4521a-atk-unauthorized-action",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 32,
+      "at": "2026-10-03T03:43:18.755Z",
+      "agent_id": "SERPENT-062",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-hash-files-ea4521a-atk-unauthorized-action",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 33,
+      "at": "2026-10-03T03:43:18.755Z",
+      "agent_id": "SERPENT-060",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-hash-files-ea4521a-atk-stale-base-sha",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 34,
+      "at": "2026-10-03T03:43:18.755Z",
+      "agent_id": "SERPENT-060",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-hash-files-ea4521a-atk-stale-base-sha",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 35,
+      "at": "2026-10-03T03:43:18.867Z",
+      "agent_id": "SERPENT-060",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-hash-files-ea4521a-atk-stale-base-sha",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 36,
+      "at": "2026-10-03T03:43:18.867Z",
+      "agent_id": "SERPENT-060",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-hash-files-ea4521a-atk-stale-base-sha",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 37,
+      "at": "2026-10-03T03:43:18.867Z",
+      "agent_id": "SERPENT-060",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-hash-files-ea4521a-atk-stale-base-sha",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 38,
+      "at": "2026-10-03T03:43:18.868Z",
+      "agent_id": "SERPENT-056",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-hash-files-ea4521a-atk-malformed-receipt",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 39,
+      "at": "2026-10-03T03:43:18.868Z",
+      "agent_id": "SERPENT-056",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-hash-files-ea4521a-atk-malformed-receipt",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 40,
+      "at": "2026-10-03T03:43:18.954Z",
+      "agent_id": "SERPENT-056",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-hash-files-ea4521a-atk-malformed-receipt",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 41,
+      "at": "2026-10-03T03:43:18.954Z",
+      "agent_id": "SERPENT-056",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-hash-files-ea4521a-atk-malformed-receipt",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 42,
+      "at": "2026-10-03T03:43:18.954Z",
+      "agent_id": "SERPENT-056",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-hash-files-ea4521a-atk-malformed-receipt",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 43,
+      "at": "2026-10-03T03:43:18.954Z",
+      "agent_id": "SERPENT-060",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-hash-files-ea4521a-atk-replay",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 44,
+      "at": "2026-10-03T03:43:18.954Z",
+      "agent_id": "SERPENT-060",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-hash-files-ea4521a-atk-replay",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 45,
+      "at": "2026-10-03T03:43:19.097Z",
+      "agent_id": "SERPENT-060",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-hash-files-ea4521a-atk-replay",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 46,
+      "at": "2026-10-03T03:43:19.097Z",
+      "agent_id": "SERPENT-060",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-hash-files-ea4521a-atk-replay",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 47,
+      "at": "2026-10-03T03:43:19.097Z",
+      "agent_id": "SERPENT-060",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-hash-files-ea4521a-atk-replay",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 48,
+      "at": "2026-10-03T03:43:19.098Z",
+      "agent_id": "SERPENT-051",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-hash-files-ea4521a-rastik",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 49,
+      "at": "2026-10-03T03:43:19.098Z",
+      "agent_id": "SERPENT-051",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-hash-files-ea4521a-rastik",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 50,
+      "at": "2026-10-03T03:43:19.098Z",
+      "agent_id": "SERPENT-051",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-hash-files-ea4521a-rastik",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 51,
+      "at": "2026-10-03T03:43:19.098Z",
+      "agent_id": "CITADEL-101",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-hash-files-ea4521a-toepara",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 52,
+      "at": "2026-10-03T03:43:19.098Z",
+      "agent_id": "CITADEL-101",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-hash-files-ea4521a-toepara",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 53,
+      "at": "2026-10-03T03:43:19.121Z",
+      "agent_id": "CITADEL-101",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-hash-files-ea4521a-toepara",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 54,
+      "at": "2026-10-03T03:43:19.121Z",
+      "agent_id": "CITADEL-101",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-hash-files-ea4521a-toepara",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 55,
+      "at": "2026-10-03T03:43:19.121Z",
+      "agent_id": "CITADEL-101",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-hash-files-ea4521a-toepara",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 56,
+      "at": "2026-10-03T03:43:19.121Z",
+      "agent_id": "CITADEL-111",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-hash-files-ea4521a-cerberus",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 57,
+      "at": "2026-10-03T03:43:19.121Z",
+      "agent_id": "CITADEL-111",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-hash-files-ea4521a-cerberus",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 58,
+      "at": "2026-10-03T03:43:19.143Z",
+      "agent_id": "CITADEL-111",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-hash-files-ea4521a-cerberus",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 59,
+      "at": "2026-10-03T03:43:19.143Z",
+      "agent_id": "CITADEL-111",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-hash-files-ea4521a-cerberus",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 60,
+      "at": "2026-10-03T03:43:19.143Z",
+      "agent_id": "CITADEL-111",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-hash-files-ea4521a-cerberus",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 61,
+      "at": "2026-10-03T03:43:19.145Z",
+      "agent_id": "FORGE-026",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-run-test-ea4521a",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 62,
+      "at": "2026-10-03T03:43:19.145Z",
+      "agent_id": "FORGE-026",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-run-test-ea4521a",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 63,
+      "at": "2026-10-03T03:43:19.245Z",
+      "agent_id": "FORGE-026",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-run-test-ea4521a",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 64,
+      "at": "2026-10-03T03:43:19.245Z",
+      "agent_id": "FORGE-026",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-run-test-ea4521a",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 65,
+      "at": "2026-10-03T03:43:19.245Z",
+      "agent_id": "FORGE-026",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-run-test-ea4521a",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 66,
+      "at": "2026-10-03T03:43:19.245Z",
+      "agent_id": "SERPENT-051",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-run-test-ea4521a-rastik",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 67,
+      "at": "2026-10-03T03:43:19.245Z",
+      "agent_id": "SERPENT-051",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-run-test-ea4521a-rastik",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 68,
+      "at": "2026-10-03T03:43:19.246Z",
+      "agent_id": "SERPENT-052",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-run-test-ea4521a-atk-invalid-input",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 69,
+      "at": "2026-10-03T03:43:19.246Z",
+      "agent_id": "SERPENT-052",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-run-test-ea4521a-atk-invalid-input",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 70,
+      "at": "2026-10-03T03:43:19.355Z",
+      "agent_id": "SERPENT-052",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-run-test-ea4521a-atk-invalid-input",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 71,
+      "at": "2026-10-03T03:43:19.355Z",
+      "agent_id": "SERPENT-052",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-run-test-ea4521a-atk-invalid-input",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 72,
+      "at": "2026-10-03T03:43:19.355Z",
+      "agent_id": "SERPENT-052",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-run-test-ea4521a-atk-invalid-input",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 73,
+      "at": "2026-10-03T03:43:19.355Z",
+      "agent_id": "SERPENT-053",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-run-test-ea4521a-atk-boundary",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 74,
+      "at": "2026-10-03T03:43:19.355Z",
+      "agent_id": "SERPENT-053",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-run-test-ea4521a-atk-boundary",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 75,
+      "at": "2026-10-03T03:43:19.403Z",
+      "agent_id": "SERPENT-053",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-run-test-ea4521a-atk-boundary",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 76,
+      "at": "2026-10-03T03:43:19.403Z",
+      "agent_id": "SERPENT-053",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-run-test-ea4521a-atk-boundary",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 77,
+      "at": "2026-10-03T03:43:19.403Z",
+      "agent_id": "SERPENT-053",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-run-test-ea4521a-atk-boundary",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 78,
+      "at": "2026-10-03T03:43:19.403Z",
+      "agent_id": "SERPENT-064",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-run-test-ea4521a-atk-missing-evidence",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 79,
+      "at": "2026-10-03T03:43:19.403Z",
+      "agent_id": "SERPENT-064",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-run-test-ea4521a-atk-missing-evidence",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 80,
+      "at": "2026-10-03T03:43:19.438Z",
+      "agent_id": "SERPENT-064",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-run-test-ea4521a-atk-missing-evidence",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 81,
+      "at": "2026-10-03T03:43:19.438Z",
+      "agent_id": "SERPENT-064",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-run-test-ea4521a-atk-missing-evidence",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 82,
+      "at": "2026-10-03T03:43:19.438Z",
+      "agent_id": "SERPENT-064",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-run-test-ea4521a-atk-missing-evidence",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 83,
+      "at": "2026-10-03T03:43:19.438Z",
+      "agent_id": "SERPENT-065",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-run-test-ea4521a-atk-tampered-evidence",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 84,
+      "at": "2026-10-03T03:43:19.438Z",
+      "agent_id": "SERPENT-065",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-run-test-ea4521a-atk-tampered-evidence",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 85,
+      "at": "2026-10-03T03:43:19.512Z",
+      "agent_id": "SERPENT-065",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-run-test-ea4521a-atk-tampered-evidence",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 86,
+      "at": "2026-10-03T03:43:19.512Z",
+      "agent_id": "SERPENT-065",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-run-test-ea4521a-atk-tampered-evidence",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 87,
+      "at": "2026-10-03T03:43:19.512Z",
+      "agent_id": "SERPENT-065",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-run-test-ea4521a-atk-tampered-evidence",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 88,
+      "at": "2026-10-03T03:43:19.512Z",
+      "agent_id": "SERPENT-062",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-run-test-ea4521a-atk-unauthorized-action",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 89,
+      "at": "2026-10-03T03:43:19.512Z",
+      "agent_id": "SERPENT-062",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-run-test-ea4521a-atk-unauthorized-action",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 90,
+      "at": "2026-10-03T03:43:19.602Z",
+      "agent_id": "SERPENT-062",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-run-test-ea4521a-atk-unauthorized-action",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 91,
+      "at": "2026-10-03T03:43:19.602Z",
+      "agent_id": "SERPENT-062",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-run-test-ea4521a-atk-unauthorized-action",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 92,
+      "at": "2026-10-03T03:43:19.602Z",
+      "agent_id": "SERPENT-062",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-run-test-ea4521a-atk-unauthorized-action",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 93,
+      "at": "2026-10-03T03:43:19.602Z",
+      "agent_id": "SERPENT-060",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-run-test-ea4521a-atk-stale-base-sha",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 94,
+      "at": "2026-10-03T03:43:19.602Z",
+      "agent_id": "SERPENT-060",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-run-test-ea4521a-atk-stale-base-sha",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 95,
+      "at": "2026-10-03T03:43:19.662Z",
+      "agent_id": "SERPENT-060",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-run-test-ea4521a-atk-stale-base-sha",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 96,
+      "at": "2026-10-03T03:43:19.662Z",
+      "agent_id": "SERPENT-060",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-run-test-ea4521a-atk-stale-base-sha",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 97,
+      "at": "2026-10-03T03:43:19.662Z",
+      "agent_id": "SERPENT-060",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-run-test-ea4521a-atk-stale-base-sha",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 98,
+      "at": "2026-10-03T03:43:19.662Z",
+      "agent_id": "SERPENT-056",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-run-test-ea4521a-atk-malformed-receipt",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 99,
+      "at": "2026-10-03T03:43:19.662Z",
+      "agent_id": "SERPENT-056",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-run-test-ea4521a-atk-malformed-receipt",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 100,
+      "at": "2026-10-03T03:43:19.717Z",
+      "agent_id": "SERPENT-056",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-run-test-ea4521a-atk-malformed-receipt",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 101,
+      "at": "2026-10-03T03:43:19.717Z",
+      "agent_id": "SERPENT-056",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-run-test-ea4521a-atk-malformed-receipt",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 102,
+      "at": "2026-10-03T03:43:19.717Z",
+      "agent_id": "SERPENT-056",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-run-test-ea4521a-atk-malformed-receipt",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 103,
+      "at": "2026-10-03T03:43:19.717Z",
+      "agent_id": "SERPENT-060",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-run-test-ea4521a-atk-replay",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 104,
+      "at": "2026-10-03T03:43:19.717Z",
+      "agent_id": "SERPENT-060",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-run-test-ea4521a-atk-replay",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 105,
+      "at": "2026-10-03T03:43:19.790Z",
+      "agent_id": "SERPENT-060",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-run-test-ea4521a-atk-replay",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 106,
+      "at": "2026-10-03T03:43:19.790Z",
+      "agent_id": "SERPENT-060",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-run-test-ea4521a-atk-replay",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 107,
+      "at": "2026-10-03T03:43:19.791Z",
+      "agent_id": "SERPENT-060",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-run-test-ea4521a-atk-replay",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 108,
+      "at": "2026-10-03T03:43:19.791Z",
+      "agent_id": "SERPENT-051",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-run-test-ea4521a-rastik",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 109,
+      "at": "2026-10-03T03:43:19.791Z",
+      "agent_id": "SERPENT-051",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-run-test-ea4521a-rastik",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 110,
+      "at": "2026-10-03T03:43:19.791Z",
+      "agent_id": "SERPENT-051",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-run-test-ea4521a-rastik",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 111,
+      "at": "2026-10-03T03:43:19.791Z",
+      "agent_id": "CITADEL-101",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-run-test-ea4521a-toepara",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 112,
+      "at": "2026-10-03T03:43:19.791Z",
+      "agent_id": "CITADEL-101",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-run-test-ea4521a-toepara",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 113,
+      "at": "2026-10-03T03:43:19.892Z",
+      "agent_id": "CITADEL-101",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-run-test-ea4521a-toepara",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 114,
+      "at": "2026-10-03T03:43:19.892Z",
+      "agent_id": "CITADEL-101",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-run-test-ea4521a-toepara",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 115,
+      "at": "2026-10-03T03:43:19.892Z",
+      "agent_id": "CITADEL-101",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-run-test-ea4521a-toepara",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    },
+    {
+      "seq": 116,
+      "at": "2026-10-03T03:43:19.892Z",
+      "agent_id": "CITADEL-111",
+      "from": "SLEEP",
+      "to": "READY",
+      "task_id": "cl-run-test-ea4521a-cerberus",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 117,
+      "at": "2026-10-03T03:43:19.892Z",
+      "agent_id": "CITADEL-111",
+      "from": "READY",
+      "to": "ACTIVE",
+      "task_id": "cl-run-test-ea4521a-cerberus",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 118,
+      "at": "2026-10-03T03:43:19.906Z",
+      "agent_id": "CITADEL-111",
+      "from": "ACTIVE",
+      "to": "VERIFY",
+      "task_id": "cl-run-test-ea4521a-cerberus",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 119,
+      "at": "2026-10-03T03:43:19.906Z",
+      "agent_id": "CITADEL-111",
+      "from": "VERIFY",
+      "to": "DONE",
+      "task_id": "cl-run-test-ea4521a-cerberus",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "seq": 120,
+      "at": "2026-10-03T03:43:19.906Z",
+      "agent_id": "CITADEL-111",
+      "from": "DONE",
+      "to": "SLEEP",
+      "task_id": "cl-run-test-ea4521a-cerberus",
+      "accepted": true,
+      "reason": "done-return-to-sleep"
+    }
+  ]
+}

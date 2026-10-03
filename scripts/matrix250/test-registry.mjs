@@ -1,7 +1,7 @@
 // Slot -> existing named unit test. Generated once from each file's TAP leaf tests, committed as an
 // explicit, reviewable table. A slot is PASS only if that exact test case runs and reports ok (not skipped/todo).
-// Not every test is mapped; unmapped slots stay NOT_IMPLEMENTED. No KRATT/TOEPARA slot is mapped: this repo has no such code.
-// Not every test is mapped; unmapped slots stay NOT_IMPLEMENTED. KRATT/TOEPARA slots 101-129 map to kratt/tests; 130-144 map to rastik/tests (adversarial verification of KRATT/Cerberus); 145-150 stay unmapped.
+// Optional 4th element = a per-slot expectation written for that slot (otherwise the generic "named test ok" text is used).
+// Not every test is mapped; unmapped slots stay NOT_IMPLEMENTED. KRATT/TOEPARA slots 101-129 map to kratt/tests; 130-144 map to rastik/tests (adversarial verification of KRATT/Cerberus); 145-150 map to factory/tests (closed loop, registry v3); slot 050 maps to scripts/node-pin.test.mjs. The mapping is still "one named test passed" - it is NOT a proof of the slot's full domain.
 export const TEST_REGISTRY = [
   [5, "scripts/with-app-env.test.mjs", "keeps VITE_-prefixed string entries"],
   [6, "scripts/with-app-env.test.mjs", "drops non-VITE keys, non-string values and malformed documents"],
@@ -157,7 +157,7 @@ export const TEST_REGISTRY = [
   [249, "scripts/brand-check.test.mjs", "non-canvas app with a compliant card is silent"],
   [250, "scripts/brand-check.test.mjs", "card file without site.json card=custom warns"],
   // --- registry v2: KRATT slice (101-129), RASTIK probes (130-144), CERBERUS hardening v1 (160-200).
-  // Group semantics are not defined anywhere in the repo, so slots are assigned sequentially per component; slots 145-150 stay NOT_IMPLEMENTED.
+  // Group semantics are not defined anywhere in the repo, so slots are assigned sequentially per component; slots 145-150 and 050 were NOT_IMPLEMENTED until registry v3 (factory evidence).
   // Excluded on purpose: SKIPped tests, duplicate-named tests, names with backslashes/#, and the remaining parametrised verdict variants.
   [101, "kratt/tests/kratt.test.ts", "accepts one valid task per allow-listed action"],
   [102, "kratt/tests/kratt.test.ts", "rejects disallowed actions (incl. shell/exec style)"],
@@ -244,4 +244,19 @@ export const TEST_REGISTRY = [
   [198, "cerberus/tests/hardening.test.ts", "same input + same adapters => same receipt"],
   [199, "cerberus/tests/hardening.test.ts", "toepara=\"admitted\""],
   [200, "cerberus/tests/hardening.test.ts", "trustGate=\"admitted\""],
+  // --- registry v3: factory evidence (slots 050, 145-150). Each row carries a written per-slot expectation.
+  [50, "scripts/node-pin.test.mjs", "CI setup-node uses the .nvmrc major",
+    "the first node-version in .github/workflows/ci.yml equals the .nvmrc Node major (runtime pin cannot drift from CI); only that first occurrence is checked"],
+  [145, "factory/tests/loop.test.ts", "CLOSED LOOP (hash-files, real files at the real HEAD): envelope -> KRATT -> RÄSTIK -> TÖEPÄRA -> CERBERUS = ADMIT, with real worker transitions",
+    "a real hash-files task at the real HEAD runs envelope->KRATT->RÄSTIK->TÖEPÄRA->CERBERUS, ends ADMIT, and every worker transition is logged"],
+  [146, "factory/tests/loop.test.ts", "CLOSED LOOP (run-test): a real node:test file is executed by KRATT, re-executed by TÖEPÄRA, and ADMITTED",
+    "a real run-test task is executed by KRATT and independently re-executed by TÖEPÄRA before CERBERUS admits it"],
+  [147, "factory/tests/toepara.test.ts", "TÖEPÄRA: KRATT output alone never yields VERIFIED (self-verified receipt, even with a perfect evidence digest)",
+    "a receipt that claims VERIFIED itself, with a perfect evidence digest, is not VERIFIED by TÖEPÄRA"],
+  [148, "factory/tests/toepara.test.ts", "TÖEPÄRA: a self-consistent forgery (wrong file digest, evidenceDigest recomputed) is caught only because digests are recomputed from git",
+    "a forged receipt whose digests are internally consistent is REJECTED because TÖEPÄRA recomputes file digests from git"],
+  [149, "factory/tests/cerberus-gate.test.ts", "CERBERUS: caller-supplied trust is worthless - a lying TÖEPÄRA result with a forged (self-consistent) bundle is DENIED",
+    "CERBERUS DENIES a lying TÖEPÄRA result with a forged self-consistent bundle (it recomputes, it does not trust the caller)"],
+  [150, "factory/tests/rastik-attacks.test.ts", "RÄSTIK: the battery is not vacuous - a verifier that admits everything is attacked successfully (every case CONFIRMED with a schema-valid finding)",
+    "the RÄSTIK attack battery CONFIRMS every case against an admit-everything verifier (the battery can fail, so its 0 findings on the real verifier is meaningful)"],
 ];

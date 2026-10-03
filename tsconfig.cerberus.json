@@ -1,6 +1,5 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": { "types": ["node"] },
-  "include": ["cerberus", "kratt"]
-  "include": ["cerberus", "kratt", "rastik"]
+  "include": ["cerberus", "kratt", "rastik", "factory"]
 }

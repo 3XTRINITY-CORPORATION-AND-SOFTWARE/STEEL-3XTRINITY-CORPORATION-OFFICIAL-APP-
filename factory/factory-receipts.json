@@ -1,0 +1,2725 @@
+{
+  "receipts_version": 1,
+  "closed_loops": [
+    {
+      "receipt_kind": "closed-loop/v1",
+      "protocol_version": 1,
+      "caller": {
+        "name": "GOLIATH-STAND-IN",
+        "real_goliath": false,
+        "note": "typed in-process caller; no GOLIATH control-plane spec exists in the repositories, so this is NOT the real GOLIATH"
+      },
+      "task_id": "cl-hash-files-ea4521a",
+      "envelope_digest": "aaa2e99b6f4631c52000bf0c7d6cc0f6ce7fa44f4788160a496b2f4ded7d23af",
+      "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+      "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+      "stages": [
+        {
+          "stage": "KRATT",
+          "agent_id": "FORGE-026",
+          "task_id": "cl-hash-files-ea4521a",
+          "capability": "kratt:hash-files",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 1,
+              "at": "2026-10-03T03:43:18.283Z",
+              "agent_id": "FORGE-026",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-hash-files-ea4521a",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 2,
+              "at": "2026-10-03T03:43:18.283Z",
+              "agent_id": "FORGE-026",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-hash-files-ea4521a",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 3,
+              "at": "2026-10-03T03:43:18.287Z",
+              "agent_id": "FORGE-026",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-hash-files-ea4521a",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 4,
+              "at": "2026-10-03T03:43:18.287Z",
+              "agent_id": "FORGE-026",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-hash-files-ea4521a",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 5,
+              "at": "2026-10-03T03:43:18.287Z",
+              "agent_id": "FORGE-026",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-hash-files-ea4521a",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK",
+          "agent_id": "SERPENT-051",
+          "task_id": "cl-hash-files-ea4521a-rastik",
+          "capability": "rastik:run-probes",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 6,
+              "at": "2026-10-03T03:43:18.287Z",
+              "agent_id": "SERPENT-051",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-hash-files-ea4521a-rastik",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 7,
+              "at": "2026-10-03T03:43:18.287Z",
+              "agent_id": "SERPENT-051",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-hash-files-ea4521a-rastik",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 48,
+              "at": "2026-10-03T03:43:19.098Z",
+              "agent_id": "SERPENT-051",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-hash-files-ea4521a-rastik",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 49,
+              "at": "2026-10-03T03:43:19.098Z",
+              "agent_id": "SERPENT-051",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-hash-files-ea4521a-rastik",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 50,
+              "at": "2026-10-03T03:43:19.098Z",
+              "agent_id": "SERPENT-051",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-hash-files-ea4521a-rastik",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK_ATTACK",
+          "agent_id": "SERPENT-052",
+          "task_id": "cl-hash-files-ea4521a-atk-invalid-input",
+          "capability": "rastik:attack:invalid-input",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 8,
+              "at": "2026-10-03T03:43:18.293Z",
+              "agent_id": "SERPENT-052",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-hash-files-ea4521a-atk-invalid-input",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 9,
+              "at": "2026-10-03T03:43:18.293Z",
+              "agent_id": "SERPENT-052",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-hash-files-ea4521a-atk-invalid-input",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 10,
+              "at": "2026-10-03T03:43:18.342Z",
+              "agent_id": "SERPENT-052",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-hash-files-ea4521a-atk-invalid-input",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 11,
+              "at": "2026-10-03T03:43:18.342Z",
+              "agent_id": "SERPENT-052",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-hash-files-ea4521a-atk-invalid-input",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 12,
+              "at": "2026-10-03T03:43:18.342Z",
+              "agent_id": "SERPENT-052",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-hash-files-ea4521a-atk-invalid-input",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK_ATTACK",
+          "agent_id": "SERPENT-053",
+          "task_id": "cl-hash-files-ea4521a-atk-boundary",
+          "capability": "rastik:attack:boundary",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 13,
+              "at": "2026-10-03T03:43:18.342Z",
+              "agent_id": "SERPENT-053",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-hash-files-ea4521a-atk-boundary",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 14,
+              "at": "2026-10-03T03:43:18.342Z",
+              "agent_id": "SERPENT-053",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-hash-files-ea4521a-atk-boundary",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 15,
+              "at": "2026-10-03T03:43:18.419Z",
+              "agent_id": "SERPENT-053",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-hash-files-ea4521a-atk-boundary",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 16,
+              "at": "2026-10-03T03:43:18.419Z",
+              "agent_id": "SERPENT-053",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-hash-files-ea4521a-atk-boundary",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 17,
+              "at": "2026-10-03T03:43:18.419Z",
+              "agent_id": "SERPENT-053",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-hash-files-ea4521a-atk-boundary",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK_ATTACK",
+          "agent_id": "SERPENT-064",
+          "task_id": "cl-hash-files-ea4521a-atk-missing-evidence",
+          "capability": "rastik:attack:missing-evidence",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 18,
+              "at": "2026-10-03T03:43:18.419Z",
+              "agent_id": "SERPENT-064",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-hash-files-ea4521a-atk-missing-evidence",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 19,
+              "at": "2026-10-03T03:43:18.419Z",
+              "agent_id": "SERPENT-064",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-hash-files-ea4521a-atk-missing-evidence",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 20,
+              "at": "2026-10-03T03:43:18.477Z",
+              "agent_id": "SERPENT-064",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-hash-files-ea4521a-atk-missing-evidence",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 21,
+              "at": "2026-10-03T03:43:18.477Z",
+              "agent_id": "SERPENT-064",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-hash-files-ea4521a-atk-missing-evidence",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 22,
+              "at": "2026-10-03T03:43:18.477Z",
+              "agent_id": "SERPENT-064",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-hash-files-ea4521a-atk-missing-evidence",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK_ATTACK",
+          "agent_id": "SERPENT-065",
+          "task_id": "cl-hash-files-ea4521a-atk-tampered-evidence",
+          "capability": "rastik:attack:tampered-evidence",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 23,
+              "at": "2026-10-03T03:43:18.477Z",
+              "agent_id": "SERPENT-065",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-hash-files-ea4521a-atk-tampered-evidence",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 24,
+              "at": "2026-10-03T03:43:18.477Z",
+              "agent_id": "SERPENT-065",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-hash-files-ea4521a-atk-tampered-evidence",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 25,
+              "at": "2026-10-03T03:43:18.601Z",
+              "agent_id": "SERPENT-065",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-hash-files-ea4521a-atk-tampered-evidence",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 26,
+              "at": "2026-10-03T03:43:18.601Z",
+              "agent_id": "SERPENT-065",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-hash-files-ea4521a-atk-tampered-evidence",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 27,
+              "at": "2026-10-03T03:43:18.601Z",
+              "agent_id": "SERPENT-065",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-hash-files-ea4521a-atk-tampered-evidence",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK_ATTACK",
+          "agent_id": "SERPENT-062",
+          "task_id": "cl-hash-files-ea4521a-atk-unauthorized-action",
+          "capability": "rastik:attack:unauthorized-action",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 28,
+              "at": "2026-10-03T03:43:18.602Z",
+              "agent_id": "SERPENT-062",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-hash-files-ea4521a-atk-unauthorized-action",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 29,
+              "at": "2026-10-03T03:43:18.602Z",
+              "agent_id": "SERPENT-062",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-hash-files-ea4521a-atk-unauthorized-action",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 30,
+              "at": "2026-10-03T03:43:18.755Z",
+              "agent_id": "SERPENT-062",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-hash-files-ea4521a-atk-unauthorized-action",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 31,
+              "at": "2026-10-03T03:43:18.755Z",
+              "agent_id": "SERPENT-062",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-hash-files-ea4521a-atk-unauthorized-action",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 32,
+              "at": "2026-10-03T03:43:18.755Z",
+              "agent_id": "SERPENT-062",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-hash-files-ea4521a-atk-unauthorized-action",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK_ATTACK",
+          "agent_id": "SERPENT-060",
+          "task_id": "cl-hash-files-ea4521a-atk-stale-base-sha",
+          "capability": "rastik:attack:stale-base-sha",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 33,
+              "at": "2026-10-03T03:43:18.755Z",
+              "agent_id": "SERPENT-060",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-hash-files-ea4521a-atk-stale-base-sha",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 34,
+              "at": "2026-10-03T03:43:18.755Z",
+              "agent_id": "SERPENT-060",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-hash-files-ea4521a-atk-stale-base-sha",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 35,
+              "at": "2026-10-03T03:43:18.867Z",
+              "agent_id": "SERPENT-060",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-hash-files-ea4521a-atk-stale-base-sha",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 36,
+              "at": "2026-10-03T03:43:18.867Z",
+              "agent_id": "SERPENT-060",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-hash-files-ea4521a-atk-stale-base-sha",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 37,
+              "at": "2026-10-03T03:43:18.867Z",
+              "agent_id": "SERPENT-060",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-hash-files-ea4521a-atk-stale-base-sha",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK_ATTACK",
+          "agent_id": "SERPENT-056",
+          "task_id": "cl-hash-files-ea4521a-atk-malformed-receipt",
+          "capability": "rastik:attack:malformed-receipt",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 38,
+              "at": "2026-10-03T03:43:18.868Z",
+              "agent_id": "SERPENT-056",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-hash-files-ea4521a-atk-malformed-receipt",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 39,
+              "at": "2026-10-03T03:43:18.868Z",
+              "agent_id": "SERPENT-056",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-hash-files-ea4521a-atk-malformed-receipt",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 40,
+              "at": "2026-10-03T03:43:18.954Z",
+              "agent_id": "SERPENT-056",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-hash-files-ea4521a-atk-malformed-receipt",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 41,
+              "at": "2026-10-03T03:43:18.954Z",
+              "agent_id": "SERPENT-056",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-hash-files-ea4521a-atk-malformed-receipt",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 42,
+              "at": "2026-10-03T03:43:18.954Z",
+              "agent_id": "SERPENT-056",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-hash-files-ea4521a-atk-malformed-receipt",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK_ATTACK",
+          "agent_id": "SERPENT-060",
+          "task_id": "cl-hash-files-ea4521a-atk-replay",
+          "capability": "rastik:attack:replay",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 43,
+              "at": "2026-10-03T03:43:18.954Z",
+              "agent_id": "SERPENT-060",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-hash-files-ea4521a-atk-replay",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 44,
+              "at": "2026-10-03T03:43:18.954Z",
+              "agent_id": "SERPENT-060",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-hash-files-ea4521a-atk-replay",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 45,
+              "at": "2026-10-03T03:43:19.097Z",
+              "agent_id": "SERPENT-060",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-hash-files-ea4521a-atk-replay",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 46,
+              "at": "2026-10-03T03:43:19.097Z",
+              "agent_id": "SERPENT-060",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-hash-files-ea4521a-atk-replay",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 47,
+              "at": "2026-10-03T03:43:19.097Z",
+              "agent_id": "SERPENT-060",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-hash-files-ea4521a-atk-replay",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "TOEPARA",
+          "agent_id": "CITADEL-101",
+          "task_id": "cl-hash-files-ea4521a-toepara",
+          "capability": "toepara:verify",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 51,
+              "at": "2026-10-03T03:43:19.098Z",
+              "agent_id": "CITADEL-101",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-hash-files-ea4521a-toepara",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 52,
+              "at": "2026-10-03T03:43:19.098Z",
+              "agent_id": "CITADEL-101",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-hash-files-ea4521a-toepara",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 53,
+              "at": "2026-10-03T03:43:19.121Z",
+              "agent_id": "CITADEL-101",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-hash-files-ea4521a-toepara",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 54,
+              "at": "2026-10-03T03:43:19.121Z",
+              "agent_id": "CITADEL-101",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-hash-files-ea4521a-toepara",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 55,
+              "at": "2026-10-03T03:43:19.121Z",
+              "agent_id": "CITADEL-101",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-hash-files-ea4521a-toepara",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "CERBERUS",
+          "agent_id": "CITADEL-111",
+          "task_id": "cl-hash-files-ea4521a-cerberus",
+          "capability": "cerberus:decide",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 56,
+              "at": "2026-10-03T03:43:19.121Z",
+              "agent_id": "CITADEL-111",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-hash-files-ea4521a-cerberus",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 57,
+              "at": "2026-10-03T03:43:19.121Z",
+              "agent_id": "CITADEL-111",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-hash-files-ea4521a-cerberus",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 58,
+              "at": "2026-10-03T03:43:19.143Z",
+              "agent_id": "CITADEL-111",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-hash-files-ea4521a-cerberus",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 59,
+              "at": "2026-10-03T03:43:19.143Z",
+              "agent_id": "CITADEL-111",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-hash-files-ea4521a-cerberus",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 60,
+              "at": "2026-10-03T03:43:19.143Z",
+              "agent_id": "CITADEL-111",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-hash-files-ea4521a-cerberus",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        }
+      ],
+      "action_receipt": {
+        "task_id": "cl-hash-files-ea4521a",
+        "agent_id": "FORGE-026",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "action": "hash-files",
+        "scope": [
+          "cerberus/core/decide.ts",
+          "cerberus/core/normalize.ts",
+          "cerberus/policy/policy.ts",
+          "cerberus/artifact-trust/artifact-trust.ts"
+        ],
+        "result": {
+          "ok": true,
+          "exit_code": 0,
+          "checks": {
+            "pass": 4,
+            "fail": 0
+          },
+          "failure": null
+        },
+        "evidence": {
+          "version": "toepara-evidence/v1",
+          "producer": "kratt/v1",
+          "taskId": "cl-hash-files-ea4521a",
+          "action": "hash-files",
+          "taskDigest": "b3223595546e7bff7dd942ec7752b6bd1d5bac27a693d90fae9ab00f7a3258e1",
+          "command": [
+            "in-process:hash-files"
+          ],
+          "exitCode": 0,
+          "timedOut": false,
+          "truncated": false,
+          "outputBytes": 0,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "artifacts": [
+            {
+              "name": "cerberus/artifact-trust/artifact-trust.ts",
+              "sha256": "6b8426c36e4947e06306fd40fdd99faeb56f3ca2f2b2e84119037954f5717000",
+              "bytes": 948
+            },
+            {
+              "name": "cerberus/core/decide.ts",
+              "sha256": "37f8d3951508fd5526fe4f4cdc59c176e1eeddbf57ea88351f9d26ac1f7e4e21",
+              "bytes": 6349
+            },
+            {
+              "name": "cerberus/core/normalize.ts",
+              "sha256": "af563ab93820173c4510d208eac1e7adb4849a3e20633e4a781c8c559acd9b63",
+              "bytes": 2871
+            },
+            {
+              "name": "cerberus/policy/policy.ts",
+              "sha256": "e93984c318bc0d363cb1a5d7a90a448172696a6993b365249f917fbaf679996f",
+              "bytes": 473
+            }
+          ],
+          "checks": {
+            "pass": 4,
+            "fail": 0
+          },
+          "failure": null,
+          "verdict": "ADMITTED",
+          "evidenceDigest": "ba412e1c644786b8e4e2a1e54a876ba112baa4bdd875c1dfa40f8c58087fad30"
+        },
+        "verification_state": "UNVERIFIED",
+        "timestamp": "2026-10-03T03:43:18.287Z",
+        "protocol_version": 1
+      },
+      "rastik": {
+        "target_receipt_digest": "41dbef0493af15691800ba6df74186cc68a53117be07960b07108ea8ed55c5f6",
+        "cases_executed": 170,
+        "attacks": [
+          {
+            "attack_id": "invalid-input/null-receipt",
+            "class": "invalid-input",
+            "agent_id": "SERPENT-052",
+            "case_id": "null-receipt",
+            "hypothesis": "null is admitted as a receipt",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "invalid-input/string-receipt",
+            "class": "invalid-input",
+            "agent_id": "SERPENT-052",
+            "case_id": "string-receipt",
+            "hypothesis": "the string ADMITTED is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "invalid-input/array-receipt",
+            "class": "invalid-input",
+            "agent_id": "SERPENT-052",
+            "case_id": "array-receipt",
+            "hypothesis": "an array is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "invalid-input/empty-object",
+            "class": "invalid-input",
+            "agent_id": "SERPENT-052",
+            "case_id": "empty-object",
+            "hypothesis": "{} is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "invalid-input/scope-traversal",
+            "class": "invalid-input",
+            "agent_id": "SERPENT-052",
+            "case_id": "scope-traversal",
+            "hypothesis": "scope ../../etc/passwd is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "invalid-input/task-id-injection",
+            "class": "invalid-input",
+            "agent_id": "SERPENT-052",
+            "case_id": "task-id-injection",
+            "hypothesis": "task_id '../../x' is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "invalid-input/trust-field-injection",
+            "class": "invalid-input",
+            "agent_id": "SERPENT-052",
+            "case_id": "trust-field-injection",
+            "hypothesis": "an extra top-level trust field is accepted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "boundary/scope-65-entries",
+            "class": "boundary",
+            "agent_id": "SERPENT-053",
+            "case_id": "scope-65-entries",
+            "hypothesis": "65 scope entries (limit 64) are admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "boundary/task-id-65-chars",
+            "class": "boundary",
+            "agent_id": "SERPENT-053",
+            "case_id": "task-id-65-chars",
+            "hypothesis": "a 65 character task_id is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "boundary/empty-timestamp",
+            "class": "boundary",
+            "agent_id": "SERPENT-053",
+            "case_id": "empty-timestamp",
+            "hypothesis": "an empty timestamp is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "boundary/checks-pass-2-pow-53",
+            "class": "boundary",
+            "agent_id": "SERPENT-053",
+            "case_id": "checks-pass-2-pow-53",
+            "hypothesis": "checks.pass = 2^53 is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "boundary/exit-code-256",
+            "class": "boundary",
+            "agent_id": "SERPENT-053",
+            "case_id": "exit-code-256",
+            "hypothesis": "exit_code 256 is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "boundary/artifact-bytes-negative",
+            "class": "boundary",
+            "agent_id": "SERPENT-053",
+            "case_id": "artifact-bytes-negative",
+            "hypothesis": "artifact bytes = -1 is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "boundary/checks-pass-zero-ok-true",
+            "class": "boundary",
+            "agent_id": "SERPENT-053",
+            "case_id": "checks-pass-zero-ok-true",
+            "hypothesis": "ok=true with zero passed checks is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "missing-evidence/evidence-deleted",
+            "class": "missing-evidence",
+            "agent_id": "SERPENT-064",
+            "case_id": "evidence-deleted",
+            "hypothesis": "a receipt without evidence is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "missing-evidence/result-deleted",
+            "class": "missing-evidence",
+            "agent_id": "SERPENT-064",
+            "case_id": "result-deleted",
+            "hypothesis": "a receipt without result is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "missing-evidence/evidence-empty-object",
+            "class": "missing-evidence",
+            "agent_id": "SERPENT-064",
+            "case_id": "evidence-empty-object",
+            "hypothesis": "evidence {} is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "missing-evidence/evidence-null",
+            "class": "missing-evidence",
+            "agent_id": "SERPENT-064",
+            "case_id": "evidence-null",
+            "hypothesis": "evidence null is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "missing-evidence/artifacts-emptied",
+            "class": "missing-evidence",
+            "agent_id": "SERPENT-064",
+            "case_id": "artifacts-emptied",
+            "hypothesis": "evidence with its artifact list emptied is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "tampered-evidence/artifact-sha-flipped",
+            "class": "tampered-evidence",
+            "agent_id": "SERPENT-065",
+            "case_id": "artifact-sha-flipped",
+            "hypothesis": "a flipped artifact digest (evidenceDigest untouched) is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "tampered-evidence/checks-inflated",
+            "class": "tampered-evidence",
+            "agent_id": "SERPENT-065",
+            "case_id": "checks-inflated",
+            "hypothesis": "inflated check counts are admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "tampered-evidence/evidence-digest-swapped",
+            "class": "tampered-evidence",
+            "agent_id": "SERPENT-065",
+            "case_id": "evidence-digest-swapped",
+            "hypothesis": "a swapped evidenceDigest is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "tampered-evidence/self-consistent-forgery-wrong-source-digest",
+            "class": "tampered-evidence",
+            "agent_id": "SERPENT-065",
+            "case_id": "self-consistent-forgery-wrong-source-digest",
+            "hypothesis": "evidence whose artifact digest is wrong but whose evidenceDigest was recomputed (self-consistent) is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "tampered-evidence/self-consistent-forgery-wrong-task",
+            "class": "tampered-evidence",
+            "agent_id": "SERPENT-065",
+            "case_id": "self-consistent-forgery-wrong-task",
+            "hypothesis": "self-consistent evidence bound to a different task digest is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "unauthorized-action/action-deploy",
+            "class": "unauthorized-action",
+            "agent_id": "SERPENT-062",
+            "case_id": "action-deploy",
+            "hypothesis": "action 'deploy' is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "unauthorized-action/action-merge",
+            "class": "unauthorized-action",
+            "agent_id": "SERPENT-062",
+            "case_id": "action-merge",
+            "hypothesis": "action 'merge' is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "unauthorized-action/kratt-action-not-in-envelope",
+            "class": "unauthorized-action",
+            "agent_id": "SERPENT-062",
+            "case_id": "kratt-action-not-in-envelope",
+            "hypothesis": "a KRATT action the envelope did not allow is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "unauthorized-action/agent-spoof",
+            "class": "unauthorized-action",
+            "agent_id": "SERPENT-062",
+            "case_id": "agent-spoof",
+            "hypothesis": "a receipt claiming a different agent is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "unauthorized-action/repository-spoof",
+            "class": "unauthorized-action",
+            "agent_id": "SERPENT-062",
+            "case_id": "repository-spoof",
+            "hypothesis": "a receipt and envelope for another repository are admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "stale-base-sha/base-sha-zero-both",
+            "class": "stale-base-sha",
+            "agent_id": "SERPENT-060",
+            "case_id": "base-sha-zero-both",
+            "hypothesis": "base_sha 000..0 in receipt and envelope is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "stale-base-sha/receipt-base-sha-differs",
+            "class": "stale-base-sha",
+            "agent_id": "SERPENT-060",
+            "case_id": "receipt-base-sha-differs",
+            "hypothesis": "a receipt whose base_sha differs from the envelope is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "stale-base-sha/base-sha-parent-commit",
+            "class": "stale-base-sha",
+            "agent_id": "SERPENT-060",
+            "case_id": "base-sha-parent-commit",
+            "hypothesis": "a real but stale commit (HEAD~1) as base_sha in receipt and envelope is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "malformed-receipt/protocol-version-2",
+            "class": "malformed-receipt",
+            "agent_id": "SERPENT-056",
+            "case_id": "protocol-version-2",
+            "hypothesis": "protocol_version 2 is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "malformed-receipt/self-verified-by-kratt",
+            "class": "malformed-receipt",
+            "agent_id": "SERPENT-056",
+            "case_id": "self-verified-by-kratt",
+            "hypothesis": "a KRATT receipt claiming VERIFIED is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "malformed-receipt/state-trusted",
+            "class": "malformed-receipt",
+            "agent_id": "SERPENT-056",
+            "case_id": "state-trusted",
+            "hypothesis": "verification_state TRUSTED is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "malformed-receipt/result-ok-string",
+            "class": "malformed-receipt",
+            "agent_id": "SERPENT-056",
+            "case_id": "result-ok-string",
+            "hypothesis": "result.ok = 'true' (string) is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "malformed-receipt/evidence-array",
+            "class": "malformed-receipt",
+            "agent_id": "SERPENT-056",
+            "case_id": "evidence-array",
+            "hypothesis": "evidence as an array is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "malformed-receipt/failure-number",
+            "class": "malformed-receipt",
+            "agent_id": "SERPENT-056",
+            "case_id": "failure-number",
+            "hypothesis": "result.failure = 0 is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "malformed-receipt/result-contradicts-evidence",
+            "class": "malformed-receipt",
+            "agent_id": "SERPENT-056",
+            "case_id": "result-contradicts-evidence",
+            "hypothesis": "result.checks differing from the evidence are admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "replay/same-receipt-twice",
+            "class": "replay",
+            "agent_id": "SERPENT-060",
+            "case_id": "same-receipt-twice",
+            "hypothesis": "the identical valid receipt is admitted a second time",
+            "outcome": "REPELLED",
+            "reproduced": null
+          }
+        ],
+        "findings": [],
+        "probe": {
+          "probes": 4,
+          "cases_executed": 130,
+          "confirmed_findings": 0,
+          "probe_errors": 0,
+          "evidence_digest": "254a03ef8e089f0f8c60479e0edccb94e5d901fe416a171cd443873ed256bb17"
+        },
+        "evidence_digest": "f4dafae38897f71f840f87b3cd6af0e65e84683c5a42358489785a72b72782be"
+      },
+      "toepara": {
+        "verdict": {
+          "protocol_version": 1,
+          "task_id": "cl-hash-files-ea4521a",
+          "verdict": "VERIFIED",
+          "reasons": [],
+          "checks": [
+            {
+              "name": "receipt-schema",
+              "ok": true
+            },
+            {
+              "name": "identity-task",
+              "ok": true
+            },
+            {
+              "name": "identity-agent",
+              "ok": true
+            },
+            {
+              "name": "identity-repository",
+              "ok": true
+            },
+            {
+              "name": "identity-base-sha",
+              "ok": true
+            },
+            {
+              "name": "identity-scope",
+              "ok": true
+            },
+            {
+              "name": "not-self-verified",
+              "ok": true
+            },
+            {
+              "name": "action-authorized",
+              "ok": true
+            },
+            {
+              "name": "base-sha-exists",
+              "ok": true
+            },
+            {
+              "name": "base-sha-is-current-head",
+              "ok": true
+            },
+            {
+              "name": "kratt-evidence-parses",
+              "ok": true
+            },
+            {
+              "name": "kratt-task-derivable",
+              "ok": true
+            },
+            {
+              "name": "evidence-task-digest",
+              "ok": true
+            },
+            {
+              "name": "evidence-binds-task",
+              "ok": true
+            },
+            {
+              "name": "result-matches-evidence",
+              "ok": true
+            },
+            {
+              "name": "artifacts-equal-scope",
+              "ok": true
+            },
+            {
+              "name": "source-digests-recomputed-from-git",
+              "ok": true
+            },
+            {
+              "name": "diff-computable",
+              "ok": true
+            },
+            {
+              "name": "working-tree-matches-base-sha",
+              "ok": true
+            },
+            {
+              "name": "action-succeeded",
+              "ok": true
+            },
+            {
+              "name": "required:source_digests",
+              "ok": true
+            },
+            {
+              "name": "rastik-targets-this-receipt",
+              "ok": true
+            },
+            {
+              "name": "rastik-digest-recomputed",
+              "ok": true
+            },
+            {
+              "name": "rastik-executed-cases",
+              "ok": true
+            },
+            {
+              "name": "rastik-findings-valid",
+              "ok": true
+            }
+          ],
+          "evidence_digest": "f1c53c6e8048df73c8d89720f3a1021b292d5c244ea0f6c809fdb0f9b6f5c611"
+        },
+        "bundle": {
+          "protocol_version": 1,
+          "task_id": "cl-hash-files-ea4521a",
+          "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+          "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+          "action": "hash-files",
+          "source_digests": [
+            {
+              "path": "cerberus/artifact-trust/artifact-trust.ts",
+              "sha256": "6b8426c36e4947e06306fd40fdd99faeb56f3ca2f2b2e84119037954f5717000",
+              "bytes": 948
+            },
+            {
+              "path": "cerberus/core/decide.ts",
+              "sha256": "37f8d3951508fd5526fe4f4cdc59c176e1eeddbf57ea88351f9d26ac1f7e4e21",
+              "bytes": 6349
+            },
+            {
+              "path": "cerberus/core/normalize.ts",
+              "sha256": "af563ab93820173c4510d208eac1e7adb4849a3e20633e4a781c8c559acd9b63",
+              "bytes": 2871
+            },
+            {
+              "path": "cerberus/policy/policy.ts",
+              "sha256": "e93984c318bc0d363cb1a5d7a90a448172696a6993b365249f917fbaf679996f",
+              "bytes": 473
+            }
+          ],
+          "diff_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "action_receipt_digest": "41dbef0493af15691800ba6df74186cc68a53117be07960b07108ea8ed55c5f6",
+          "kratt_evidence_digest": "ba412e1c644786b8e4e2a1e54a876ba112baa4bdd875c1dfa40f8c58087fad30",
+          "rastik_evidence_digest": "f4dafae38897f71f840f87b3cd6af0e65e84683c5a42358489785a72b72782be",
+          "rastik_finding_ids": [],
+          "test_evidence": null,
+          "bundle_digest": "f1c53c6e8048df73c8d89720f3a1021b292d5c244ea0f6c809fdb0f9b6f5c611"
+        }
+      },
+      "cerberus": {
+        "decision": {
+          "protocol_version": 1,
+          "task_id": "cl-hash-files-ea4521a",
+          "decision": "ADMIT",
+          "reasons": [],
+          "toepara_evidence_digest": "f1c53c6e8048df73c8d89720f3a1021b292d5c244ea0f6c809fdb0f9b6f5c611",
+          "cerberus_receipt_digest": "d9db6729e2a9554f87a4647c2ec104cb01ba36f74cfd261a04a2823d5121e672",
+          "unresolved_high_findings": [],
+          "decision_digest": "d738535c2c027642c31fbe77a1da9906a738fd5d5c49372ac9977d8cf145b369"
+        },
+        "cerberus_receipt": {
+          "version": "cerberus-receipt/v1",
+          "decision": "PROCEED",
+          "reasons": [],
+          "verdictSource": "adapter",
+          "stages": {
+            "input": "PASS",
+            "policy": "PASS",
+            "toepara": "PASS",
+            "trustGate": "PASS",
+            "artifactTrust": "PASS"
+          },
+          "evidence": {
+            "action": "detect",
+            "toepara": "ADMITTED",
+            "trustGate": "AUTHORIZED",
+            "artifact": {
+              "name": "factory-bundle-cl-hash-files-ea4521a.json",
+              "declaredSha256": "96ed49459f533e19ddb7a0378a8dd05214b508221f4f87009ca9444698e06109",
+              "computedSha256": "96ed49459f533e19ddb7a0378a8dd05214b508221f4f87009ca9444698e06109"
+            }
+          },
+          "inputDigest": "64638fb636f01830950bb289ac29cc44b9d7fda5215487a87b123abc96ecd013",
+          "receiptDigest": "d9db6729e2a9554f87a4647c2ec104cb01ba36f74cfd261a04a2823d5121e672"
+        }
+      },
+      "final_decision": "ADMIT",
+      "forge_followups": [],
+      "final_digest": "b3f0bf007c4cb73a8e18ec678720bcd563f63fcb59b22b6d5125cf099d89ccde"
+    },
+    {
+      "receipt_kind": "closed-loop/v1",
+      "protocol_version": 1,
+      "caller": {
+        "name": "GOLIATH-STAND-IN",
+        "real_goliath": false,
+        "note": "typed in-process caller; no GOLIATH control-plane spec exists in the repositories, so this is NOT the real GOLIATH"
+      },
+      "task_id": "cl-run-test-ea4521a",
+      "envelope_digest": "06a39a36c7e4260701389a1dffe22b73ba048daa615df744f3b3d8f3c0fda9ac",
+      "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+      "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+      "stages": [
+        {
+          "stage": "KRATT",
+          "agent_id": "FORGE-026",
+          "task_id": "cl-run-test-ea4521a",
+          "capability": "kratt:run-test",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 61,
+              "at": "2026-10-03T03:43:19.145Z",
+              "agent_id": "FORGE-026",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-run-test-ea4521a",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 62,
+              "at": "2026-10-03T03:43:19.145Z",
+              "agent_id": "FORGE-026",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-run-test-ea4521a",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 63,
+              "at": "2026-10-03T03:43:19.245Z",
+              "agent_id": "FORGE-026",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-run-test-ea4521a",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 64,
+              "at": "2026-10-03T03:43:19.245Z",
+              "agent_id": "FORGE-026",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-run-test-ea4521a",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 65,
+              "at": "2026-10-03T03:43:19.245Z",
+              "agent_id": "FORGE-026",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-run-test-ea4521a",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK",
+          "agent_id": "SERPENT-051",
+          "task_id": "cl-run-test-ea4521a-rastik",
+          "capability": "rastik:run-probes",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 66,
+              "at": "2026-10-03T03:43:19.245Z",
+              "agent_id": "SERPENT-051",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-run-test-ea4521a-rastik",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 67,
+              "at": "2026-10-03T03:43:19.245Z",
+              "agent_id": "SERPENT-051",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-run-test-ea4521a-rastik",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 108,
+              "at": "2026-10-03T03:43:19.791Z",
+              "agent_id": "SERPENT-051",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-run-test-ea4521a-rastik",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 109,
+              "at": "2026-10-03T03:43:19.791Z",
+              "agent_id": "SERPENT-051",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-run-test-ea4521a-rastik",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 110,
+              "at": "2026-10-03T03:43:19.791Z",
+              "agent_id": "SERPENT-051",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-run-test-ea4521a-rastik",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK_ATTACK",
+          "agent_id": "SERPENT-052",
+          "task_id": "cl-run-test-ea4521a-atk-invalid-input",
+          "capability": "rastik:attack:invalid-input",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 68,
+              "at": "2026-10-03T03:43:19.246Z",
+              "agent_id": "SERPENT-052",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-run-test-ea4521a-atk-invalid-input",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 69,
+              "at": "2026-10-03T03:43:19.246Z",
+              "agent_id": "SERPENT-052",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-run-test-ea4521a-atk-invalid-input",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 70,
+              "at": "2026-10-03T03:43:19.355Z",
+              "agent_id": "SERPENT-052",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-run-test-ea4521a-atk-invalid-input",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 71,
+              "at": "2026-10-03T03:43:19.355Z",
+              "agent_id": "SERPENT-052",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-run-test-ea4521a-atk-invalid-input",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 72,
+              "at": "2026-10-03T03:43:19.355Z",
+              "agent_id": "SERPENT-052",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-run-test-ea4521a-atk-invalid-input",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK_ATTACK",
+          "agent_id": "SERPENT-053",
+          "task_id": "cl-run-test-ea4521a-atk-boundary",
+          "capability": "rastik:attack:boundary",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 73,
+              "at": "2026-10-03T03:43:19.355Z",
+              "agent_id": "SERPENT-053",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-run-test-ea4521a-atk-boundary",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 74,
+              "at": "2026-10-03T03:43:19.355Z",
+              "agent_id": "SERPENT-053",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-run-test-ea4521a-atk-boundary",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 75,
+              "at": "2026-10-03T03:43:19.403Z",
+              "agent_id": "SERPENT-053",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-run-test-ea4521a-atk-boundary",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 76,
+              "at": "2026-10-03T03:43:19.403Z",
+              "agent_id": "SERPENT-053",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-run-test-ea4521a-atk-boundary",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 77,
+              "at": "2026-10-03T03:43:19.403Z",
+              "agent_id": "SERPENT-053",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-run-test-ea4521a-atk-boundary",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK_ATTACK",
+          "agent_id": "SERPENT-064",
+          "task_id": "cl-run-test-ea4521a-atk-missing-evidence",
+          "capability": "rastik:attack:missing-evidence",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 78,
+              "at": "2026-10-03T03:43:19.403Z",
+              "agent_id": "SERPENT-064",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-run-test-ea4521a-atk-missing-evidence",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 79,
+              "at": "2026-10-03T03:43:19.403Z",
+              "agent_id": "SERPENT-064",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-run-test-ea4521a-atk-missing-evidence",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 80,
+              "at": "2026-10-03T03:43:19.438Z",
+              "agent_id": "SERPENT-064",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-run-test-ea4521a-atk-missing-evidence",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 81,
+              "at": "2026-10-03T03:43:19.438Z",
+              "agent_id": "SERPENT-064",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-run-test-ea4521a-atk-missing-evidence",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 82,
+              "at": "2026-10-03T03:43:19.438Z",
+              "agent_id": "SERPENT-064",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-run-test-ea4521a-atk-missing-evidence",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK_ATTACK",
+          "agent_id": "SERPENT-065",
+          "task_id": "cl-run-test-ea4521a-atk-tampered-evidence",
+          "capability": "rastik:attack:tampered-evidence",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 83,
+              "at": "2026-10-03T03:43:19.438Z",
+              "agent_id": "SERPENT-065",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-run-test-ea4521a-atk-tampered-evidence",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 84,
+              "at": "2026-10-03T03:43:19.438Z",
+              "agent_id": "SERPENT-065",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-run-test-ea4521a-atk-tampered-evidence",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 85,
+              "at": "2026-10-03T03:43:19.512Z",
+              "agent_id": "SERPENT-065",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-run-test-ea4521a-atk-tampered-evidence",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 86,
+              "at": "2026-10-03T03:43:19.512Z",
+              "agent_id": "SERPENT-065",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-run-test-ea4521a-atk-tampered-evidence",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 87,
+              "at": "2026-10-03T03:43:19.512Z",
+              "agent_id": "SERPENT-065",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-run-test-ea4521a-atk-tampered-evidence",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK_ATTACK",
+          "agent_id": "SERPENT-062",
+          "task_id": "cl-run-test-ea4521a-atk-unauthorized-action",
+          "capability": "rastik:attack:unauthorized-action",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 88,
+              "at": "2026-10-03T03:43:19.512Z",
+              "agent_id": "SERPENT-062",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-run-test-ea4521a-atk-unauthorized-action",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 89,
+              "at": "2026-10-03T03:43:19.512Z",
+              "agent_id": "SERPENT-062",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-run-test-ea4521a-atk-unauthorized-action",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 90,
+              "at": "2026-10-03T03:43:19.602Z",
+              "agent_id": "SERPENT-062",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-run-test-ea4521a-atk-unauthorized-action",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 91,
+              "at": "2026-10-03T03:43:19.602Z",
+              "agent_id": "SERPENT-062",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-run-test-ea4521a-atk-unauthorized-action",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 92,
+              "at": "2026-10-03T03:43:19.602Z",
+              "agent_id": "SERPENT-062",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-run-test-ea4521a-atk-unauthorized-action",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK_ATTACK",
+          "agent_id": "SERPENT-060",
+          "task_id": "cl-run-test-ea4521a-atk-stale-base-sha",
+          "capability": "rastik:attack:stale-base-sha",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 93,
+              "at": "2026-10-03T03:43:19.602Z",
+              "agent_id": "SERPENT-060",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-run-test-ea4521a-atk-stale-base-sha",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 94,
+              "at": "2026-10-03T03:43:19.602Z",
+              "agent_id": "SERPENT-060",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-run-test-ea4521a-atk-stale-base-sha",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 95,
+              "at": "2026-10-03T03:43:19.662Z",
+              "agent_id": "SERPENT-060",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-run-test-ea4521a-atk-stale-base-sha",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 96,
+              "at": "2026-10-03T03:43:19.662Z",
+              "agent_id": "SERPENT-060",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-run-test-ea4521a-atk-stale-base-sha",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 97,
+              "at": "2026-10-03T03:43:19.662Z",
+              "agent_id": "SERPENT-060",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-run-test-ea4521a-atk-stale-base-sha",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK_ATTACK",
+          "agent_id": "SERPENT-056",
+          "task_id": "cl-run-test-ea4521a-atk-malformed-receipt",
+          "capability": "rastik:attack:malformed-receipt",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 98,
+              "at": "2026-10-03T03:43:19.662Z",
+              "agent_id": "SERPENT-056",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-run-test-ea4521a-atk-malformed-receipt",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 99,
+              "at": "2026-10-03T03:43:19.662Z",
+              "agent_id": "SERPENT-056",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-run-test-ea4521a-atk-malformed-receipt",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 100,
+              "at": "2026-10-03T03:43:19.717Z",
+              "agent_id": "SERPENT-056",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-run-test-ea4521a-atk-malformed-receipt",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 101,
+              "at": "2026-10-03T03:43:19.717Z",
+              "agent_id": "SERPENT-056",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-run-test-ea4521a-atk-malformed-receipt",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 102,
+              "at": "2026-10-03T03:43:19.717Z",
+              "agent_id": "SERPENT-056",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-run-test-ea4521a-atk-malformed-receipt",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "RASTIK_ATTACK",
+          "agent_id": "SERPENT-060",
+          "task_id": "cl-run-test-ea4521a-atk-replay",
+          "capability": "rastik:attack:replay",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 103,
+              "at": "2026-10-03T03:43:19.717Z",
+              "agent_id": "SERPENT-060",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-run-test-ea4521a-atk-replay",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 104,
+              "at": "2026-10-03T03:43:19.717Z",
+              "agent_id": "SERPENT-060",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-run-test-ea4521a-atk-replay",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 105,
+              "at": "2026-10-03T03:43:19.790Z",
+              "agent_id": "SERPENT-060",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-run-test-ea4521a-atk-replay",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 106,
+              "at": "2026-10-03T03:43:19.790Z",
+              "agent_id": "SERPENT-060",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-run-test-ea4521a-atk-replay",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 107,
+              "at": "2026-10-03T03:43:19.791Z",
+              "agent_id": "SERPENT-060",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-run-test-ea4521a-atk-replay",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "TOEPARA",
+          "agent_id": "CITADEL-101",
+          "task_id": "cl-run-test-ea4521a-toepara",
+          "capability": "toepara:verify",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 111,
+              "at": "2026-10-03T03:43:19.791Z",
+              "agent_id": "CITADEL-101",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-run-test-ea4521a-toepara",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 112,
+              "at": "2026-10-03T03:43:19.791Z",
+              "agent_id": "CITADEL-101",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-run-test-ea4521a-toepara",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 113,
+              "at": "2026-10-03T03:43:19.892Z",
+              "agent_id": "CITADEL-101",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-run-test-ea4521a-toepara",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 114,
+              "at": "2026-10-03T03:43:19.892Z",
+              "agent_id": "CITADEL-101",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-run-test-ea4521a-toepara",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 115,
+              "at": "2026-10-03T03:43:19.892Z",
+              "agent_id": "CITADEL-101",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-run-test-ea4521a-toepara",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        },
+        {
+          "stage": "CERBERUS",
+          "agent_id": "CITADEL-111",
+          "task_id": "cl-run-test-ea4521a-cerberus",
+          "capability": "cerberus:decide",
+          "outcome": "DONE",
+          "note": null,
+          "transitions": [
+            {
+              "seq": 116,
+              "at": "2026-10-03T03:43:19.892Z",
+              "agent_id": "CITADEL-111",
+              "from": "SLEEP",
+              "to": "READY",
+              "task_id": "cl-run-test-ea4521a-cerberus",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 117,
+              "at": "2026-10-03T03:43:19.892Z",
+              "agent_id": "CITADEL-111",
+              "from": "READY",
+              "to": "ACTIVE",
+              "task_id": "cl-run-test-ea4521a-cerberus",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 118,
+              "at": "2026-10-03T03:43:19.906Z",
+              "agent_id": "CITADEL-111",
+              "from": "ACTIVE",
+              "to": "VERIFY",
+              "task_id": "cl-run-test-ea4521a-cerberus",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 119,
+              "at": "2026-10-03T03:43:19.906Z",
+              "agent_id": "CITADEL-111",
+              "from": "VERIFY",
+              "to": "DONE",
+              "task_id": "cl-run-test-ea4521a-cerberus",
+              "accepted": true,
+              "reason": "ok"
+            },
+            {
+              "seq": 120,
+              "at": "2026-10-03T03:43:19.906Z",
+              "agent_id": "CITADEL-111",
+              "from": "DONE",
+              "to": "SLEEP",
+              "task_id": "cl-run-test-ea4521a-cerberus",
+              "accepted": true,
+              "reason": "done-return-to-sleep"
+            }
+          ]
+        }
+      ],
+      "action_receipt": {
+        "task_id": "cl-run-test-ea4521a",
+        "agent_id": "FORGE-026",
+        "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+        "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+        "action": "run-test",
+        "scope": [
+          "cerberus/tests/decide.test.ts"
+        ],
+        "result": {
+          "ok": true,
+          "exit_code": 0,
+          "checks": {
+            "pass": 9,
+            "fail": 0
+          },
+          "failure": null
+        },
+        "evidence": {
+          "version": "toepara-evidence/v1",
+          "producer": "kratt/v1",
+          "taskId": "cl-run-test-ea4521a",
+          "action": "run-test",
+          "taskDigest": "8fca79fc32c8ef446e4996ce3a1be1ed5782142f5f59dcdbe8ba0831f796b360",
+          "command": [
+            "node",
+            "--permission",
+            "--allow-fs-read=<root>",
+            "--experimental-test-isolation=none",
+            "--experimental-strip-types",
+            "--test-reporter=tap",
+            "--test",
+            "cerberus/tests/decide.test.ts"
+          ],
+          "exitCode": 0,
+          "timedOut": false,
+          "truncated": false,
+          "outputBytes": 1931,
+          "stdoutSha256": "55234e3297b27a8db03ff5f9a0837bbcad309a7d8dfe30b83187415ba1ef4f1f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "artifacts": [
+            {
+              "name": "cerberus/tests/decide.test.ts",
+              "sha256": "663009a4795f7fe3304a842265a433405f86ffab3bab1df595da08252b76cc3f",
+              "bytes": 2276
+            }
+          ],
+          "checks": {
+            "pass": 9,
+            "fail": 0
+          },
+          "failure": null,
+          "verdict": "ADMITTED",
+          "evidenceDigest": "c406c7b7db7ca96630011b32cc188c2a5eb622291d24945341b37401d39ade89"
+        },
+        "verification_state": "UNVERIFIED",
+        "timestamp": "2026-10-03T03:43:19.245Z",
+        "protocol_version": 1
+      },
+      "rastik": {
+        "target_receipt_digest": "cf3301dbfc98bc5b1164105bbcd1690080d3ce59266916180a0a2f50e1c45061",
+        "cases_executed": 42,
+        "attacks": [
+          {
+            "attack_id": "invalid-input/null-receipt",
+            "class": "invalid-input",
+            "agent_id": "SERPENT-052",
+            "case_id": "null-receipt",
+            "hypothesis": "null is admitted as a receipt",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "invalid-input/string-receipt",
+            "class": "invalid-input",
+            "agent_id": "SERPENT-052",
+            "case_id": "string-receipt",
+            "hypothesis": "the string ADMITTED is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "invalid-input/array-receipt",
+            "class": "invalid-input",
+            "agent_id": "SERPENT-052",
+            "case_id": "array-receipt",
+            "hypothesis": "an array is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "invalid-input/empty-object",
+            "class": "invalid-input",
+            "agent_id": "SERPENT-052",
+            "case_id": "empty-object",
+            "hypothesis": "{} is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "invalid-input/scope-traversal",
+            "class": "invalid-input",
+            "agent_id": "SERPENT-052",
+            "case_id": "scope-traversal",
+            "hypothesis": "scope ../../etc/passwd is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "invalid-input/task-id-injection",
+            "class": "invalid-input",
+            "agent_id": "SERPENT-052",
+            "case_id": "task-id-injection",
+            "hypothesis": "task_id '../../x' is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "invalid-input/trust-field-injection",
+            "class": "invalid-input",
+            "agent_id": "SERPENT-052",
+            "case_id": "trust-field-injection",
+            "hypothesis": "an extra top-level trust field is accepted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "boundary/scope-65-entries",
+            "class": "boundary",
+            "agent_id": "SERPENT-053",
+            "case_id": "scope-65-entries",
+            "hypothesis": "65 scope entries (limit 64) are admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "boundary/task-id-65-chars",
+            "class": "boundary",
+            "agent_id": "SERPENT-053",
+            "case_id": "task-id-65-chars",
+            "hypothesis": "a 65 character task_id is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "boundary/empty-timestamp",
+            "class": "boundary",
+            "agent_id": "SERPENT-053",
+            "case_id": "empty-timestamp",
+            "hypothesis": "an empty timestamp is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "boundary/checks-pass-2-pow-53",
+            "class": "boundary",
+            "agent_id": "SERPENT-053",
+            "case_id": "checks-pass-2-pow-53",
+            "hypothesis": "checks.pass = 2^53 is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "boundary/exit-code-256",
+            "class": "boundary",
+            "agent_id": "SERPENT-053",
+            "case_id": "exit-code-256",
+            "hypothesis": "exit_code 256 is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "boundary/artifact-bytes-negative",
+            "class": "boundary",
+            "agent_id": "SERPENT-053",
+            "case_id": "artifact-bytes-negative",
+            "hypothesis": "artifact bytes = -1 is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "boundary/checks-pass-zero-ok-true",
+            "class": "boundary",
+            "agent_id": "SERPENT-053",
+            "case_id": "checks-pass-zero-ok-true",
+            "hypothesis": "ok=true with zero passed checks is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "missing-evidence/evidence-deleted",
+            "class": "missing-evidence",
+            "agent_id": "SERPENT-064",
+            "case_id": "evidence-deleted",
+            "hypothesis": "a receipt without evidence is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "missing-evidence/result-deleted",
+            "class": "missing-evidence",
+            "agent_id": "SERPENT-064",
+            "case_id": "result-deleted",
+            "hypothesis": "a receipt without result is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "missing-evidence/evidence-empty-object",
+            "class": "missing-evidence",
+            "agent_id": "SERPENT-064",
+            "case_id": "evidence-empty-object",
+            "hypothesis": "evidence {} is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "missing-evidence/evidence-null",
+            "class": "missing-evidence",
+            "agent_id": "SERPENT-064",
+            "case_id": "evidence-null",
+            "hypothesis": "evidence null is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "missing-evidence/artifacts-emptied",
+            "class": "missing-evidence",
+            "agent_id": "SERPENT-064",
+            "case_id": "artifacts-emptied",
+            "hypothesis": "evidence with its artifact list emptied is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "tampered-evidence/artifact-sha-flipped",
+            "class": "tampered-evidence",
+            "agent_id": "SERPENT-065",
+            "case_id": "artifact-sha-flipped",
+            "hypothesis": "a flipped artifact digest (evidenceDigest untouched) is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "tampered-evidence/checks-inflated",
+            "class": "tampered-evidence",
+            "agent_id": "SERPENT-065",
+            "case_id": "checks-inflated",
+            "hypothesis": "inflated check counts are admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "tampered-evidence/evidence-digest-swapped",
+            "class": "tampered-evidence",
+            "agent_id": "SERPENT-065",
+            "case_id": "evidence-digest-swapped",
+            "hypothesis": "a swapped evidenceDigest is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "tampered-evidence/self-consistent-forgery-wrong-source-digest",
+            "class": "tampered-evidence",
+            "agent_id": "SERPENT-065",
+            "case_id": "self-consistent-forgery-wrong-source-digest",
+            "hypothesis": "evidence whose artifact digest is wrong but whose evidenceDigest was recomputed (self-consistent) is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "tampered-evidence/self-consistent-forgery-wrong-task",
+            "class": "tampered-evidence",
+            "agent_id": "SERPENT-065",
+            "case_id": "self-consistent-forgery-wrong-task",
+            "hypothesis": "self-consistent evidence bound to a different task digest is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "unauthorized-action/action-deploy",
+            "class": "unauthorized-action",
+            "agent_id": "SERPENT-062",
+            "case_id": "action-deploy",
+            "hypothesis": "action 'deploy' is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "unauthorized-action/action-merge",
+            "class": "unauthorized-action",
+            "agent_id": "SERPENT-062",
+            "case_id": "action-merge",
+            "hypothesis": "action 'merge' is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "unauthorized-action/kratt-action-not-in-envelope",
+            "class": "unauthorized-action",
+            "agent_id": "SERPENT-062",
+            "case_id": "kratt-action-not-in-envelope",
+            "hypothesis": "a KRATT action the envelope did not allow is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "unauthorized-action/agent-spoof",
+            "class": "unauthorized-action",
+            "agent_id": "SERPENT-062",
+            "case_id": "agent-spoof",
+            "hypothesis": "a receipt claiming a different agent is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "unauthorized-action/repository-spoof",
+            "class": "unauthorized-action",
+            "agent_id": "SERPENT-062",
+            "case_id": "repository-spoof",
+            "hypothesis": "a receipt and envelope for another repository are admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "stale-base-sha/base-sha-zero-both",
+            "class": "stale-base-sha",
+            "agent_id": "SERPENT-060",
+            "case_id": "base-sha-zero-both",
+            "hypothesis": "base_sha 000..0 in receipt and envelope is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "stale-base-sha/receipt-base-sha-differs",
+            "class": "stale-base-sha",
+            "agent_id": "SERPENT-060",
+            "case_id": "receipt-base-sha-differs",
+            "hypothesis": "a receipt whose base_sha differs from the envelope is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "stale-base-sha/base-sha-parent-commit",
+            "class": "stale-base-sha",
+            "agent_id": "SERPENT-060",
+            "case_id": "base-sha-parent-commit",
+            "hypothesis": "a real but stale commit (HEAD~1) as base_sha in receipt and envelope is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "malformed-receipt/protocol-version-2",
+            "class": "malformed-receipt",
+            "agent_id": "SERPENT-056",
+            "case_id": "protocol-version-2",
+            "hypothesis": "protocol_version 2 is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "malformed-receipt/self-verified-by-kratt",
+            "class": "malformed-receipt",
+            "agent_id": "SERPENT-056",
+            "case_id": "self-verified-by-kratt",
+            "hypothesis": "a KRATT receipt claiming VERIFIED is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "malformed-receipt/state-trusted",
+            "class": "malformed-receipt",
+            "agent_id": "SERPENT-056",
+            "case_id": "state-trusted",
+            "hypothesis": "verification_state TRUSTED is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "malformed-receipt/result-ok-string",
+            "class": "malformed-receipt",
+            "agent_id": "SERPENT-056",
+            "case_id": "result-ok-string",
+            "hypothesis": "result.ok = 'true' (string) is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "malformed-receipt/evidence-array",
+            "class": "malformed-receipt",
+            "agent_id": "SERPENT-056",
+            "case_id": "evidence-array",
+            "hypothesis": "evidence as an array is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "malformed-receipt/failure-number",
+            "class": "malformed-receipt",
+            "agent_id": "SERPENT-056",
+            "case_id": "failure-number",
+            "hypothesis": "result.failure = 0 is admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "malformed-receipt/result-contradicts-evidence",
+            "class": "malformed-receipt",
+            "agent_id": "SERPENT-056",
+            "case_id": "result-contradicts-evidence",
+            "hypothesis": "result.checks differing from the evidence are admitted",
+            "outcome": "REPELLED",
+            "reproduced": null
+          },
+          {
+            "attack_id": "replay/same-receipt-twice",
+            "class": "replay",
+            "agent_id": "SERPENT-060",
+            "case_id": "same-receipt-twice",
+            "hypothesis": "the identical valid receipt is admitted a second time",
+            "outcome": "REPELLED",
+            "reproduced": null
+          }
+        ],
+        "findings": [],
+        "probe": {
+          "probes": 1,
+          "cases_executed": 2,
+          "confirmed_findings": 0,
+          "probe_errors": 0,
+          "evidence_digest": "6feb52240594ec6369811c5ee8048f50c6fccd994d5cc8165d2c64e040a596a9"
+        },
+        "evidence_digest": "e278f05f3e5c7ea4f6b09d770d346332549fe7197ec24e1f686f6f37e37febfc"
+      },
+      "toepara": {
+        "verdict": {
+          "protocol_version": 1,
+          "task_id": "cl-run-test-ea4521a",
+          "verdict": "VERIFIED",
+          "reasons": [],
+          "checks": [
+            {
+              "name": "receipt-schema",
+              "ok": true
+            },
+            {
+              "name": "identity-task",
+              "ok": true
+            },
+            {
+              "name": "identity-agent",
+              "ok": true
+            },
+            {
+              "name": "identity-repository",
+              "ok": true
+            },
+            {
+              "name": "identity-base-sha",
+              "ok": true
+            },
+            {
+              "name": "identity-scope",
+              "ok": true
+            },
+            {
+              "name": "not-self-verified",
+              "ok": true
+            },
+            {
+              "name": "action-authorized",
+              "ok": true
+            },
+            {
+              "name": "base-sha-exists",
+              "ok": true
+            },
+            {
+              "name": "base-sha-is-current-head",
+              "ok": true
+            },
+            {
+              "name": "kratt-evidence-parses",
+              "ok": true
+            },
+            {
+              "name": "kratt-task-derivable",
+              "ok": true
+            },
+            {
+              "name": "evidence-task-digest",
+              "ok": true
+            },
+            {
+              "name": "evidence-binds-task",
+              "ok": true
+            },
+            {
+              "name": "result-matches-evidence",
+              "ok": true
+            },
+            {
+              "name": "artifacts-equal-scope",
+              "ok": true
+            },
+            {
+              "name": "source-digests-recomputed-from-git",
+              "ok": true
+            },
+            {
+              "name": "diff-computable",
+              "ok": true
+            },
+            {
+              "name": "working-tree-matches-base-sha",
+              "ok": true
+            },
+            {
+              "name": "test-reexecution-agrees",
+              "ok": true
+            },
+            {
+              "name": "action-succeeded",
+              "ok": true
+            },
+            {
+              "name": "required:source_digests",
+              "ok": true
+            },
+            {
+              "name": "required:test_evidence",
+              "ok": true
+            },
+            {
+              "name": "rastik-targets-this-receipt",
+              "ok": true
+            },
+            {
+              "name": "rastik-digest-recomputed",
+              "ok": true
+            },
+            {
+              "name": "rastik-executed-cases",
+              "ok": true
+            },
+            {
+              "name": "rastik-findings-valid",
+              "ok": true
+            }
+          ],
+          "evidence_digest": "07bf35a19ee1cc07a868d58fb595aba73cae67430b9038c8627cde9177de62ab"
+        },
+        "bundle": {
+          "protocol_version": 1,
+          "task_id": "cl-run-test-ea4521a",
+          "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+          "base_sha": "ea4521ac34d86690f5419a63aa317c7182b1999c",
+          "action": "run-test",
+          "source_digests": [
+            {
+              "path": "cerberus/tests/decide.test.ts",
+              "sha256": "663009a4795f7fe3304a842265a433405f86ffab3bab1df595da08252b76cc3f",
+              "bytes": 2276
+            }
+          ],
+          "diff_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "action_receipt_digest": "cf3301dbfc98bc5b1164105bbcd1690080d3ce59266916180a0a2f50e1c45061",
+          "kratt_evidence_digest": "c406c7b7db7ca96630011b32cc188c2a5eb622291d24945341b37401d39ade89",
+          "rastik_evidence_digest": "e278f05f3e5c7ea4f6b09d770d346332549fe7197ec24e1f686f6f37e37febfc",
+          "rastik_finding_ids": [],
+          "test_evidence": {
+            "pass": 9,
+            "fail": 0,
+            "reexecuted": true
+          },
+          "bundle_digest": "07bf35a19ee1cc07a868d58fb595aba73cae67430b9038c8627cde9177de62ab"
+        }
+      },
+      "cerberus": {
+        "decision": {
+          "protocol_version": 1,
+          "task_id": "cl-run-test-ea4521a",
+          "decision": "ADMIT",
+          "reasons": [],
+          "toepara_evidence_digest": "07bf35a19ee1cc07a868d58fb595aba73cae67430b9038c8627cde9177de62ab",
+          "cerberus_receipt_digest": "efb8a617a9e4c5287a6d5f0296f401a935b42a4489e70927d36ee69b250596dd",
+          "unresolved_high_findings": [],
+          "decision_digest": "4e945fdb333412242dda902d0d0547858b9469d421308b2b3b6dff6360b7d81d"
+        },
+        "cerberus_receipt": {
+          "version": "cerberus-receipt/v1",
+          "decision": "PROCEED",
+          "reasons": [],
+          "verdictSource": "adapter",
+          "stages": {
+            "input": "PASS",
+            "policy": "PASS",
+            "toepara": "PASS",
+            "trustGate": "PASS",
+            "artifactTrust": "PASS"
+          },
+          "evidence": {
+            "action": "detect",
+            "toepara": "ADMITTED",
+            "trustGate": "AUTHORIZED",
+            "artifact": {
+              "name": "factory-bundle-cl-run-test-ea4521a.json",
+              "declaredSha256": "b6f53aa8dc12cc65a37b791b05e522342b68fb608ea8bc90a34fe64eeb7dc3ca",
+              "computedSha256": "b6f53aa8dc12cc65a37b791b05e522342b68fb608ea8bc90a34fe64eeb7dc3ca"
+            }
+          },
+          "inputDigest": "b05670fa5e44092b7a4bd3882bb9e7795766981e7852bc015b25f6b85968cb23",
+          "receiptDigest": "efb8a617a9e4c5287a6d5f0296f401a935b42a4489e70927d36ee69b250596dd"
+        }
+      },
+      "final_decision": "ADMIT",
+      "forge_followups": [],
+      "final_digest": "42d472dc2b065103be9c8021a8795c175ab39b787ffe92beca7128cf6c07633e"
+    }
+  ]
+}
