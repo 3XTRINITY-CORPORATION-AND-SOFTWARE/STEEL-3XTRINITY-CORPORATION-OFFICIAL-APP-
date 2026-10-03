@@ -145,6 +145,7 @@ describe("test-backed slots", () => {
     assert.equal(slots[8].status, "FAIL");
     assert.equal(summarize(slots).PASS, 0);
   });
+  it("registry is well-formed: unique in-range slots, no overlap with static checks, KRATT/TOEPARA slots only backed by kratt/ or rastik/ tests", () => {
   it("registry is well-formed: unique in-range slots, no overlap with static checks, KRATT/TOEPARA slots only backed by kratt/, rastik/ or factory/ tests", () => {
     const nums = TEST_REGISTRY.map((r) => r[0]);
     assert.equal(new Set(nums).size, nums.length);
@@ -153,6 +154,8 @@ describe("test-backed slots", () => {
     assert.equal(new Set(names).size, names.length, "one test must not back two slots");
     assert.doesNotThrow(() => allChecks());
     assert.throws(() => registryChecks([[1, "f", "a"], [1, "f", "b"]]), /duplicate registry slot/);
+    // KRATT/TOEPARA slots may only be backed by tests of code that exists for them (kratt/, rastik/).
+    for (const [n, f] of TEST_REGISTRY) assert.ok(n < 101 || n > 150 || /^(kratt|rastik)\/tests\//.test(f), `slot ${n} (${f}) is in KRATT/TOEPARA but not backed by kratt/rastik tests`);
     // KRATT/TOEPARA slots may only be backed by tests of code that exists for them (kratt/, rastik/, factory/).
     for (const [n, f] of TEST_REGISTRY) assert.ok(n < 101 || n > 150 || /^(kratt|rastik|factory)\/tests\//.test(f), `slot ${n} (${f}) is in KRATT/TOEPARA but not backed by kratt/rastik/factory tests`);
     // never back a slot with the matrix's own test file (would recurse)
