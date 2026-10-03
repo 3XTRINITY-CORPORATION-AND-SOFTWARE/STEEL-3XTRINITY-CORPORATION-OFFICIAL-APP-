@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync, realpathSync } from "node:fs";
-import { join, sep } from "node:path";
+import { constants, fstatSync, mkdirSync, mkdtempSync, openSync, closeSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, relative, sep } from "node:path";
 import { relPathFailure, resolveRegularFile } from "./paths.ts";
 import type { KrattTask } from "./task.ts";
 
@@ -175,9 +176,9 @@ function lastCount(text: string, label: "pass" | "fail"): number | null {
  * reported as ONE passing top-level entry named after the file ("ok 1 - z.test.mjs"),
  * which would otherwise look like a real passing test (found by KRATT's own zero-test case).
  */
-function isFileLevelPseudoTest(tap: string, testFile: string): boolean {
+function isFileLevelPseudoTest(tap: string, testFile: string, snapshotBase: string): boolean {
   const base = testFile.split("/").pop() as string;
-  return tap.split("\n").some((l) => /^ok \d+ - /.test(l) && (l.endsWith(` - ${testFile}`) || l.endsWith(` - ${base}`)));
+  return tap.split("\n").some((l) => /^ok \d+ - /.test(l) && (l.endsWith(` - ${testFile}`) || l.endsWith(` - ${base}`) || l.endsWith(` - ${snapshotBase}`)));
 }
 
 /** True when the real (symlink-resolved) path lies under the real path of one of the allowed directories. */
@@ -192,6 +193,71 @@ function realPathAllowed(realRoot: string, realFile: string, dirs: readonly stri
     if (realDir !== realRoot && realDir.startsWith(realRoot + sep) && realFile.startsWith(realDir + sep)) return true;
   }
   return false;
+}
+
+/**
+ * Read the validated test file ONCE through a file descriptor and prove that the inode we hold is the file the allow-list
+ * judged: opened with O_NOFOLLOW (the last component cannot be a swapped-in symlink), a single regular file (nlink 1, so
+ * no hardlink into another directory), and the path still resolves to the same real path and the same inode afterwards.
+ * Returns the bytes that will be executed, or a failure reason.
+ */
+function pinTestFile(realFile: string): { bytes: Buffer } | string {
+  let fd: number | undefined;
+  try {
+    fd = openSync(realFile, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+    const st = fstatSync(fd);
+    if (!st.isFile()) return "not-regular-file";
+    if (st.nlink > 1) return "test-file-hardlinked";
+    if (st.size > MAX_FILE_BYTES) return "file-too-large";
+    const bytes = readFileSync(fd);
+    if (bytes.length > MAX_FILE_BYTES) return "file-too-large";
+    if (realpathSync(realFile) !== realFile) return "test-file-swapped-before-run";
+    const now = statSync(realFile);
+    if (now.ino !== st.ino || now.dev !== st.dev) return "test-file-swapped-before-run";
+    return { bytes };
+  } catch {
+    return "test-file-swapped-before-run";
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+}
+
+const MAX_SNAPSHOT_ENTRIES = 20_000;
+
+/**
+ * Private, immutable-to-others copy of the pinned bytes. The directory is 0700 under the OS temp dir and the file 0400, so
+ * nothing the repo (or an attacker holding only repo write access) can do afterwards changes what node executes.
+ * Relative imports must keep working, so the file sits at its REAL repo-relative location inside a mirror tree whose
+ * other entries are symlinks to the real siblings (only the test file itself is pinned, not the modules it imports).
+ */
+function createSnapshot(realRoot: string, realFile: string, bytes: Buffer): { dir: string; file: string } {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "kratt-snap-")));
+  try {
+    const parts = relative(realRoot, realFile).split(sep);
+    let realDir = realRoot;
+    let snapDir = dir;
+    let entries = 0;
+    for (let i = 0; i < parts.length; i++) {
+      const name = parts[i] as string;
+      for (const e of readdirSync(realDir)) {
+        if (e === name) continue;
+        if (++entries > MAX_SNAPSHOT_ENTRIES) throw new Error("too-many-entries");
+        symlinkSync(join(realDir, e), join(snapDir, e));
+      }
+      if (i === parts.length - 1) {
+        const file = join(snapDir, name);
+        writeFileSync(file, bytes, { flag: "wx", mode: 0o400 });
+        return { dir, file };
+      }
+      mkdirSync(join(snapDir, name), { mode: 0o700 });
+      realDir = join(realDir, name);
+      snapDir = join(snapDir, name);
+    }
+    throw new Error("empty-path");
+  } catch (e) {
+    rmSync(dir, { recursive: true, force: true });
+    throw e;
+  }
 }
 
 async function runTest(
@@ -217,9 +283,20 @@ async function runTest(
   const resolved = resolveRegularFile(realRoot, t.testFile, MAX_FILE_BYTES);
   if (!resolved.ok) return failResult(command, resolved.reason);
   if (!realPathAllowed(realRoot, resolved.abs, dirs)) return failResult(command, "test-dir-not-allowed");
-  const budget = { left: MAX_TOTAL_HASH_BYTES };
-  const before = hashFile(realRoot, t.testFile, budget);
-  if (typeof before === "string") return failResult(command, before);
+  // TOCTOU: never execute a path that can be re-resolved. Pin the validated bytes, copy them to a private snapshot, and run THAT.
+  const pinned = pinTestFile(resolved.abs);
+  if (typeof pinned === "string") return failResult(command, pinned);
+  if (pinned.bytes.length > MAX_TOTAL_HASH_BYTES) return failResult(command, "total-size-budget-exceeded");
+  const before: Artifact = { name: t.testFile, sha256: sha(pinned.bytes), bytes: pinned.bytes.length };
+  let snap: { dir: string; file: string };
+  try {
+    snap = createSnapshot(realRoot, resolved.abs, pinned.bytes);
+  } catch {
+    return failResult(command, "snapshot-failed");
+  }
+  // The command that actually runs differs from the reported one only in the test path (the snapshot) and its extra read grant.
+  const runArgv = [argv[0] as string, argv[1] as string, `--allow-fs-read=${snap.dir}`, ...argv.slice(2, -1), relative(snap.dir, snap.file)];
+  let snapshotIntact = true;
 
   const run = await new Promise<{
     code: number | null;
@@ -235,8 +312,8 @@ async function runTest(
     let timedOut = false;
     let truncated = false;
     let settled = false;
-    const child = spawn(process.execPath, argv, {
-      cwd: realRoot,
+    const child = spawn(process.execPath, runArgv, {
+      cwd: snap.dir, // mirror of the repo root (see createSnapshot); node's test runner cannot glob an absolute path under --permission
       env: {},
       shell: false,
       stdio: ["ignore", "pipe", "pipe"],
@@ -269,13 +346,24 @@ async function runTest(
     child.stderr.on("data", collect(err));
     child.on("error", () => done(null, true));
     child.on("close", (code) => done(code));
+  }).finally(() => {
+    try {
+      snapshotIntact = sha(readFileSync(snap.file)) === before.sha256;
+    } catch {
+      snapshotIntact = false;
+    }
+    rmSync(snap.dir, { recursive: true, force: true });
   });
 
-  const after = hashFile(realRoot, t.testFile, budget);
+  const after = hashFile(realRoot, t.testFile, { left: MAX_TOTAL_HASH_BYTES });
   // Tampering = content changed, unreadable afterwards, or the name now resolves to a different real file.
   const resolvedAfter = resolveRegularFile(realRoot, t.testFile, MAX_FILE_BYTES);
   const tampered =
-    typeof after === "string" || after.sha256 !== before.sha256 || !resolvedAfter.ok || resolvedAfter.abs !== resolved.abs;
+    !snapshotIntact ||
+    typeof after === "string" ||
+    after.sha256 !== before.sha256 ||
+    !resolvedAfter.ok ||
+    resolvedAfter.abs !== resolved.abs;
   const text = run.out.toString("utf8");
   const pass = lastCount(text, "pass");
   const fail = lastCount(text, "fail");
@@ -287,7 +375,7 @@ async function runTest(
   else if (pass === null || fail === null) failure = "tap-summary-missing";
   else if (run.code !== 0) failure = "nonzero-exit";
   else if (fail > 0) failure = "tests-failed";
-  else if (pass < 1 || isFileLevelPseudoTest(text, t.testFile)) failure = "no-tests-ran";
+  else if (pass < 1 || isFileLevelPseudoTest(text, t.testFile, snap.file.split(sep).pop() as string)) failure = "no-tests-ran";
   return {
     command,
     exitCode: run.code ?? -1,
