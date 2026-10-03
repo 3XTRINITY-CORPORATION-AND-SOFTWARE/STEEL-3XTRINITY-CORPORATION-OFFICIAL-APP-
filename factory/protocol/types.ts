@@ -1,3 +1,4 @@
+import { types as utilTypes } from "node:util";
 import { canonicalize } from "../../cerberus/core/decide.ts";
 import { sha256Hex } from "../../cerberus/artifact-trust/artifact-trust.ts";
 import { arr, bool, check, int, json, lit, nul, obj, oneOf, or, str, toJsonSchema, type Spec } from "./spec.ts";
@@ -237,14 +238,77 @@ function validateAs<T>(type: ProtocolType, input: unknown): Validation<T> {
   return r === null ? { ok: true, value: input as T } : { ok: false, reason: r };
 }
 
+/**
+ * Single-read deep copy of already-structurally-valid JSON data. Every property is read exactly once, through its own
+ * data descriptor (never [[Get]], so getters are never invoked). Proxies are refused outright. Throws on anything unexpected.
+ */
+function snapshotJson(v: unknown, depth = 0): unknown {
+  if (depth > 4) throw new Error("too-deep");
+  if (v === null || typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
+  if (typeof v !== "object") throw new Error("not-json");
+  if (utilTypes.isProxy(v)) throw new Error("proxy"); // never legitimate JSON input; its traps could answer differently per call
+  if (Array.isArray(v)) {
+    const n = v.length;
+    const out: unknown[] = [];
+    for (let i = 0; i < n; i++) {
+      const d = Object.getOwnPropertyDescriptor(v, String(i));
+      if (d === undefined || !("value" in d)) throw new Error("unreadable");
+      out.push(snapshotJson(d.value, depth + 1));
+    }
+    return out;
+  }
+  const out: Record<string, unknown> = {};
+  for (const k of Reflect.ownKeys(v)) {
+    if (typeof k !== "string") throw new Error("symbol-key");
+    const d = Object.getOwnPropertyDescriptor(v, k);
+    if (d === undefined || !("value" in d)) throw new Error("unreadable");
+    Object.defineProperty(out, k, { value: snapshotJson(d.value, depth + 1), enumerable: true, writable: true, configurable: true });
+  }
+  return out;
+}
+
+// Characters that are legal in a single-line TEXT field but that make log/terminal/UI output lie:
+// C1 controls (incl. NEL U+0085), LINE/PARAGRAPH SEPARATOR, bidi marks/embeddings/overrides/isolates (U+061C, U+200E/F,
+// U+202A-E, U+2066-9), zero-width space/word-joiner/BOM (U+200B, U+2060, U+FEFF) and unpaired surrogates.
+// ZWNJ/ZWJ (U+200C/D) stay legal: they are needed for real scripts and emoji sequences.
+// eslint-disable-next-line no-control-regex
+const OBJECTIVE_SPOOFING = /[\u0080-\u009f\u061c\u200b\u200e\u200f\u2028\u2029\u202a-\u202e\u2060\u2066-\u2069\ufeff\ud800-\udfff]/u;
+const isDotSegment = (s: string): boolean => /^\.+$/.test(s);
+/** Mirrors `git check-ref-format` for the parts the permissive BRANCH character class leaves open. */
+function branchRefFailure(b: string): string | null {
+  if (b.endsWith("/") || b.endsWith(".")) return "ref-trailing-separator";
+  if (b.includes("..")) return "ref-double-dot";
+  for (const c of b.split("/")) {
+    if (c === "") return "ref-empty-component";
+    if (c.startsWith(".")) return "ref-dot-component";
+    if (c.endsWith(".lock")) return "ref-lock-suffix";
+  }
+  return null;
+}
+
 export function validateEnvelope(input: unknown): Validation<TaskEnvelope> {
   const v = validateAs<TaskEnvelope>("TaskEnvelope", input);
   if (!v.ok) return v;
-  const e = v.value;
+  // Re-read the input ONCE into a plain snapshot and validate and return THAT. Validation walks property descriptors,
+  // but consumers read fields normally; a Proxy with a throwing/lying trap would otherwise either throw out of this
+  // function or hand back an object whose later reads differ from what was validated.
+  let snap: unknown;
+  try {
+    snap = snapshotJson(v.value);
+  } catch {
+    return { ok: false, reason: "$:unreadable" };
+  }
+  const s = validateAs<TaskEnvelope>("TaskEnvelope", snap);
+  if (!s.ok) return s;
+  const e = s.value;
   if (!e.agent_id.startsWith(`${e.factory}-`)) return { ok: false, reason: "agent-not-in-factory" };
   if (e.allowed_actions.some((a) => e.forbidden_actions.includes(a))) return { ok: false, reason: "action-both-allowed-and-forbidden" };
   if (e.scope.length > e.resource_budget.max_files) return { ok: false, reason: "scope-exceeds-max-files" };
-  return v;
+  if (OBJECTIVE_SPOOFING.test(e.objective)) return { ok: false, reason: "$.objective:forbidden-character" };
+  if (e.repository.split("/").some(isDotSegment)) return { ok: false, reason: "$.repository:dot-segment" };
+  const ref = branchRefFailure(e.branch);
+  if (ref) return { ok: false, reason: `$.branch:${ref}` };
+  return s;
 }
 export const validateActionReceipt = (i: unknown) => validateAs<ActionReceipt>("ActionReceipt", i);
 export const validateEvidenceBundle = (i: unknown) => validateAs<EvidenceBundle>("EvidenceBundle", i);

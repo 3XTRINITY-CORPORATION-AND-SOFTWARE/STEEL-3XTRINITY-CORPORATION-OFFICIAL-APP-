@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync, appendFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync, appendFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, describe, it } from "node:test";
@@ -114,16 +114,92 @@ describe("file-identity rules", () => {
     assert.equal((await run(root, "kratt/tests/link.test.mjs")).failure, "path-escapes-root");
   });
 
-  // DEFECT (reservoir A-013, see PR report F1): the directory allow-list is applied to the *lexical*
-  // path only. A symlink inside an allowed directory that points at another file INSIDE the root
-  // makes node execute a file from a directory that is not allow-listed. This test asserts the
-  // SAFE behaviour and is marked todo so the suite stays green while the defect is open; it flips
-  // to a normal failing test the moment `todo` is removed, and passes once the fix lands.
-  it("symlink inside an allowed dir to an in-root file in a NON-allowed dir must be refused", { todo: "F1: allow-list bypass via in-root symlink (kratt/actions.ts runTest checks the lexical path only)" }, async () => {
+  // Former finding F1 (fixed): the allow-list is applied to the REAL path as well as the lexical one.
+  const refused = (r: Awaited<ReturnType<typeof run>>, why: string) => {
+    assert.equal(r.failure, "test-dir-not-allowed", why);
+    assert.equal(r.exitCode, 1, why);
+    assert.deepEqual(r.artifacts, [], `${why}: nothing hashed, nothing executed`);
+    assert.equal(r.outputBytes, 0, why);
+    assert.deepEqual(r.checks, { pass: 0, fail: 1 }, why);
+  };
+
+  it("F1: symlink inside an allowed dir to an in-root file in a NON-allowed dir is refused, exactly like the direct path", async () => {
     const root = fixture({ "scripts/evil.test.mjs": PASS, "kratt/tests/ok.test.mjs": PASS }, { "kratt/tests/alias.test.mjs": "../../scripts/evil.test.mjs" });
-    assert.equal((await run(root, "scripts/evil.test.mjs")).failure, "test-dir-not-allowed", "direct path is refused ...");
-    const viaLink = await run(root, "kratt/tests/alias.test.mjs");
-    assert.notEqual(viaLink.failure, null, "... so the alias must be refused too");
+    refused(await run(root, "scripts/evil.test.mjs"), "direct path");
+    refused(await run(root, "kratt/tests/alias.test.mjs"), "alias");
+    assert.equal((await run(root, "kratt/tests/ok.test.mjs")).failure, null, "control: a real file in the same dir still runs");
+  });
+
+  it("F1: the alias must not have executed the target (side-effect probe)", async () => {
+    const marker = join(tmpdir(), `kratt-f1-marker-${process.pid}-${Date.now()}`);
+    const probe = `import { writeFileSync } from "node:fs"; import { test } from "node:test"; test("x", () => {}); try { writeFileSync(${JSON.stringify(marker)}, "ran"); } catch {}`;
+    const root = fixture({ "scripts/probe.test.mjs": probe }, { "kratt/tests/probe.test.mjs": "../../scripts/probe.test.mjs" });
+    refused(await run(root, "kratt/tests/probe.test.mjs"), "alias to probe");
+    assert.equal(existsSync(marker), false, "target never started (and the permission model would block the write anyway)");
+  });
+
+  it("F1: chains (alias -> alias -> target), relative '..' links and absolute links are all judged by the final real path", async () => {
+    const root = fixture(
+      { "scripts/evil.test.mjs": PASS, "src/also.test.mjs": PASS, "kratt/tests/real.test.mjs": PASS },
+      {
+        "kratt/tests/hop2.test.mjs": "../../scripts/evil.test.mjs",
+        "kratt/tests/hop1.test.mjs": "hop2.test.mjs",
+        "cerberus/tests/up.test.mjs": "../../src/also.test.mjs",
+      },
+    );
+    symlinkSync(join(root, "src/also.test.mjs"), join(root, "kratt/tests/abs.test.mjs"));
+    for (const alias of ["kratt/tests/hop1.test.mjs", "kratt/tests/hop2.test.mjs", "kratt/tests/abs.test.mjs", "cerberus/tests/up.test.mjs"]) refused(await run(root, alias), alias);
+  });
+
+  it("F1: a symlinked DIRECTORY inside an allowed dir cannot smuggle files from outside the allow-list", async () => {
+    const root = fixture({ "scripts/dir/x.test.mjs": PASS, "kratt/tests/ok.test.mjs": PASS }, { "kratt/tests/sub": "../../scripts/dir" });
+    refused(await run(root, "kratt/tests/sub/x.test.mjs"), "via symlinked dir");
+  });
+
+  it("F1: an alias that stays inside the allow-list is fine (kratt/tests -> cerberus/tests, and within the same dir)", async () => {
+    const root = fixture({ "cerberus/tests/real.test.mjs": PASS, "kratt/tests/local.test.mjs": PASS }, { "kratt/tests/to-cerberus.test.mjs": "../../cerberus/tests/real.test.mjs", "kratt/tests/same.test.mjs": "local.test.mjs" });
+    for (const ok of ["kratt/tests/to-cerberus.test.mjs", "kratt/tests/same.test.mjs"]) {
+      const r = await run(root, ok);
+      assert.equal(r.failure, null, ok);
+      assert.deepEqual(r.checks, { pass: 1, fail: 0 }, ok);
+    }
+  });
+
+  it("F1: the allowed directory itself may be a symlink to another in-root directory (judged by its real path); files outside it are still refused", async () => {
+    const root = fixture({ "lib/real-tests/a.test.mjs": PASS, "scripts/evil.test.mjs": PASS }, { "custom/tests": "../lib/real-tests", "custom/evil.test.mjs": "../scripts/evil.test.mjs" });
+    const r = await run(root, "custom/tests/a.test.mjs", ["custom/tests"]);
+    assert.equal(r.failure, null);
+    assert.deepEqual(r.checks, { pass: 1, fail: 0 });
+    refused(await run(root, "custom/evil.test.mjs", ["custom"]), "alias in allowed 'custom' to scripts");
+  });
+
+  it("F1: an allowed directory that is a symlink out of the root allows nothing (escape wins); a missing allowed directory allows nothing", async () => {
+    const outside = realpathSync(mkdtempSync(join(tmpdir(), "kratt-al-out-")));
+    temps.push(outside);
+    writeFileSync(join(outside, "o.test.mjs"), PASS);
+    const root = fixture({ "kratt/tests/x.test.mjs": PASS }, { esc: outside });
+    assert.equal((await run(root, "esc/o.test.mjs", ["esc"])).failure, "path-escapes-root");
+    refused(await run(root, "kratt/tests/x.test.mjs", ["nothere"]), "missing allowed dir");
+    assert.equal((await run(root, "kratt/tests/x.test.mjs", ["kratt/tests"])).failure, null, "control");
+  });
+
+  it("F1 through the pipeline: an alias is FAIL_CLOSED and the evidence names the reason", async () => {
+    const root = fixture({ "scripts/evil.test.mjs": PASS }, { "kratt/tests/alias.test.mjs": "../../scripts/evil.test.mjs" });
+    const o = await runKrattTask(task("kratt/tests/alias.test.mjs"), { root, trustGate: stubAdapter("trust-gate", "AUTHORIZED"), guard: new ReplayGuard() });
+    assert.equal(o.receipt.decision, "FAIL_CLOSED");
+    assert.equal(o.evidence?.failure, "test-dir-not-allowed");
+    assert.equal(o.evidence?.verdict, "REJECTED");
+  });
+
+  it("F1 TOCTOU: re-pointing the alias to another (allowed) file with identical bytes during the run is reported as tampering", async () => {
+    const SLOW = `import { test } from "node:test"; test("slow", async () => { await new Promise((r) => setTimeout(r, 400)); });`;
+    const root = fixture({ "kratt/tests/a.test.mjs": SLOW, "kratt/tests/b.test.mjs": SLOW }, { "kratt/tests/alias.test.mjs": "a.test.mjs" });
+    const p = run(root, "kratt/tests/alias.test.mjs");
+    unlinkSync(join(root, "kratt/tests/alias.test.mjs"));
+    symlinkSync("b.test.mjs", join(root, "kratt/tests/alias.test.mjs"));
+    const r = await p;
+    assert.equal(r.failure, "test-file-changed-during-run", "same bytes, different real file");
+    assert.equal(r.checks.fail, 1);
   });
 });
 

@@ -8,7 +8,7 @@ import { envelope, fixedClock } from "./fixtures.ts";
 /**
  * A-010: boundary tests for every TaskEnvelope field. Each row states what the CURRENT validator does.
  * Rows marked ACCEPT are intentional leniencies of the schema (listed so a tightening/loosening is noticed);
- * behaviour that is unsafe is NOT asserted as expected - it lives in the `todo` tests at the bottom.
+ * behaviour that is unsafe is NOT asserted as expected (former findings F2/F3/F4 are fixed and tested at the bottom).
  */
 const base = (): Record<string, unknown> => ({ ...envelope() });
 const withField = (k: string, v: unknown) => ({ ...base(), [k]: v });
@@ -223,36 +223,136 @@ test("hostile containers: non-objects, class instances, Proxy, accessors, symbol
   assert.equal(verdict(nestedBoom), "$:unreadable", "a throw anywhere is converted at the top-level check() boundary");
 });
 
-test("a valid envelope is returned by identity-preserving validation (no mutation, no coercion of the caller's object)", () => {
+test("a valid envelope is returned as an equal, independent plain snapshot (no mutation of the caller's object, no coercion)", () => {
   const e = envelope();
   const before = JSON.stringify(e);
   const r = validateEnvelope(e);
   assert.ok(r.ok);
-  assert.equal(r.value, e, "same object returned");
-  assert.equal(JSON.stringify(e), before);
+  assert.deepEqual(r.value, e, "same content");
+  assert.notEqual(r.value, e, "but not the caller's object: later mutation of the input cannot change what was validated");
+  assert.notEqual(r.value.scope, e.scope);
+  assert.notEqual(r.value.resource_budget, e.resource_budget);
+  assert.equal(Object.getPrototypeOf(r.value), Object.prototype);
+  assert.equal(JSON.stringify(e), before, "input untouched");
+  const frozen = validateEnvelope(Object.freeze(envelope()));
+  assert.ok(frozen.ok);
+  e.agent_id = "SERPENT-099";
+  e.scope.push("zzz");
+  e.resource_budget.max_files = 1;
+  assert.equal(r.value.agent_id, envelope().agent_id);
+  assert.deepEqual(r.value.scope, envelope().scope);
+  assert.deepEqual(r.value.resource_budget, envelope().resource_budget);
 });
 
 // ----------------------------------------------------------------------------------------------
-// DEFECTS (reported as F2/F3 in the PR). These assert the SAFE behaviour and are `todo` so the suite
-// stays green while open; remove `todo` once the validator is tightened and they must pass.
+// Former open findings F2/F3/F4 (were `todo`; fixed in validateEnvelope). Positive controls pin what must stay legal.
 // ----------------------------------------------------------------------------------------------
-test("F2: objective must not contain C1 controls, line/paragraph separators, bidi overrides/isolates or lone surrogates", { todo: "validator only forbids C0+DEL (types.ts TEXT regex); display/log spoofing risk" }, () => {
-  for (const bad of ["a\u0085b", "a\u2028b", "a\u2029b", "a\u202eb", "a\u2066b", "a\u200bb", "a\ufeffb", "a\ud800b"]) assert.notEqual(field("objective", bad), "ACCEPT", JSON.stringify(bad));
+const OBJ_BAD = "$.objective:forbidden-character";
+test("F2: objective rejects C1 controls, line/paragraph separators, bidi marks/overrides/isolates, zero-width and lone surrogates - at start, middle and end", () => {
+  const bad: [string, string][] = [
+    ["C1 U+0080", "\u0080"], ["C1 NEL U+0085", "\u0085"], ["C1 U+009F", "\u009f"], ["ALM U+061C", "\u061c"],
+    ["ZWSP U+200B", "\u200b"], ["LRM U+200E", "\u200e"], ["RLM U+200F", "\u200f"],
+    ["LS U+2028", "\u2028"], ["PS U+2029", "\u2029"],
+    ["LRE U+202A", "\u202a"], ["RLE U+202B", "\u202b"], ["PDF U+202C", "\u202c"], ["LRO U+202D", "\u202d"], ["RLO U+202E", "\u202e"],
+    ["WJ U+2060", "\u2060"], ["LRI U+2066", "\u2066"], ["RLI U+2067", "\u2067"], ["FSI U+2068", "\u2068"], ["PDI U+2069", "\u2069"],
+    ["BOM U+FEFF", "\ufeff"],
+    ["lone high surrogate", "\ud800"], ["lone low surrogate", "\udc00"], ["reversed pair", "\udc00\ud800"], ["high surrogate before ASCII", "\ud83dx"],
+  ];
+  for (const [name, ch] of bad) {
+    for (const where of [`${ch}tail`, `head${ch}tail`, `head${ch}`, ch]) assert.equal(field("objective", where), OBJ_BAD, `${name} in ${JSON.stringify(where)}`);
+  }
+  const rlo = field("objective", "invoice\u202Egpj.exe");
+  assert.equal(rlo, OBJ_BAD, "the classic right-to-left-override filename trick");
 });
 
-test("F3: repository and branch must be well-formed slugs/refs (no '.'/'..' segments, no '//', no trailing '/' or '.lock', no '..')", { todo: "REPO/BRANCH regexes accept '../..', './.', 'a/../b', 'a//b', 'a/', 'a.lock', 'a..b'" }, () => {
-  for (const bad of ["./.", "../..", "./..", "../."]) assert.notEqual(field("repository", bad), "ACCEPT", `repository ${bad}`);
-  for (const bad of ["a/../b", "a//b", "a/", "a.lock", "a..b", "a/.b"]) assert.notEqual(field("branch", bad), "ACCEPT", `branch ${bad}`);
+test("F2 controls: legitimate text is still accepted (NBSP, accents, CJK, Arabic/Persian with ZWNJ, emoji incl. ZWJ sequences, boundary lengths)", () => {
+  const good = ["plain ascii", "caf\u00e9", "na\u00efve \u00fcber", "\u00a0nbsp", "\u00ff", "\u65e5\u672c\u8a9e", "\u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645", "\ud83d\ude00", "\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67", "tab-free\u2013dash \u201cquotes\u201d", "\u2027\u202f\u2030", "\u20ac"];
+  for (const g of good) assert.equal(field("objective", g), "ACCEPT", JSON.stringify(g));
+  assert.equal(field("objective", "x".repeat(500)), "ACCEPT");
+  assert.equal(field("objective", "x".repeat(499) + "\u2028"), OBJ_BAD, "length is fine, the character is not");
+  assert.equal(field("objective", "x".repeat(501)), "$.objective:too-long");
 });
 
-test("F4: validateEnvelope must not throw, and must not hand back an object whose reads differ from what was validated (Proxy with a hostile get trap)", { todo: "validateEnvelope validates via property descriptors but then reads e.agent_id etc. through [[Get]] and returns the original object (types.ts); a throwing/lying get trap escapes the fail-closed contract" }, () => {
+test("F2 pipeline: a spoofing objective never gets into the queue", () => {
+  const d = new Dispatcher(buildInitialRegistry({}), { clock: fixedClock() });
+  assert.throws(() => d.enqueue(withField("objective", "ok\u2028FORGED LOG LINE")), (e) => e instanceof DispatchError && e.code === `envelope-invalid:${OBJ_BAD}`);
+  assert.equal(d.queue.length, 0);
+});
+
+test("F3: repository rejects dot-only segments ('.', '..', '...') on either side", () => {
+  for (const bad of ["./.", "../..", "./..", "../.", ".../x", "x/...", "./x", "x/.", "../x", "x/..", "o/.", "..../..."]) assert.equal(field("repository", bad), "$.repository:dot-segment", bad);
+  for (const good of ["o/r", ".github/x", "o/.github", "a.b/c.d", "o/r..x", "o/..r", "o/r..", "_/_", "0/0", "o/.hidden.repo"]) assert.equal(field("repository", good), "ACCEPT", good);
+});
+
+test("F3: branch rejects git-invalid ref forms (.., //, trailing / or ., .lock components, dot components) with a specific reason", () => {
+  const rows: [string, string][] = [
+    ["a/../b", "$.branch:ref-double-dot"], ["a..b", "$.branch:ref-double-dot"], ["a/../../etc", "$.branch:ref-double-dot"], ["..", "$.branch:pattern"],
+    ["a//b", "$.branch:ref-empty-component"], ["a///b", "$.branch:ref-empty-component"],
+    ["a/", "$.branch:ref-trailing-separator"], ["a/b/", "$.branch:ref-trailing-separator"], ["a.", "$.branch:ref-trailing-separator"], ["a/b.", "$.branch:ref-trailing-separator"],
+    ["a.lock", "$.branch:ref-lock-suffix"], ["a/b.lock", "$.branch:ref-lock-suffix"], ["a.lock/b", "$.branch:ref-lock-suffix"], ["x/y.lock/z", "$.branch:ref-lock-suffix"],
+    ["a/.b", "$.branch:ref-dot-component"], ["a/./b", "$.branch:ref-dot-component"], ["a/.", "$.branch:ref-trailing-separator"], ["a/..", "$.branch:ref-trailing-separator"], ["a/.lock", "$.branch:ref-dot-component"],
+    // already rejected by the character-class (unchanged)
+    ["-a", "$.branch:pattern"], [".a", "$.branch:pattern"], ["/a", "$.branch:pattern"], ["a b", "$.branch:pattern"], ["a@{1}", "$.branch:pattern"],
+  ];
+  for (const [b, want] of rows) assert.equal(field("branch", b), want, JSON.stringify(b));
+  for (const good of ["main", "feature/x-1.2", "a.b", "release/v1.0.0", "a/b/c", "x.locked", "a.lockx", "lock", "a_b-c", "0", "exec/kratt-f1-f4", "a/b.c/d", "a/-b"]) assert.equal(field("branch", good), "ACCEPT", good);
+  assert.equal(field("branch", "a".repeat(200)), "ACCEPT");
+});
+
+test("F3 pipeline: traversal-shaped repository/branch never get into the queue", () => {
+  const d = new Dispatcher(buildInitialRegistry({}), { clock: fixedClock() });
+  for (const [k, v] of [["repository", "../.."], ["repository", "./."], ["branch", "a/../b"]] as const) {
+    assert.throws(() => d.enqueue(withField(k, v)), (e) => e instanceof DispatchError && e.code.startsWith("envelope-invalid:"), `${k}=${v}`);
+  }
+  assert.equal(d.queue.length, 0);
+});
+
+test("F4: a hostile Proxy comes back as {ok:false}; validateEnvelope never throws (throwing get / has / ownKeys / getOwnPropertyDescriptor / getPrototypeOf traps)", () => {
+  const traps = ["get", "has", "ownKeys", "getOwnPropertyDescriptor", "getPrototypeOf"] as const;
+  for (const trap of traps) {
+    const p = new Proxy(envelope(), { [trap]: () => { throw new Error(`${trap} trap`); } });
+    let r: ReturnType<typeof validateEnvelope> | undefined;
+    assert.doesNotThrow(() => { r = validateEnvelope(p); }, trap);
+    assert.equal(r?.ok, false, `${trap}: fail closed`);
+  }
   const throwing = new Proxy(envelope(), { get: () => { throw new Error("get trap"); } });
-  assert.doesNotThrow(() => validateEnvelope(throwing), "a hostile input must come back as {ok:false}, not as an exception");
+  const r = validateEnvelope(throwing);
+  assert.deepEqual(r, { ok: false, reason: "$:unreadable" });
+  // nested hostile proxies (inside otherwise valid envelopes) too
+  const nested = [
+    withField("resource_budget", new Proxy(envelope().resource_budget, { get: () => { throw new Error("x"); } })),
+    withField("scope", new Proxy(["a.ts"], { get: () => { throw new Error("x"); } })),
+    withField("allowed_actions", new Proxy(["read"], { getOwnPropertyDescriptor: () => { throw new Error("x"); } })),
+  ];
+  for (const n of nested) { let x: ReturnType<typeof validateEnvelope> | undefined; assert.doesNotThrow(() => { x = validateEnvelope(n); }); assert.equal(x?.ok, false); }
+});
+
+test("F4: a lying Proxy can never make the validated value differ from the consumed value", () => {
   const real = envelope();
+  const lyingGet = new Proxy(real, { get: (t, k, r) => (k === "agent_id" ? "SERPENT-099" : Reflect.get(t, k, r)) });
+  const a = validateEnvelope(lyingGet);
+  assert.equal(a.ok, false, "proxies are refused outright");
+  // A descriptor-lying proxy that flips between valid and invalid data on successive reads.
+  let n = 0;
+  const flipping = new Proxy(real, { getOwnPropertyDescriptor: (t, k) => { const d = Reflect.getOwnPropertyDescriptor(t, k); return k === "agent_id" && d && ++n > 1 ? { ...d, value: "NOT-AN-AGENT" } : d; } });
+  const b = validateEnvelope(flipping);
+  assert.equal(b.ok, false);
+  // A getter that changes its answer is rejected as an accessor, never read.
   let reads = 0;
-  const lying = new Proxy(real, { get: (t, k, r) => (k === "agent_id" && ++reads > 0 ? "SERPENT-099" : Reflect.get(t, k, r)) });
-  const r = validateEnvelope(lying);
-  assert.ok(!r.ok || r.value.agent_id === real.agent_id, "validated value and consumed value must be the same");
+  const getter = { ...envelope() } as Record<string, unknown>;
+  delete getter.agent_id;
+  Object.defineProperty(getter, "agent_id", { enumerable: true, get: () => (++reads === 1 ? "FORGE-001" : "SERPENT-099") });
+  assert.equal(verdict(getter), "$.agent_id:accessor");
+  assert.equal(reads, 0, "the getter was never invoked");
+});
+
+test("F4 controls: ordinary, frozen, null-prototype and JSON.parse'd envelopes are still accepted and equal", () => {
+  const e = envelope();
+  for (const input of [e, Object.freeze(envelope()), JSON.parse(JSON.stringify(e)) as unknown]) {
+    const r = validateEnvelope(input);
+    assert.ok(r.ok);
+    assert.deepEqual(r.value, e);
+  }
 });
 
 export type _Keep = TaskEnvelope;
