@@ -19,7 +19,9 @@
       "factory": "FORGE",
       "role": "Repository Mapper",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "repo:map-tree"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -31,7 +33,9 @@
       "factory": "FORGE",
       "role": "Dependency Mapper",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "deps:map-package"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -163,7 +167,9 @@
       "factory": "FORGE",
       "role": "Schema Engineer",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "schema:validate-json"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -307,11 +313,6 @@
       "factory": "FORGE",
       "role": "KRATT Engineer",
       "state": "SLEEP",
-      "capabilities": [],
-      "current_task": null,
-      "completed_tasks": 0,
-      "failed_tasks": 0,
-      "evidence": []
       "capabilities": [
         "kratt:hash-files",
         "kratt:validate-manifest",
@@ -595,7 +596,9 @@
       "factory": "FORGE",
       "role": "Documentation-from-Code Agent",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "docs:check-links"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -619,11 +622,6 @@
       "factory": "SERPENT",
       "role": "RÄSTIK Commander",
       "state": "SLEEP",
-      "capabilities": [],
-      "current_task": null,
-      "completed_tasks": 0,
-      "failed_tasks": 0,
-      "evidence": []
       "capabilities": [
         "rastik:run-probes"
       ],
@@ -641,11 +639,6 @@
       "factory": "SERPENT",
       "role": "Input Fuzzer",
       "state": "SLEEP",
-      "capabilities": [],
-      "current_task": null,
-      "completed_tasks": 0,
-      "failed_tasks": 0,
-      "evidence": []
       "capabilities": [
         "rastik:attack:invalid-input"
       ],
@@ -663,11 +656,6 @@
       "factory": "SERPENT",
       "role": "Boundary Tester",
       "state": "SLEEP",
-      "capabilities": [],
-      "current_task": null,
-      "completed_tasks": 0,
-      "failed_tasks": 0,
-      "evidence": []
       "capabilities": [
         "rastik:attack:boundary"
       ],
@@ -709,11 +697,6 @@
       "factory": "SERPENT",
       "role": "Schema Breaker",
       "state": "SLEEP",
-      "capabilities": [],
-      "current_task": null,
-      "completed_tasks": 0,
-      "failed_tasks": 0,
-      "evidence": []
       "capabilities": [
         "rastik:attack:malformed-receipt"
       ],
@@ -767,11 +750,6 @@
       "factory": "SERPENT",
       "role": "Replay Tester",
       "state": "SLEEP",
-      "capabilities": [],
-      "current_task": null,
-      "completed_tasks": 0,
-      "failed_tasks": 0,
-      "evidence": []
       "capabilities": [
         "rastik:attack:stale-base-sha",
         "rastik:attack:replay"
@@ -804,11 +782,6 @@
       "factory": "SERPENT",
       "role": "Authorization Tester",
       "state": "SLEEP",
-      "capabilities": [],
-      "current_task": null,
-      "completed_tasks": 0,
-      "failed_tasks": 0,
-      "evidence": []
       "capabilities": [
         "rastik:attack:unauthorized-action"
       ],
@@ -872,7 +845,9 @@
       "factory": "SERPENT",
       "role": "Artifact Integrity Tester",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "artifact:verify-manifest"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -896,7 +871,9 @@
       "factory": "SERPENT",
       "role": "Supply-Chain Reviewer",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "supply-chain:review-lockfile"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -908,7 +885,9 @@
       "factory": "SERPENT",
       "role": "Secret Exposure Reviewer",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "secrets:scan-files"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -1016,7 +995,9 @@
       "factory": "SERPENT",
       "role": "Package-Lock Auditor",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "lockfile:audit-integrity"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -1292,11 +1273,6 @@
       "factory": "CITADEL",
       "role": "TÖEPÄRA Commander",
       "state": "SLEEP",
-      "capabilities": [],
-      "current_task": null,
-      "completed_tasks": 0,
-      "failed_tasks": 0,
-      "evidence": []
       "capabilities": [
         "toepara:verify"
       ],
@@ -1338,7 +1314,9 @@
       "factory": "CITADEL",
       "role": "Evidence Hasher",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "evidence:hash-blobs"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -1422,11 +1400,6 @@
       "factory": "CITADEL",
       "role": "CERBERUS Commander",
       "state": "SLEEP",
-      "capabilities": [],
-      "current_task": null,
-      "completed_tasks": 0,
-      "failed_tasks": 0,
-      "evidence": []
       "capabilities": [
         "cerberus:decide"
       ],
