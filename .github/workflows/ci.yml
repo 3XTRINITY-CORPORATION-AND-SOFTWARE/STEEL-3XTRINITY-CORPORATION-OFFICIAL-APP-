@@ -7,8 +7,11 @@ name: Vite CI
 on:
   push:
     branches: ["main"]
+  # No branch filter: stacked PRs (base != main) must be gated too, otherwise they merge unchecked.
   pull_request:
-    branches: ["main"]
+
+permissions:
+  contents: read
 
 concurrency:
   group: vite-ci-${{ github.workflow }}-${{ github.ref }}

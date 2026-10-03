@@ -174,8 +174,9 @@ test("capability map and handler keys agree: every declared capability has a han
   const declared = Object.entries(CAPABILITIES).flatMap(([id, caps]) => caps.map((c) => `${id}:${c}`)).sort();
   assert.deepEqual([...HANDLER_KEYS].sort(), declared);
   const { dispatcher } = setup();
-  assert.equal(dispatcher.available().length, 11);
-  assert.deepEqual(countRegistry(dispatcher.registry).with_capabilities, 11);
+  assert.equal(dispatcher.available().length, Object.keys(CAPABILITIES).length);
+  assert.deepEqual(countRegistry(dispatcher.registry).with_capabilities, Object.keys(CAPABILITIES).length);
+  assert.equal(Object.keys(CAPABILITIES).length, 20, "11 closed-loop workers + 9 handler workers (factory/handlers)");
 });
 
 test("selfCheckFinalReceipt flags tampering with a stored final receipt", async () => {
