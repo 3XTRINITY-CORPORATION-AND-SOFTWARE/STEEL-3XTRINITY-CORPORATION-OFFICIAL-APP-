@@ -2,8 +2,9 @@ import { canonicalize, malformedInputReceipt, verifyReceipt, type RecoveryReceip
 import type { NormalizedInput } from "../cerberus/core/normalize.ts";
 import { sha256Hex } from "../cerberus/artifact-trust/artifact-trust.ts";
 import { decideWithAdapters, type VerdictAdapter } from "../cerberus/integrations/verdict-adapters.ts";
-import { KRATT_ACTIONS } from "../kratt/task.ts";
-import { ReplayGuard } from "../kratt/evidence.ts";
+import { noSigningProvider, bundleSubject, rastikSubject, signatureStatus, type ArtifactSignatures, type SignatureReport, type SigningPolicy } from "./signing.ts";
+import type { ReplayStore } from "./replay-store.ts";
+import { DEFAULT_TRUST_TIMEOUT_MS, policyViolations, resolveTrustGate, stubPolicyTrustGate, type AsyncTrustGate, type TrustGateRequest } from "./trust-gate.ts";
 import { toeparaVerify, type ToeparaCtx, type ToeparaResult } from "./toepara.ts";
 import {
   PROTOCOL_VERSION,
@@ -36,7 +37,13 @@ import { isUnresolvedHigh, type RastikRun } from "./rastik-types.ts";
 export const CERBERUS_ACTION = "detect";
 
 export interface CerberusCtx extends ToeparaCtx {
-  guard: ReplayGuard;
+  /** One-time-use store: kratt `ReplayGuard` (in-memory) or `FileReplayGuard` (persistent, cross-process). */
+  guard: ReplayStore;
+  /** Async Trust Gate (default: the local stub policy). Denied on timeout/throw/malformed verdict. */
+  trustGate?: AsyncTrustGate;
+  trustGateTimeoutMs?: number;
+  /** Evidence authentication policy. Absent => no provider, nothing required (statuses are UNSIGNED). */
+  signing?: SigningPolicy;
 }
 
 export interface GateInput {
@@ -44,6 +51,8 @@ export interface GateInput {
   receipt: unknown;
   rastik: RastikRun | null;
   toepara: ToeparaResult;
+  /** Signatures presented for the TÖEPÄRA bundle and the RÄSTIK report. Verified against subjects CERBERUS recomputes. */
+  signatures?: ArtifactSignatures;
 }
 
 export interface GateOutput {
@@ -51,18 +60,16 @@ export interface GateOutput {
   cerberus_receipt: RecoveryReceipt;
   /** Diagnostics from the adapters (also reflected coarsely in the receipt). */
   adapter_reasons: string[];
+  /** Authentication status of the evidence (UNSIGNED unless a provider verified a signature). */
+  signature_status: SignatureReport;
 }
 
 export function localPolicyTrustGate(envelope: TaskEnvelope, receipt: unknown, repository: string, sink: string[]): VerdictAdapter {
   return {
     name: "local-policy-trust-gate(NOT the real Trust Gate)",
     verdict() {
-      const why: string[] = [];
       const action = typeof receipt === "object" && receipt !== null ? (receipt as { action?: unknown }).action : undefined;
-      if (envelope.repository !== repository) why.push("policy:repository-mismatch");
-      if (!envelope.allowed_actions.every((a) => (KRATT_ACTIONS as readonly string[]).includes(a))) why.push("policy:non-kratt-action-allowed");
-      for (const must of ["merge", "deploy"]) if (!envelope.forbidden_actions.includes(must)) why.push(`policy:${must}-not-forbidden`);
-      if (typeof action !== "string" || !envelope.allowed_actions.includes(action)) why.push("policy:receipt-action-not-allowed");
+      const why = policyViolations(envelope, action, repository);
       sink.push(...why);
       return why.length === 0 ? "AUTHORIZED" : "DENIED";
     },
@@ -84,6 +91,7 @@ export async function cerberusDecide(input: GateInput, ctx: CerberusCtx): Promis
   const content = canonicalize(input.toepara.bundle ?? { bundle: null });
   const artifact = { name: `factory-bundle-${taskId}.json`, content, sha256: sha256Hex(content) };
 
+  let signingBlock: string | null = null; // set before the pipeline runs; checked BEFORE the replay guard so a rejected bundle is not burned
   const toepara: VerdictAdapter = {
     name: "factory-toepara-recompute",
     verdict(snapshot: Readonly<NormalizedInput>) {
@@ -104,13 +112,48 @@ export async function cerberusDecide(input: GateInput, ctx: CerberusCtx): Promis
       if (b.value.bundle_digest !== freshBundle?.bundle_digest) return reject("bundle-digest-differs-from-recomputed");
       if (fresh.verdict.verdict !== "VERIFIED" || freshBundle === null) return reject(`toepara-recompute-${fresh.verdict.verdict.toLowerCase()}:${fresh.verdict.reasons[0] ?? "no-reason"}`);
       if (canonicalize(freshBundle) !== a.content) return reject("bundle-differs-from-recomputed");
+      if (signingBlock !== null) return reject(signingBlock);
       if (!ctx.guard.consume(freshBundle.bundle_digest)) return reject("replayed-bundle");
       return "ADMITTED";
     },
   };
-  const trustGate: VerdictAdapter = ev.ok
-    ? localPolicyTrustGate(ev.value, input.receipt, ctx.repository, adapterReasons)
-    : { name: "local-policy-trust-gate(NOT the real Trust Gate)", verdict: () => (adapterReasons.push("policy:envelope-invalid"), "DENIED") };
+  // Trust Gate: resolved asynchronously BEFORE the synchronous Cerberus pipeline (deny on timeout/throw/malformed).
+  let gateVerdict: "AUTHORIZED" | "DENIED";
+  if (!ev.ok) {
+    adapterReasons.push("policy:envelope-invalid");
+    gateVerdict = "DENIED";
+  } else {
+    const action = typeof input.receipt === "object" && input.receipt !== null ? (input.receipt as { action?: unknown }).action : undefined;
+    const req: TrustGateRequest = Object.freeze({
+      task_id: ev.value.task_id,
+      repository: ev.value.repository,
+      action: typeof action === "string" ? action : null,
+      envelope: structuredClone(ev.value),
+      host_repository: ctx.repository,
+    });
+    const res = await resolveTrustGate(ctx.trustGate ?? stubPolicyTrustGate, req, ctx.trustGateTimeoutMs ?? DEFAULT_TRUST_TIMEOUT_MS);
+    // Defense in depth: the local policy ALWAYS applies, even when an external gate says AUTHORIZED.
+    const local = policyViolations(ev.value, action, ctx.repository);
+    gateVerdict = res.verdict === "AUTHORIZED" && local.length === 0 ? "AUTHORIZED" : "DENIED";
+    adapterReasons.push(...res.reasons, ...local);
+  }
+  const trustGate: VerdictAdapter = { name: "async-trust-gate-resolved", verdict: () => gateVerdict };
+
+  // Evidence authentication (statuses are always computed; they only gate the decision when required).
+  const sp = ctx.signing ?? { provider: noSigningProvider, required: false };
+  const signature_status: SignatureReport = {
+    bundle: freshBundle === null ? "UNSIGNED" : await signatureStatus(sp.provider, "evidence-bundle", bundleSubject(freshBundle), input.signatures?.bundle),
+    rastik:
+      input.rastik === null
+        ? "NOT_APPLICABLE"
+        : await signatureStatus(sp.provider, "rastik-report", rastikSubject(input.rastik), input.signatures?.rastik),
+  };
+  const signingDenied = sp.required && (signature_status.bundle !== "SIGNED" || (signature_status.rastik !== "SIGNED" && signature_status.rastik !== "NOT_APPLICABLE"));
+  if (signingDenied) signingBlock = "evidence-authentication-required-not-satisfied";
+  if (sp.required) {
+    if (signature_status.bundle !== "SIGNED") adapterReasons.push(`signature:evidence-bundle:${signature_status.bundle}`);
+    if (signature_status.rastik !== "SIGNED" && signature_status.rastik !== "NOT_APPLICABLE") adapterReasons.push(`signature:rastik-report:${signature_status.rastik}`);
+  }
 
   const rc = decideWithAdapters({ action: CERBERUS_ACTION, artifact }, { toepara, trustGate });
   const unresolved = (input.rastik?.findings ?? []).filter(isUnresolvedHigh).map((f) => f.finding_id);
@@ -135,6 +178,7 @@ export async function cerberusDecide(input: GateInput, ctx: CerberusCtx): Promis
     decision: { ...body, decision_digest: digestOf(body) } as CerberusDecision,
     cerberus_receipt: rc,
     adapter_reasons: adapterReasons,
+    signature_status,
   };
 }
 
@@ -150,7 +194,7 @@ export function denyWithoutReceipt(taskId: string, reason: string): GateOutput {
     cerberus_receipt_digest: rc.receiptDigest,
     unresolved_high_findings: [] as string[],
   };
-  return { decision: { ...body, decision_digest: digestOf(body) }, cerberus_receipt: rc, adapter_reasons: [] };
+  return { decision: { ...body, decision_digest: digestOf(body) }, cerberus_receipt: rc, adapter_reasons: [], signature_status: { bundle: "UNSIGNED", rastik: "NOT_APPLICABLE" } };
 }
 
 export { verifyReceipt };
