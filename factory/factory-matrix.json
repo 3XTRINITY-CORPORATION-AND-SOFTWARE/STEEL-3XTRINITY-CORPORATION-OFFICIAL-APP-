@@ -1,7 +1,4 @@
 {
-  "matrix_version": 1,
-  "note": "no factory evidence connected to scripts/matrix250 yet",
-  "slots": []
   "matrix_version": 2,
   "note": "PASS means exactly one named, already-existing test passed in this run; per-slot specifications for most slots do not exist, so the counts are provisional and do not prove each slot's whole domain. Counts come from scripts/matrix250/matrix.mjs, never from documentation.",
   "summary": {

@@ -58,7 +58,6 @@ test("validator rejects each broken initial invariant", () => {
 });
 
 test("committed factory-registry.json is structurally valid and consistent with the role definitions", () => {
-  assert.deepEqual(validateRegistryShape(committed()), []);
   assert.deepEqual(validateRegistryShape(committed(), CAPABILITIES), []);
 });
 
