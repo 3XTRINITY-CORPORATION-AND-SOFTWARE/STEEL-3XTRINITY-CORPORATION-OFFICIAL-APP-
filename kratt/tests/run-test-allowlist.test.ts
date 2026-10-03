@@ -183,6 +183,21 @@ describe("file-identity rules", () => {
     assert.equal((await run(root, "kratt/tests/x.test.mjs", ["kratt/tests"])).failure, null, "control");
   });
 
+  it("F1: the real directory must match the allowed directory as a whole path component (kratt/tests-evil is not kratt/tests)", async () => {
+    const root = fixture({ "kratt/tests-evil/x.test.mjs": PASS, "kratt/tests/ok.test.mjs": PASS }, { "kratt/tests/sib.test.mjs": "../tests-evil/x.test.mjs" });
+    refused(await run(root, "kratt/tests/sib.test.mjs"), "sibling-prefix directory");
+  });
+
+  it("F1: an allowed directory that resolves to the root itself allows nothing (it would allow every file in the repo)", async () => {
+    const root = fixture({ "scripts/x.test.mjs": PASS }, { custom: "." });
+    refused(await run(root, "custom/scripts/x.test.mjs", ["custom"]), "allowed dir == root");
+  });
+
+  it("F1: the lexical rule still applies on its own: an alias OUTSIDE the allowed dirs that points INTO one is refused", async () => {
+    const root = fixture({ "kratt/tests/real.test.mjs": PASS }, { "scripts/link.test.mjs": "../kratt/tests/real.test.mjs" });
+    refused(await run(root, "scripts/link.test.mjs"), "outside alias to inside");
+  });
+
   it("F1 through the pipeline: an alias is FAIL_CLOSED and the evidence names the reason", async () => {
     const root = fixture({ "scripts/evil.test.mjs": PASS }, { "kratt/tests/alias.test.mjs": "../../scripts/evil.test.mjs" });
     const o = await runKrattTask(task("kratt/tests/alias.test.mjs"), { root, trustGate: stubAdapter("trust-gate", "AUTHORIZED"), guard: new ReplayGuard() });
