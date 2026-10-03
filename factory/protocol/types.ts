@@ -271,7 +271,6 @@ function snapshotJson(v: unknown, depth = 0): unknown {
 // C1 controls (incl. NEL U+0085), LINE/PARAGRAPH SEPARATOR, bidi marks/embeddings/overrides/isolates (U+061C, U+200E/F,
 // U+202A-E, U+2066-9), zero-width space/word-joiner/BOM (U+200B, U+2060, U+FEFF) and unpaired surrogates.
 // ZWNJ/ZWJ (U+200C/D) stay legal: they are needed for real scripts and emoji sequences.
-// eslint-disable-next-line no-control-regex
 const OBJECTIVE_SPOOFING = /[\u0080-\u009f\u061c\u200b\u200e\u200f\u2028\u2029\u202a-\u202e\u2060\u2066-\u2069\ufeff\ud800-\udfff]/u;
 const isDotSegment = (s: string): boolean => /^\.+$/.test(s);
 /** Mirrors `git check-ref-format` for the parts the permissive BRANCH character class leaves open. */
