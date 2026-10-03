@@ -172,6 +172,8 @@ Runtime-drift battery, `runRuntimeDriftAttacks` (21 bounded cases): `.nvmrc` oth
 
 ## 4. Defects found (real, reproduced against origin/main f429a20)
 
+**Status: all defects listed below (D1 replay key, D2 producer role, the impossible-timestamp boundary case and the five `selfCheckFinalReceipt` gaps) are FIXED; the `openDefect` flags are removed, the cases run in the default battery, and `factory/tests/rastik-findings.test.ts` pins each fix (replay key `digestOf({task_id, action, base_sha, kratt_evidence_digest})`, `kratt:<action>` producer capability in `trust-gate.ts` + `toepara.ts`, `isoRoundTrip` timestamp check, `selfCheckFinalReceipt` recomputation + cross-links). The text below is the historical report.**
+
 Cases flagged `openDefect` are excluded from the default loop battery (so the loop is not quarantined by an already reported defect) and are pinned by strict tests: when a defect is fixed the pin fails with "FIXED" and the fix PR deletes the `openDefect` flag so the case joins the default battery and guards the fix. None of these files is in this PR's lease; nothing was edited.
 
 | # | defect | risk | reproduction (regression test = `finding.regression_test`) | component | smallest fix |

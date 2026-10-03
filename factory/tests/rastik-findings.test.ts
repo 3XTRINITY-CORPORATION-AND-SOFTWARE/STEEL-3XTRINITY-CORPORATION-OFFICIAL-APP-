@@ -155,6 +155,14 @@ test("selfCheck: a missing CERBERUS decision / receipt / section is a violation,
   }
 });
 
+test("selfCheck: a receipt whose properties throw on access is reported as unreadable, not thrown", async () => {
+  const r = structuredClone(await sealed("self-throwing")) as any;
+  for (const key of ["caller", "cerberus", "toepara", "rastik", "final_decision"]) Object.defineProperty(r, key, { get() { throw new Error("hostile getter"); }, enumerable: true });
+  let out: string[] = [];
+  assert.doesNotThrow(() => { out = selfCheckFinalReceipt(r); });
+  for (const name of ["final_digest", "caller", "cerberus", "toepara", "rastik"]) assert.ok(out.includes(`selfcheck-unreadable:${name}`), `${name}: ${out.join(",")}`);
+});
+
 test("selfCheck: recomputes the CERBERUS decision digest and the schema of the embedded decision", async () => {
   const r = await sealed("self-decision");
   assert.ok(reasons(tamper(r, (x) => (x.cerberus.decision.reasons = ["edited"]))).includes("cerberus-decision-digest-mismatch"));
