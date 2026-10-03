@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync, appendFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, linkSync, mkdirSync, readdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync, appendFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
 import { after, describe, it } from "node:test";
 import { stubAdapter } from "../../cerberus/integrations/verdict-adapters.ts";
@@ -233,6 +235,95 @@ describe("file-identity rules", () => {
     const r = await p;
     assert.equal(r.failure, "test-file-changed-during-run", "same bytes, different real file");
     assert.equal(r.checks.fail, 1);
+  });
+});
+
+describe("run-test executes a pinned private snapshot, never a re-resolvable path (audit TOCTOU)", () => {
+  const GOOD_SLOW = `import { test } from "node:test"; test("good", async () => { await new Promise((r) => setTimeout(r, 300)); });`;
+  const EVIL = `import { test } from "node:test"; test("evil", async () => { throw new Error("EVIL_RAN"); });`;
+  const snapDirs = () => readdirSync(tmpdir()).filter((n) => n.startsWith("kratt-snap-")).sort();
+
+  it("content swapped in the repo right after the run starts is NOT what executes: the child runs the validated bytes (exit 0), the swap is reported as tampering", async () => {
+    const root = fixture({ "kratt/tests/t.test.mjs": GOOD_SLOW });
+    const p = run(root, "kratt/tests/t.test.mjs"); // pin + snapshot + spawn happen synchronously inside this call
+    writeFileSync(join(root, "kratt/tests/t.test.mjs"), EVIL); // before node has even started reading anything
+    const r = await p;
+    assert.equal(r.exitCode, 0, "the child ran the pinned snapshot, not the evil replacement");
+    assert.equal(r.failure, "test-file-changed-during-run");
+    assert.equal(r.artifacts[0]?.sha256, createHash("sha256").update(GOOD_SLOW).digest("hex"), "evidence digest is the validated content, not the swapped one");
+  });
+
+  it("same, via the symlink: re-pointing an allowed alias at an evil file outside the allow-list right after start does not change what runs", async () => {
+    const root = fixture({ "kratt/tests/good.test.mjs": GOOD_SLOW, "scripts/evil.test.mjs": EVIL }, { "kratt/tests/alias.test.mjs": "good.test.mjs" });
+    const p = run(root, "kratt/tests/alias.test.mjs");
+    unlinkSync(join(root, "kratt/tests/alias.test.mjs"));
+    symlinkSync("../../scripts/evil.test.mjs", join(root, "kratt/tests/alias.test.mjs"));
+    const r = await p;
+    assert.equal(r.exitCode, 0, "evil never ran");
+    assert.equal(r.failure, "test-file-changed-during-run");
+  });
+
+  it("race: an attacker flipping the alias between good and evil for the whole run never gets the evil file executed (100 attempts)", async () => {
+    let evilRan = 0;
+    for (let i = 0; i < 100; i++) {
+      const root = fixture({ "kratt/tests/good.test.mjs": GOOD_SLOW.replace("300", "30"), "scripts/evil.test.mjs": EVIL }, { "kratt/tests/alias.test.mjs": "good.test.mjs" });
+      const alias = join(root, "kratt/tests/alias.test.mjs");
+      const attacker = spawn(process.execPath, ["-e", `const fs=require("fs"),p=${JSON.stringify(alias)};let e=false;const t=Date.now()+400;while(Date.now()<t){try{fs.unlinkSync(p);fs.symlinkSync(e?"good.test.mjs":"../../scripts/evil.test.mjs",p);e=!e}catch{}}`], { stdio: "ignore" });
+      const r = await run(root, "kratt/tests/alias.test.mjs");
+      attacker.kill("SIGKILL");
+      if (r.failure === "nonzero-exit" || r.failure === "tests-failed" || (r.exitCode !== 0 && r.failure === null)) evilRan++;
+      rmSync(root, { recursive: true, force: true });
+      if (evilRan > 0) break;
+    }
+    assert.equal(evilRan, 0, "the evil file's failure never surfaced");
+  });
+
+  it("hardlinks are refused: a file in an allowed dir that is a hard link to a file elsewhere (nlink > 1) is not executed", async () => {
+    const root = fixture({ "scripts/evil.test.mjs": EVIL, "kratt/tests/ok.test.mjs": PASS });
+    linkSync(join(root, "scripts/evil.test.mjs"), join(root, "kratt/tests/hard.test.mjs"));
+    const r = await run(root, "kratt/tests/hard.test.mjs");
+    assert.equal(r.failure, "test-file-hardlinked");
+    assert.equal(r.exitCode, 1);
+    assert.equal(r.outputBytes, 0, "nothing was executed");
+    assert.equal((await run(root, "kratt/tests/ok.test.mjs")).failure, null, "control: an ordinary file in the same dir runs");
+  });
+
+  it("the executed copy is byte-identical to the validated file, and relative imports and cwd-relative reads still work from it", async () => {
+    const test = `import { test } from "node:test"; import assert from "node:assert/strict"; import { readFileSync } from "node:fs"; import { VALUE } from "../lib/helper.mjs";
+test("imports", () => { assert.equal(VALUE, 42); assert.equal(readFileSync("data/x.txt", "utf8"), "hello"); assert.match(import.meta.url, /kratt\\/tests\\/imp\\.test\\.mjs$/); });`;
+    const root = fixture({ "kratt/tests/imp.test.mjs": test, "kratt/lib/helper.mjs": "export const VALUE = 42;", "data/x.txt": "hello" });
+    const r = await run(root, "kratt/tests/imp.test.mjs");
+    assert.equal(r.failure, null, r.failure ?? "");
+    assert.deepEqual(r.checks, { pass: 1, fail: 0 });
+    assert.equal(r.artifacts[0]?.sha256, createHash("sha256").update(test).digest("hex"));
+    assert.equal(r.artifacts[0]?.bytes, Buffer.byteLength(test));
+  });
+
+  it("an alias keeps its REAL location for imports (alias in kratt/tests -> cerberus/tests/real.test.mjs importing ./h.mjs)", async () => {
+    const root = fixture(
+      { "cerberus/tests/real.test.mjs": `import { test } from "node:test"; import { V } from "./h.mjs"; test("r", () => { if (V !== 7) throw new Error("bad"); });`, "cerberus/tests/h.mjs": "export const V = 7;" },
+      { "kratt/tests/alias.test.mjs": "../../cerberus/tests/real.test.mjs" },
+    );
+    const r = await run(root, "kratt/tests/alias.test.mjs");
+    assert.equal(r.failure, null, r.failure ?? "");
+    assert.deepEqual(r.checks, { pass: 1, fail: 0 });
+  });
+
+  it("the snapshot is private and removed: no kratt-snap-* directory is left behind after pass, fail, timeout or refusal", async () => {
+    const before = snapDirs();
+    const root = fixture({ "kratt/tests/p.test.mjs": PASS, "kratt/tests/f.test.mjs": `import { test } from "node:test"; test("f", () => { throw new Error("x"); });`, "kratt/tests/h.test.mjs": `setInterval(() => {}, 1000);`, "scripts/n.test.mjs": PASS });
+    await run(root, "kratt/tests/p.test.mjs");
+    await run(root, "kratt/tests/f.test.mjs");
+    const t = valid("kratt/tests/h.test.mjs");
+    await executeTask(root, { ...t, timeoutMs: 300 });
+    await run(root, "scripts/n.test.mjs");
+    assert.deepEqual(snapDirs(), before);
+  });
+
+  it("the snapshot cannot be written by the test itself (permission model: no writes) and is not the repo file", async () => {
+    const root = fixture({ "kratt/tests/w.test.mjs": `import { test } from "node:test"; import { writeFileSync } from "node:fs"; test("w", () => { let blocked = false; try { writeFileSync(new URL(import.meta.url), "x"); } catch { blocked = true; } if (!blocked) throw new Error("snapshot writable"); });` });
+    const r = await run(root, "kratt/tests/w.test.mjs");
+    assert.equal(r.failure, null, r.failure ?? "");
   });
 });
 
