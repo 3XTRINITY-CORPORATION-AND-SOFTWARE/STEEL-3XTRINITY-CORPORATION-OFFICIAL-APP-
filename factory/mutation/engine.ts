@@ -273,7 +273,7 @@ export function formatMarkdown(r: MutationReport): string {
     "| mutant | file | mutation (exact) | result | failing tests | first failing test |",
     "|---|---|---|---|---|---|",
   ];
-  const cell = (s: string) => s.replace(/\|/g, "\\|").replace(/\s+/g, " ");
+  const cell = (s: string) => s.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\s+/g, " ");
   for (const x of r.results)
     out.push(`| ${x.id} | ${x.file} | ${cell(x.description)} | ${x.status}${x.equivalent ? " (equivalent)" : ""} | ${x.failing_tests} | ${cell((x.first_failing_test ?? "-").slice(0, 90))} |`);
   const eq = r.results.filter((x) => x.status === "SURVIVED" && x.equivalent);

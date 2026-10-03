@@ -267,8 +267,10 @@ test("RÄSTIK v2: no case is a no-op mutation (a no-op would be 'admitted' for t
       assert.ok(d.length >= 100, `cases ${d.length}`);
       assert.deepEqual(d.filter((x) => x.applicable && !x.changed).map((x) => x.attack_id), [], `${action}/${e.task_id}`);
       const inapplicable = d.filter((x) => !x.applicable).map((x) => x.attack_id);
-      // hash-files: only the HEAD~1 case may be inapplicable; run-test has a single artifact, so the four two-artifact swaps are also inapplicable
-      assert.ok(inapplicable.length <= (action === "hash-files" ? 1 : 5), `${action}: inapplicable ${inapplicable.join(",")}`);
+      // hash-files: only the HEAD~1 case may be inapplicable (CI clones are shallow, depth 1: there is no parent).
+      // run-test has a single artifact, so the five multi-artifact cases are also inapplicable.
+      const allowed = new Set(["stale-base-sha/base-sha-parent-commit", ...(action === "run-test" ? ["tampered-evidence/evidence-substitution-swap-artifact-hashes", "tampered-evidence/evidence-substitution-swap-artifact-names", "tampered-evidence/evidence-substitution-swap-artifact-bytes", "tampered-evidence/evidence-artifact-dropped-resealed", "tampered-evidence/evidence-substitution-duplicate-artifact"] : [])]);
+      assert.deepEqual(inapplicable.filter((x) => !allowed.has(x)), [], `${action}: unexpected inapplicable cases`);
     }
   }
 });
