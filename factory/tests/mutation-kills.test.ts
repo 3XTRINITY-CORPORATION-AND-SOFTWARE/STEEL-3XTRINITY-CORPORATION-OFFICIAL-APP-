@@ -4,6 +4,8 @@ import { ReplayGuard } from "../../kratt/evidence.ts";
 import { cerberusDecide, localPolicyTrustGate } from "../cerberus-gate.ts";
 import { toeparaVerify } from "../toepara.ts";
 import { validateActionReceipt, type ActionReceipt, type TaskEnvelope } from "../protocol/types.ts";
+import { signSubject, signatureStatus } from "../signing.ts";
+import { ephemeralEd25519 } from "./ephemeral-provider.ts";
 import { ROOT, REPO, SCOPE, genuine, setup } from "./helpers.ts";
 
 /**
@@ -128,4 +130,15 @@ test("MUTATION-KILL protocol validator: an accessor (getter) property is rejecte
   const res = validateActionReceipt(r);
   assert.equal(res.ok, false);
   assert.equal(res.ok === false ? res.reason : "", "$.task_id:accessor");
+});
+
+test("MUTATION-KILL signing: a genuinely signed signature whose purpose LABEL was changed is VERIFICATION_FAILED (labels are checked, not only the signed payload)", async () => {
+  const p = ephemeralEd25519();
+  const D = "a".repeat(64);
+  const sig = await signSubject(p, "evidence-bundle", D);
+  assert.ok(sig);
+  assert.equal(await signatureStatus(p, "evidence-bundle", D, sig), "SIGNED", "control");
+  assert.equal(await signatureStatus(p, "evidence-bundle", D, { ...sig, purpose: "rastik-report" }), "VERIFICATION_FAILED", "relabelled purpose");
+  assert.equal(await signatureStatus(p, "evidence-bundle", D, { ...sig, subject_digest: "b".repeat(64) }), "VERIFICATION_FAILED", "relabelled subject");
+  assert.equal(await signatureStatus(p, "rastik-report", D, sig), "VERIFICATION_FAILED", "signature presented for another purpose");
 });
