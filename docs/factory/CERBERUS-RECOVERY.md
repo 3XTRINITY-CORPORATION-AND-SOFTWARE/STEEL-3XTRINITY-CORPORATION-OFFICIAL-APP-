@@ -1,0 +1,23 @@
+# CERBERUS recovery slice (CRB-REC-01)
+
+What this adds on top of the persistent replay guard (`factory/replay-store.ts`, TRUST-HARDENING.md) and the async Trust Gate stub.
+Nothing here changes `cerberus-gate.ts`, `loop.ts` or `cli.ts`; it is a layer around `cerberusDecide`.
+
+| Piece | File | What it guarantees |
+|---|---|---|
+| Decision receipt | `cerberus/receipts/decision-receipt.ts` | `decision-receipt/v1` for ADMIT / DENY / QUARANTINE. Every evidence item (envelope, action receipt, TÖEPÄRA verdict, evidence bundle, RÄSTIK report, Cerberus receipt) is referenced by SHA-256 of its canonical JSON with a state (`PRESENT`, `MISSING`, `UNKNOWN`, `NOT_IMPLEMENTED`, `NOT_APPLICABLE`). `evidence_binding_digest` and `receipt_digest` seal it. `verifyDecisionReceipt` re-derives all digests and the ADMIT/QUARANTINE invariants; `bindEvidence` re-hashes presented evidence. |
+| Fail closed | same | ADMIT/QUARANTINE only when all required evidence is exactly `PRESENT` with a 64-hex digest, TÖEPÄRA verdict is exactly `VERIFIED`, Cerberus decision exactly `PROCEED`, and all five stages exactly `PASS`. Anything else (missing, `UNKNOWN`, `NOT_IMPLEMENTED`, `NOT_EVALUATED`, wrong case, padded, non-string, hostile object) is **downgraded to DENY** with `proposed_decision` kept so the downgrade is auditable. `NOT_IMPLEMENTED` can never become `PASS`. |
+| Gate adapter | `factory/trust-gate-receipt.ts` | Builds the receipt from a real gate run. Re-verifies the Cerberus pipeline receipt; the caller-supplied TÖEPÄRA result only counts if its `evidence_digest` equals the one CERBERUS recomputed. The receipt can only be stricter than the gate, never more permissive. |
+| Idempotent ledger | `factory/replay-ledger.ts` | `decideIdempotent` evaluates a request (envelope + receipt + RÄSTIK + bundle + signatures) once per ledger. Winner claims the request key with link(2) (exclusive), runs the gate, publishes `{request_key, decision, receipt}` atomically (fsynced temp + link). Same request again - same process, after restart, other process - returns the stored record byte for byte with **no evaluation, no consume, no second admit**. Records are re-verified on every read. |
+| Restart / cross-process | `FACTORY_REPLAY_DIR` | `replayStoresFromEnv()`: guard markers in `<dir>`, ledger in `<dir>/decisions`. Tested with separate Node processes (sequential, 5-way concurrent, restart). |
+
+## Failure behaviour (all DENY, none ADMIT)
+`ledger-record-invalid:<why>` (tampered/corrupt/foreign record), `ledger-unavailable:<why>` (checked **before** the gate runs, so the bundle is not burned), `ledger-publish-failed:<why>` (gate ran, no durable record => no unrecorded ADMIT is returned), `ledger-request-key-unavailable` (hostile/cyclic input), `idempotency-incomplete` (another evaluation of the same request holds the claim and published nothing within the wait; not stored), `ledger-internal-error` (stored as final DENY).
+
+## Honest limits / maturity
+* **REPLAY_PERSISTENT scope:** local POSIX filesystem, between processes sharing one directory. A party that can delete or rewrite files in the directory defeats it (markers and ledger are hashed, **not signed**). Network filesystems: `link(2)` semantics vary. No multi-host guarantee.
+* **TRUST_EXTERNALIZED = false.** The Trust Gate is still the local stub policy; no external Trust Gate or signing service exists in this repo. Receipts say `authentication: "UNSIGNED"`. No production key material; any signing in tests is ephemeral (see signing.ts).
+* A crash between claim and publish leaves `<key>.claim` and that exact request DENIED (`idempotency-incomplete`) until an operator removes the claim. Deliberate: the bundle may or may not have been consumed, so it fails closed.
+* Every outcome is stored (DENY included) because `cerberusDecide` burns the bundle on its first evaluation; to retry, issue a new task.
+* `loop.ts` / `cli.ts` still call `cerberusDecide` directly. Wiring `decideIdempotent` into the loop is a follow-up (outside this slice's lease).
+* The ledger key does not include the host context (repository, trust gate, signing policy); a ledger directory belongs to one installation configuration.

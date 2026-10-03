@@ -98,6 +98,24 @@ test("RECEIPT (DENY): a denied gate run gets a verifying DENY receipt that recor
   assert.ok(rr.reasons.includes("evidence-toepara-evidence-unknown"), rr.reasons.join(","));
 });
 
+test("RECEIPT (inputs are re-checked): a tampered Cerberus pipeline receipt, a missing-but-required RÄSTIK report, or an inconsistent caller TÖEPÄRA result never yields an ADMIT receipt; a RÄSTIK report that is not required is NOT_APPLICABLE", async () => {
+  const i = await full();
+  const out = await cerberusDecide(inputOf(i), ctxOf(new FileReplayGuard(join(tmp(), "g"))));
+  assert.equal(out.decision.decision, "ADMIT");
+  assert.equal(decisionReceiptForGate(inputOf(i), out).decision, "ADMIT", "control");
+  const forgedRc = { ...out, cerberus_receipt: { ...out.cerberus_receipt, reasons: ["edited"] } };
+  const a = decisionReceiptForGate(inputOf(i), forgedRc);
+  assert.equal(a.decision, "DENY");
+  assert.ok(a.reasons.includes("evidence-cerberus-receipt-unknown"), a.reasons.join(","));
+  const b = decisionReceiptForGate({ ...inputOf(i), rastik: null }, out);
+  assert.equal(b.decision, "DENY");
+  assert.ok(b.reasons.includes("evidence-rastik-report-missing"), b.reasons.join(","));
+  const lax = { ...i.need, required_evidence: ["source_digests"] };
+  const c = decisionReceiptForGate({ ...inputOf(i), envelope: lax, rastik: null }, out);
+  assert.equal(c.evidence.rastik_report.state, "NOT_APPLICABLE");
+  assert.equal(c.decision, "ADMIT");
+});
+
 // ---- idempotency + restart persistence --------------------------------------------------------------------------------------
 
 test("IDEMPOTENT: the same receipt presented twice returns the SAME decision and receipt (byte-identical); the second call does not evaluate, consume or admit again", async () => {
@@ -164,6 +182,23 @@ test("IDEMPOTENT (QUARANTINE and DENY): every outcome is stored and replayed ide
   assert.equal(ok.idempotent_replay, false);
 });
 
+test("IDEMPOTENT (receipt can only tighten): the gate would ADMIT, but the presented TÖEPÄRA result disagrees with the recomputed digest => the stored decision is DENY (decision digest re-sealed, replayed identically)", async () => {
+  const i = await full();
+  const dir = join(tmp(), "store");
+  const swapped = { ...inputOf(i), toepara: { ...i.toepara, verdict: { ...i.toepara.verdict, evidence_digest: "9".repeat(64) } } };
+  const L = () => new DecisionLedger(join(dir, "decisions"));
+  const r = await decideIdempotent(swapped, ctxOf(new FileReplayGuard(dir)), L());
+  assert.equal(r.decision.decision, "DENY");
+  assert.equal(r.receipt.decision, "DENY");
+  assert.equal(r.receipt.proposed_decision, "ADMIT");
+  assert.ok(r.decision.reasons.includes("downgraded-to-deny") && r.decision.reasons.includes("evidence-toepara-evidence-unknown"), r.decision.reasons.join(","));
+  const { decision_digest, ...body } = r.decision;
+  assert.equal(digestOf(body), decision_digest);
+  const again = await decideIdempotent(swapped, ctxOf(new FileReplayGuard(dir)), L());
+  assert.equal(again.idempotent_replay, true);
+  assert.equal(again.decision.decision, "DENY");
+});
+
 test("IDEMPOTENT (request identity): any change to envelope, receipt, RÄSTIK report, bundle or signatures is a different request; the toepara diagnostics field is not part of the identity", async () => {
   const i = await full();
   const k = requestKey(inputOf(i));
@@ -202,6 +237,14 @@ test("LEDGER (tamper): an edited, re-sealed, foreign or corrupt stored record is
       r.receipt.evidence_binding_digest = digestJson(r.receipt.evidence);
       const { receipt_digest: _x, ...b } = r.receipt; void _x;
       r.receipt.receipt_digest = digestJson(b);
+      return JSON.stringify(r);
+    })()],
+    ["decision reasons edited, decision_digest stale", JSON.stringify({ ...record, decision: { ...record.decision, reasons: ["x"] } })],
+    ["decision flipped to DENY and re-sealed, receipt still ADMIT", (() => {
+      const r = structuredClone(record);
+      r.decision.decision = "DENY";
+      const { decision_digest: _x, ...b } = r.decision; void _x;
+      r.decision.decision_digest = digestOf(b);
       return JSON.stringify(r);
     })()],
     ["truncated", orig.slice(0, 40)],
