@@ -35,7 +35,7 @@ const testFiles = readdirSync(resolve(root, "factory/tests"))
 const only = opt("--only")?.split(",").filter(Boolean);
 const report = await runMutation({
   sourceRoot: root,
-  copyPaths: ["cerberus", "kratt", "rastik", "factory", "package.json"],
+  copyPaths: ["cerberus", "kratt", "rastik", "factory", "package.json", ".nvmrc", ".devcontainer", ".github"],
   testFiles,
   mutants: MUTANTS,
   git: true,
