@@ -3,6 +3,9 @@
   "private": true,
   "sideEffects": false,
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "overrides": {
     "nf3": "0.3.17",
     "uuid": "^11.1.1",
