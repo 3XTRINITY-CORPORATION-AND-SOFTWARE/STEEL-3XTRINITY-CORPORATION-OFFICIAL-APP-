@@ -8,7 +8,7 @@ import {
 } from "docx";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import PptxGenJS from "pptxgenjs";
-import { BUS_DROPS, BUS_OBJECTS, BUS_WAVE, busGazette } from "./bus";
+import { BUS_OBJECTS, BUS_WAVE, busGazette } from "./bus";
 import { EXTRA_IDS } from "./theory";
 import { downloadBlob } from "@/lib/utils";
 

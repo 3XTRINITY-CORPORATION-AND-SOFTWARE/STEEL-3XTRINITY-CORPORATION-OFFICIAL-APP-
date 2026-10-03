@@ -240,7 +240,6 @@ class SteelStudioProcessor extends AudioWorkletProcessor {
 
     this.tick(n);
 
-    const hpCoeff = 1 - Math.exp((-2 * Math.PI * this.vocalHpf) / this.sr);
     const kickHp = 1 - Math.exp((-2 * Math.PI * 28) / this.sr);
     const glueAtk = 1 - Math.exp(-1 / (0.004 * this.sr));
     const glueRel = 1 - Math.exp(-1 / ((0.08 + this.glue * 0.18) * this.sr));
