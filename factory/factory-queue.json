@@ -1,5 +1,7 @@
 {
   "queue_version": 1,
+  "tasks": [],
+  "transitions": []
   "tasks": [
     {
       "task_id": "cl-hash-files-ea4521a",

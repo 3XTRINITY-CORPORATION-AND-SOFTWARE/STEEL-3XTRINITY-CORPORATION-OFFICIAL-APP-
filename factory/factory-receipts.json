@@ -1,5 +1,6 @@
 {
   "receipts_version": 1,
+  "closed_loops": []
   "closed_loops": [
     {
       "receipt_kind": "closed-loop/v1",

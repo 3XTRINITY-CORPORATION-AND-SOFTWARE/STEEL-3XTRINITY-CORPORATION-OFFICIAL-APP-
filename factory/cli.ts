@@ -20,6 +20,7 @@ const write = (n: string, v: unknown) => writeFileSync(file(n), JSON.stringify(v
 
 const cmd = process.argv[2];
 if (cmd === "init") {
+  write("factory-registry.json", buildInitialRegistry());
   const existing = (() => {
     try {
       return JSON.parse(readFileSync(file("factory-registry.json"), "utf8")) as Registry;
@@ -39,17 +40,21 @@ if (cmd === "init") {
   console.log("factory: initial files written");
 } else if (cmd === "validate" || cmd === "status") {
   const reg = JSON.parse(readFileSync(file("factory-registry.json"), "utf8")) as Registry;
+  const shape = validateRegistryShape(reg);
   const shape = validateRegistryShape(reg, CAPABILITIES);
   if (cmd === "status") {
     console.log(JSON.stringify({ shape_violations: shape.length, ...countRegistry(reg) }, null, 2));
     process.exit(shape.length ? 1 : 0);
   }
+  const init = validateInitialRegistry(reg);
   const init = validateInitialRegistry(reg, CAPABILITIES);
   if (shape.length) {
     console.error(`registry shape violations:\n${shape.join("\n")}`);
     process.exit(1);
   }
   console.log(`registry shape ok; initial-state invariants ${init.length === 0 ? "hold" : `do not hold (${init.length}; expected after real tasks ran)`}`);
+} else {
+  console.error("usage: factory <init|validate|status>");
 } else if (cmd === "run-loop") {
   const repoRoot = resolve(root, "..");
   const repository = process.env.GITHUB_REPOSITORY ?? repoSlug(repoRoot);
