@@ -943,6 +943,35 @@ export interface ConfigDeclarations {
   test_files: string[];
   /** For each of those, the sibling test files it pulls in with a side-effect `import "./x.test.ts";`. */
   test_imports: Record<string, string[]>;
+  /** Raw text of scripts/run-tests.mjs (the deterministic test runner), or null when absent. */
+  runner: string | null;
+}
+
+/** The only `test` script that registers tests by discovery instead of by naming them. */
+export const TEST_RUNNER_CMD = "node scripts/run-tests.mjs";
+
+/**
+ * Reasons the discovery runner would NOT run every test file the checker knows about. Text-level and fail-closed:
+ * a missing runner, a dropped exit code, a skipped directory that holds tests, or an EXCLUDE entry naming a test.
+ */
+function runnerViolations(d: ConfigDeclarations): string[] {
+  const v: string[] = [];
+  const r = d.runner;
+  if (r === null) return ["test-runner-missing"];
+  if (CONFLICT_MARKER.test(r)) v.push("test-runner-conflict-marker");
+  if (!/^\s*process\.exitCode\s*=\s*main\(/m.test(r)) v.push("test-runner-exit-code-dropped");
+  if (!r.includes('export const TEST_FILE = /\\.(test|spec)\\.(mjs|cjs|js|mts|cts|ts|tsx|jsx)$/;')) v.push("test-runner-test-pattern-changed");
+  const skip = /^export const SKIP_DIRS = new Set\(\[([^\]]*)\]\);$/m.exec(r);
+  const skipped = skip === null ? null : [...(skip[1] as string).matchAll(/"([^"]*)"/g)].map((m) => m[1] as string);
+  if (skipped === null) v.push("test-runner-skip-dirs-unparseable");
+  const exc = /^export const EXCLUDE = Object\.freeze\(\{([\s\S]*?)\}\);$/m.exec(r);
+  const excluded = exc === null ? null : [...(exc[1] as string).matchAll(/"([^"]+)"\s*:/g)].map((m) => m[1] as string);
+  if (excluded === null) v.push("test-runner-exclude-unparseable");
+  for (const f of [...d.test_files].sort()) {
+    if (skipped !== null && f.split("/").slice(0, -1).some((seg) => skipped.includes(seg))) v.push(`unregistered-test:${f}`);
+    else if (excluded !== null && excluded.includes(f)) v.push(`unregistered-test:${f}`);
+  }
+  return v;
 }
 
 /** Duplicate keys (path of the object + key) in a JSON text, or null when the text is not valid JSON. Bounded, no eval. */
@@ -1054,16 +1083,21 @@ export function configCollisionViolations(d: ConfigDeclarations): string[] {
   if (typeof test !== "string" || test.trim() === "") v.push("test-script-missing");
   else {
     if (GATE_BYPASS.test(test)) v.push("test-script-gate-bypass");
-    // a test file is registered when the test script names it, or a registered file side-effect-imports it
-    const registered = new Set<string>();
-    const queue = d.test_files.filter((f) => test.includes(f));
-    while (queue.length > 0) {
-      const f = queue.pop() as string;
-      if (registered.has(f)) continue;
-      registered.add(f);
-      queue.push(...(d.test_imports[f] ?? []));
+    if (test.trim() === TEST_RUNNER_CMD) {
+      // registration by discovery: the runner must exist and must not skip/exclude any known test file
+      v.push(...runnerViolations(d));
+    } else {
+      // a test file is registered when the test script names it, or a registered file side-effect-imports it
+      const registered = new Set<string>();
+      const queue = d.test_files.filter((f) => test.includes(f));
+      while (queue.length > 0) {
+        const f = queue.pop() as string;
+        if (registered.has(f)) continue;
+        registered.add(f);
+        queue.push(...(d.test_imports[f] ?? []));
+      }
+      for (const f of [...d.test_files].sort()) if (!registered.has(f)) v.push(`unregistered-test:${f}`);
     }
-    for (const f of [...d.test_files].sort()) if (!registered.has(f)) v.push(`unregistered-test:${f}`);
   }
   for (const w of d.workflows) {
     if (CONFLICT_MARKER.test(w.text)) v.push(`workflow-conflict-marker:${w.name}`);
@@ -1109,7 +1143,7 @@ export function readConfigDeclarations(root: string): ConfigDeclarations {
       test_imports[rel] = [...src.matchAll(/^import "\.\/([^"/]+\.test\.ts)";/gm)].map((m) => `${dir}/${m[1]}`);
     }
   }
-  return { package_json: read("package.json"), workflows, test_files, test_imports };
+  return { package_json: read("package.json"), workflows, test_files, test_imports, runner: read("scripts/run-tests.mjs") };
 }
 
 const CONFIG_FIX = "Reject the configuration in a repository check (and CI): package.json parsed with a duplicate-key-aware reader (configCollisionViolations), no conflict markers, one `test` script that names every test file, no `|| true` / continue-on-error on a gate.";
@@ -1141,8 +1175,18 @@ const CONFIG_CASES: ConfigCase[] = [
   { id: "test-script-empty", hypothesis: "an empty `test` script is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(/^([ \t]*"test": ).*$/m, '$1"",'); } },
   { id: "test-script-or-true", hypothesis: "a `test` script that ends in `|| true` (never red) is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(/^([ \t]*"test": ".*?)(",?)$/m, "$1 || true$2"); } },
   { id: "test-script-semicolon-true", hypothesis: "a `test` script that ends in `; true` is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(/^([ \t]*"test": ".*?)(",?)$/m, "$1; true$2"); } },
-  { id: "test-script-drops-a-registered-test", hypothesis: "a `test` script that silently stops running a factory test file (not imported by another registered file) is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(" factory/tests/trust-gate.test.ts", ""); } },
-  { id: "new-test-file-registered-nowhere", hypothesis: "a new security test file named in no script and imported by nothing (so it never runs) is accepted", mutate: (d) => { d.test_files.push("factory/tests/new-security.test.ts"); d.test_imports["factory/tests/new-security.test.ts"] = []; } },
+  { id: "test-script-drops-a-registered-test", hypothesis: "a `test` script that silently stops running a factory test file (not imported by another registered file) is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.includes(" factory/tests/trust-gate.test.ts") ? d.package_json.replace(" factory/tests/trust-gate.test.ts", "") : d.package_json.replace(`"test": "${TEST_RUNNER_CMD}"`, '"test": "node --test scripts/run-tests.test.mjs"'); } },
+  { id: "test-runner-deleted", hypothesis: "a `test` script that calls a discovery runner which no longer exists is accepted", mutate: (d) => { d.runner = null; } },
+  { id: "test-runner-excludes-a-security-test", hypothesis: "a discovery runner whose EXCLUDE list silently drops a factory test file is accepted", mutate: (d) => { if (d.runner !== null) d.runner = d.runner.replace("export const EXCLUDE = Object.freeze({});", 'export const EXCLUDE = Object.freeze({ "factory/tests/trust-gate.test.ts": "flaky" });'); } },
+  { id: "test-runner-skips-the-factory-dir", hypothesis: "a discovery runner whose SKIP_DIRS contains a directory that holds tests is accepted", mutate: (d) => { if (d.runner !== null) d.runner = d.runner.replace('new Set(["node_modules",', 'new Set(["factory", "node_modules",'); } },
+  { id: "test-runner-drops-the-exit-code", hypothesis: "a discovery runner that no longer propagates the exit code (always green) is accepted", mutate: (d) => { if (d.runner !== null) d.runner = d.runner.replace(/^(\s*)process\.exitCode = main\(/m, "$1void main("); } },
+  { id: "test-runner-narrows-the-test-pattern", hypothesis: "a discovery runner whose test-file pattern stops matching .ts tests is accepted", mutate: (d) => { if (d.runner !== null) d.runner = d.runner.replace("mjs|cjs|js|mts|cts|ts|tsx|jsx", "mjs|cjs|js"); } },
+  { id: "new-test-file-registered-nowhere", hypothesis: "a new security test file named in no script and imported by nothing (so it never runs) is accepted", mutate: (d) => {
+    // under the discovery runner a new file IS run, so the attack reverts to a hand-written file list (the pre-runner design) that misses it
+    if (d.package_json !== null) d.package_json = d.package_json.replace(`"test": "${TEST_RUNNER_CMD}"`, `"test": "node --experimental-strip-types --test ${d.test_files.join(" ")}"`);
+    d.test_files.push("factory/tests/new-security.test.ts");
+    d.test_imports["factory/tests/new-security.test.ts"] = [];
+  } },
   { id: "workflow-continue-on-error", hypothesis: "`continue-on-error: true` on a CI step is accepted", mutate: (d) => { const w = d.workflows[0]; if (w) w.text += "\n      - run: npm test\n        continue-on-error: true\n"; } },
   { id: "workflow-run-or-true", hypothesis: "a CI `run: npm test || true` step is accepted", mutate: (d) => { const w = d.workflows[0]; if (w) w.text += "\n      - run: npm test || true\n"; } },
 ];

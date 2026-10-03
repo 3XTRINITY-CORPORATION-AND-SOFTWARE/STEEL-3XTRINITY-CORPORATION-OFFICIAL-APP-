@@ -406,14 +406,14 @@ test("RÄSTIK config collision: jsonDuplicateKeys finds duplicates at every dept
   assert.equal(jsonDuplicateKeys("[".repeat(100) + "]".repeat(100)), null, "depth bound");
 });
 
-test("RÄSTIK config collision: the real repo configuration is clean and every collision (17 cases) is REPELLED with a specific reason", () => {
+test("RÄSTIK config collision: the real repo configuration is clean and every collision (22 cases) is REPELLED with a specific reason", () => {
   const decl = readConfigDeclarations(ROOT);
   assert.deepEqual(configCollisionViolations(decl), [], "package.json must hold ONE test script that names/imports every test file; no gate bypass");
   assert.ok(decl.test_files.length >= 18 && decl.workflows.length >= 1);
   const r = runConfigCollisionAttacks(decl);
   assert.equal(r.control_clean, true);
   assert.equal(r.records.length, configCaseCount());
-  assert.equal(configCaseCount(), 17);
+  assert.equal(configCaseCount(), 22);
   assert.deepEqual(r.records.filter((x) => x.outcome !== "REPELLED").map((x) => `${x.case_id}:${x.outcome}`), []);
   assert.deepEqual(r.findings, []);
   const reason = (id: string) => r.records.find((x) => x.case_id === id)?.detail ?? "";
@@ -428,9 +428,24 @@ test("RÄSTIK config collision: the real repo configuration is clean and every c
   assert.match(reason("test-script-or-true"), /test-script-gate-bypass/);
   assert.match(reason("test-script-semicolon-true"), /test-script-gate-bypass/);
   assert.match(reason("test-script-drops-a-registered-test"), /unregistered-test:factory\/tests\/trust-gate\.test\.ts/);
+  assert.match(reason("test-runner-deleted"), /test-runner-missing/);
+  assert.match(reason("test-runner-excludes-a-security-test"), /unregistered-test:factory\/tests\/trust-gate\.test\.ts/);
+  assert.match(reason("test-runner-skips-the-factory-dir"), /unregistered-test:factory\/tests\/trust-gate\.test\.ts/);
+  assert.match(reason("test-runner-drops-the-exit-code"), /test-runner-exit-code-dropped/);
+  assert.match(reason("test-runner-narrows-the-test-pattern"), /test-runner-test-pattern-changed/);
   assert.match(reason("new-test-file-registered-nowhere"), /unregistered-test:factory\/tests\/new-security\.test\.ts/);
   assert.match(reason("workflow-continue-on-error"), /workflow-continue-on-error:/);
   assert.match(reason("workflow-run-or-true"), /workflow-run-gate-bypass:/);
+});
+
+test("RÄSTIK config collision: under the discovery runner a NEW test file is registered by discovery (no list to forget), but a missing/skipping/excluding runner is not", () => {
+  const decl = readConfigDeclarations(ROOT);
+  assert.match(decl.package_json as string, /"test": "node scripts\/run-tests\.mjs"/);
+  assert.ok(decl.runner !== null);
+  const withNew = { ...decl, test_files: [...decl.test_files, "factory/tests/brand-new.test.ts"], test_imports: { ...decl.test_imports, "factory/tests/brand-new.test.ts": [] } };
+  assert.deepEqual(configCollisionViolations(withNew), []);
+  assert.deepEqual(configCollisionViolations({ ...decl, runner: null }), ["test-runner-missing"]);
+  assert.deepEqual(configCollisionViolations({ ...decl, runner: `${decl.runner}\n<<<<<<< HEAD\n` }), ["test-runner-conflict-marker"]);
 });
 
 test("RÄSTIK config collision: not vacuous - an accept-all checker and a JSON.parse-only checker (what `npm` effectively does: last key wins) are attacked successfully, each finding CONFIRMED + schema-valid", () => {
@@ -524,8 +539,11 @@ test("RÄSTIK config collision (direct rules): an empty test script is test-scri
     workflows: [],
     test_files: files,
     test_imports: imports,
+    runner: null,
   });
   assert.deepEqual(configCollisionViolations(mk("", [], {})), ["test-script-missing"], "empty script, nothing else to blame");
+  assert.deepEqual(configCollisionViolations(mk("node scripts/run-tests.mjs", ["factory/tests/a.test.ts"], {})), ["test-runner-missing"], "the runner command registers nothing when the runner file is absent");
+  assert.deepEqual(configCollisionViolations(mk("node scripts/run-tests.mjs || true", [], {})), ["test-script-gate-bypass"], "a bypassed runner command is not the runner command, so it is judged as a named list");
   assert.deepEqual(configCollisionViolations(mk("   ", [], {})), ["test-script-missing"]);
   assert.deepEqual(configCollisionViolations(mk("node --test factory/tests/a.test.ts", ["factory/tests/a.test.ts", "factory/tests/b.test.ts", "factory/tests/c.test.ts"], { "factory/tests/a.test.ts": ["factory/tests/b.test.ts"], "factory/tests/b.test.ts": ["factory/tests/c.test.ts"], "factory/tests/c.test.ts": [] })), [], "a -> b -> c");
   assert.deepEqual(configCollisionViolations(mk("node --test factory/tests/a.test.ts", ["factory/tests/a.test.ts", "factory/tests/b.test.ts"], { "factory/tests/a.test.ts": [], "factory/tests/b.test.ts": [] })), ["unregistered-test:factory/tests/b.test.ts"]);

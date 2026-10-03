@@ -1,13 +1,16 @@
 // Regression: a stacked squash-merge once left a duplicate "include" key without a
 // conflict marker in tsconfig.cerberus.json (and package.json, matrix tests), which broke `npm run typecheck` on main.
-// STACKED_CONFIG_COLLISION (docs/factory/INCIDENTS.md): two stacked PRs each edited the one-line `test` script and the
-// merge left two `"test"` keys in package.json. The guard below (1) detects duplicate keys, (2) proves it rejects that
-// exact shape, and (3) proves every test file on disk is run by the `test` script exactly once, so a new *.test.* that
-// nobody registered (or registered twice) fails here instead of silently never running.
+// STACKED_CONFIG_COLLISION (docs/factory/INCIDENTS.md): stacked PRs each edited the one-line `test` script and the
+// merge left two `"test"` keys in package.json (four times). The guard below (1) detects duplicate keys, (2) proves it
+// rejects that exact shape, (3) pins `scripts.test` to the discovery runner (scripts/run-tests.mjs), so no PR ever needs to
+// edit it again, and (4) proves the runner discovers and runs every test file on disk exactly once, so a new *.test.* can
+// neither be forgotten nor registered twice.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { buildPlan, discoverTests } from "./run-tests.mjs";
 
 const root = new URL("../", import.meta.url);
 
@@ -64,6 +67,7 @@ test("STACKED_CONFIG_COLLISION: a package.json with two `test` script keys is re
 const TEST_FILE = /\.(test|spec)\.(mjs|cjs|js|mts|cts|ts|tsx|jsx)$/;
 const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "coverage", ".next", ".vercel", ".turbo", ".cache", "out"]);
 
+// Independent walk (deliberately NOT the runner's own function) so the guard does not just ask the runner to grade itself.
 function testFilesOnDisk(dir = "") {
   const out = [];
   for (const e of readdirSync(new URL(dir, root), { withFileTypes: true })) {
@@ -74,64 +78,24 @@ function testFilesOnDisk(dir = "") {
   return out.sort();
 }
 
-const globToRegExp = (g) =>
-  new RegExp(
-    "^" +
-      g
-        .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-        .replace(/\*\*\//g, "@@GLOBSTAR@@")
-        .replace(/\*/g, "[^/]*")
-        .replace(/@@GLOBSTAR@@/g, "(?:.*/)?") +
-      "$",
-  );
-
-/** Every path/glob argument that follows a `--test` flag in the `test` script (quotes stripped). */
-export function testScriptArgs(script) {
-  const args = [];
-  for (const segment of script.split("&&")) {
-    const tokens = segment.trim().split(/\s+/);
-    const at = tokens.indexOf("--test");
-    if (at < 0) continue;
-    for (const tok of tokens.slice(at + 1)) {
-      if (tok.startsWith("-")) continue;
-      args.push(tok.replace(/^['"]|['"]$/g, ""));
-    }
-  }
-  return args;
-}
-
-/** For each test file on disk, the list of script arguments that run it. */
-export function coverage(files, args) {
-  return Object.fromEntries(files.map((f) => [f, args.filter((a) => (a.includes("*") ? globToRegExp(a).test(f) : a === f))]));
-}
-
-test("coverage guard: every *.test.* / *.spec.* file in the repo is run by the `test` script exactly once", () => {
-  const script = JSON.parse(readFileSync(new URL("package.json", root), "utf8")).scripts.test;
-  assert.equal(typeof script, "string");
-  const args = testScriptArgs(script);
-  assert.ok(args.length > 10, "test script lists test files/globs");
-  const files = testFilesOnDisk();
-  assert.ok(files.length > 10, "found test files on disk");
-  const cov = coverage(files, args);
-  const unregistered = files.filter((f) => cov[f].length === 0);
-  const duplicated = files.filter((f) => cov[f].length > 1);
-  assert.deepEqual(unregistered, [], `test files NOT run by npm test (add them to the single "test" script): ${unregistered.join(", ")}`);
-  assert.deepEqual(duplicated, [], `test files run more than once: ${duplicated.join(", ")}`);
-  // the script must not name a file that does not exist (typos would otherwise hide as 'cancelled' or be ignored)
-  const missing = args.filter((a) => !a.includes("*") && !files.includes(a));
-  assert.deepEqual(missing, [], `test script names non-existent test files: ${missing.join(", ")}`);
-  // an explicit file listed twice in the script
-  const explicit = args.filter((a) => !a.includes("*"));
-  assert.equal(new Set(explicit).size, explicit.length, "test script lists a file twice");
+test("coverage guard: `scripts.test` is exactly the discovery runner (no hand-maintained file list can drift or collide)", () => {
+  const pkg = JSON.parse(readFileSync(new URL("package.json", root), "utf8"));
+  assert.equal(pkg.scripts.test, "node scripts/run-tests.mjs");
+  assert.ok(existsSync(new URL("scripts/run-tests.mjs", root)));
+  // test:coverage wraps `npm test`, so coverage runs the same discovered set
+  assert.match(pkg.scripts["test:coverage"], /\bnpm test\b/);
 });
 
-test("coverage guard: it fails for an unregistered, a doubly-registered and a misspelled test file (self-check)", () => {
-  const args = testScriptArgs("node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test a/x.test.ts a/y.test.ts a/y.test.ts");
-  assert.deepEqual(args, ["scripts/**/*.test.mjs", "a/x.test.ts", "a/y.test.ts", "a/y.test.ts"]);
-  const cov = coverage(["scripts/a.test.mjs", "scripts/deep/b.test.mjs", "a/x.test.ts", "a/y.test.ts", "a/new.test.ts", "other/scripts/c.test.mjs"], args);
-  assert.deepEqual(cov["scripts/a.test.mjs"], ["scripts/**/*.test.mjs"]);
-  assert.deepEqual(cov["scripts/deep/b.test.mjs"], ["scripts/**/*.test.mjs"]);
-  assert.equal(cov["a/new.test.ts"].length, 0, "unregistered file detected");
-  assert.equal(cov["a/y.test.ts"].length, 2, "double registration detected");
-  assert.equal(cov["other/scripts/c.test.mjs"].length, 0, "glob is anchored at the repo root");
+test("coverage guard: the runner discovers and runs every *.test.* / *.spec.* file on disk exactly once", () => {
+  const disk = testFilesOnDisk();
+  assert.ok(disk.length > 10, "found test files on disk");
+  const discovered = discoverTests(fileURLToPath(root));
+  assert.deepEqual(discovered, disk, "runner discovery differs from an independent walk of the repo");
+  const plan = buildPlan(discovered); // throws on a file type the runner cannot execute (fail closed)
+  const run = plan.flatMap((g) => g.args.filter((a) => TEST_FILE.test(a)));
+  const counts = new Map();
+  for (const f of run) counts.set(f, (counts.get(f) ?? 0) + 1);
+  assert.deepEqual([...counts.keys()].sort(), disk, "files the runner would execute differ from files on disk");
+  assert.deepEqual([...counts].filter(([, n]) => n !== 1), [], "a test file would run more than once");
+  assert.equal(readdirSync(new URL("scripts/", root)).filter((n) => n === "run-tests.test.mjs").length, 1, "the runner has its own regression test");
 });

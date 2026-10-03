@@ -8,7 +8,7 @@ export const SPECS = [
     run: (m) => { const j = JSON.parse(m.text); return { name: j.name, nodeFeature: j.features["ghcr.io/devcontainers/features/node:1"].version, singleDocument: m.text.trim().startsWith("{") && m.text.trim().endsWith("}") }; },
     claim: "the devcontainer parses as one JSON document named STEEL pinning the Node 22 feature" },
   { slot: 2, target: "package.json", expected: { typecheckRunsTsc: true, testRunsNodeTest: true, buildUsesVite: true, type: "module" },
-    run: (m) => { const j = JSON.parse(m.text); return { typecheckRunsTsc: j.scripts.typecheck.startsWith("tsc --noEmit"), testRunsNodeTest: j.scripts.test.startsWith("node --test"), buildUsesVite: j.scripts.build.includes("vite build"), type: j.type }; },
+    run: (m) => { const j = JSON.parse(m.text); return { typecheckRunsTsc: j.scripts.typecheck.startsWith("tsc --noEmit"), testRunsNodeTest: j.scripts.test.startsWith("node --test") || j.scripts.test === "node scripts/run-tests.mjs", buildUsesVite: j.scripts.build.includes("vite build"), type: j.type }; },
     claim: "package.json typecheck starts with tsc --noEmit, test starts node --test, build runs vite build, and the package is ESM" },
   { slot: 3, target: "package-lock.json", expected: { lockfileVersion: 3, rootNameMatchesPackage: true },
     run: async (m) => { const { readFileSync } = await import("node:fs"); const lock = JSON.parse(m.text); const pkg = JSON.parse(readFileSync("package.json", "utf8")); return { lockfileVersion: lock.lockfileVersion, rootNameMatchesPackage: lock.packages[""].name === pkg.name }; },
