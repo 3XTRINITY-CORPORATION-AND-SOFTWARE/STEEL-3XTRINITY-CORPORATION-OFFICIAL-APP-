@@ -16,6 +16,24 @@ import { validateTask, type KrattTask } from "../task.ts";
  * reason the current code reports.
  */
 const temps: string[] = [];
+
+const JS_UNSAFE_CHAR_MAP: Record<string, string> = {
+  "<": "\\u003C",
+  ">": "\\u003E",
+  "/": "\\u002F",
+  "\\": "\\\\",
+  "\b": "\\b",
+  "\f": "\\f",
+  "\n": "\\n",
+  "\r": "\\r",
+  "\t": "\\t",
+  "\0": "\\0",
+  "\u2028": "\\u2028",
+  "\u2029": "\\u2029",
+};
+
+const escapeUnsafeJsChars = (s: string): string =>
+  s.replace(/[<>/\\\b\f\n\r\t\0\u2028\u2029]/g, (ch) => JS_UNSAFE_CHAR_MAP[ch] ?? ch);
 after(() => temps.forEach((t) => rmSync(t, { recursive: true, force: true })));
 const PASS = `import { test } from "node:test"; test("ok", () => {});`;
 function fixture(files: Record<string, string>, links: Record<string, string> = {}): string {
@@ -132,7 +150,7 @@ describe("file-identity rules", () => {
 
   it("F1: the alias must not have executed the target (side-effect probe)", async () => {
     const marker = join(tmpdir(), `kratt-f1-marker-${process.pid}-${Date.now()}`);
-    const probe = `import { writeFileSync } from "node:fs"; import { test } from "node:test"; test("x", () => {}); try { writeFileSync(${JSON.stringify(marker)}, "ran"); } catch {}`;
+    const probe = `import { writeFileSync } from "node:fs"; import { test } from "node:test"; test("x", () => {}); try { writeFileSync(${escapeUnsafeJsChars(JSON.stringify(marker))}, "ran"); } catch {}`;
     const root = fixture({ "scripts/probe.test.mjs": probe }, { "kratt/tests/probe.test.mjs": "../../scripts/probe.test.mjs" });
     refused(await run(root, "kratt/tests/probe.test.mjs"), "alias to probe");
     assert.equal(existsSync(marker), false, "target never started (and the permission model would block the write anyway)");
