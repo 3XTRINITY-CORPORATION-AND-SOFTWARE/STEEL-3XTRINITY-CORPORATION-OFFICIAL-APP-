@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment -- the harness is untyped JS over dynamic target modules; tsconfig.cerberus.json type-checks factory/ with checkJs */
-// @ts-nocheck
 // PWA/ASSET/INTEGRATION domain (slots 201-250): scripts/grok-pwa-shared.mjs, grok-pwa-plugin.mjs, brand-check.mjs.
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -10,17 +8,18 @@ const PL = "scripts/grok-pwa-plugin.mjs";
 const BR = "scripts/brand-check.mjs";
 
 const tree = (files = {}) => { const r = mkdtempSync(join(tmpdir(), "m-pwa-")); for (const [rel, c] of Object.entries(files)) { mkdirSync(dirname(join(r, rel)), { recursive: true }); writeFileSync(join(r, rel), c); } return r; };
-async function withEnv(vars, fn) {
-  const saved = {};
+async function withEnv(/** @type {any} */ vars, /** @type {any} */ fn) {
+  const saved = /** @type {Record<string, string | undefined>} */ ({});
   for (const k of Object.keys(vars)) { saved[k] = process.env[k]; if (vars[k] === undefined) delete process.env[k]; else process.env[k] = vars[k]; }
   try { return await fn(); } finally { for (const k of Object.keys(saved)) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; } }
 }
 const NOENV = { VITE_PUBLIC_HOSTNAME: undefined, VITE_OG_SERVICE_URL: undefined, VITE_PROJECT_ID: undefined, X_CREATOR: undefined, X_CREATOR_ID: undefined };
-const E = (fn) => withEnv(NOENV, fn);
+const E = (/** @type {any} */ fn) => withEnv(NOENV, fn);
 const CTX = (over = {}) => ({ host: "", cwd: tree(), site: {}, projectId: "", creator: "", creatorId: "", appName: "Grok App", ...over });
 const SCRIPT = '<script src="https://grok.com/grok-app-builder/extensions.js" defer></script>';
-const count = (s, needle) => s.split(needle).length - 1;
+const count = (/** @type {any} */ s, /** @type {any} */ needle) => s.split(needle).length - 1;
 
+/** @type {import("../types.d.ts").Spec[]} */
 export const SPECS = [
   { slot: 201, target: SH, fn: "escapeHtml", input: ["<a href=\"x\" b='y'>&</a>"], expected: "&lt;a href=&quot;x&quot; b=&#39;y&#39;&gt;&amp;&lt;/a&gt;", claim: "all five HTML-significant characters are escaped, & exactly once" },
   { slot: 202, target: SH, fn: "appNameFromHost", input: ["wild-race.grok.me"], expected: "Wild Race", claim: "a published grok.me host's first label becomes the Title-Cased display name" },
@@ -51,7 +50,7 @@ export const SPECS = [
     run: (m) => { const j = JSON.parse(m.renderWebManifest("wild-race.grok.me")); return { name: j.name, short_name: j.short_name, display: j.display, start_url: j.start_url, icon: j.icons[0].src, bg: j.background_color }; },
     claim: "the per-app manifest carries the host-derived name, standalone display and the 180px icon" },
   { slot: 219, target: SH, expected: { keys: ["manifest", "apple-touch-icon", "apple-mobile-web-app-title", "apple-mobile-web-app-status-bar-style", "theme-color"], title: '<meta name="apple-mobile-web-app-title" content="A&amp;B">' },
-    run: (m) => { const t = m.grokPwaHeadTags("A&B"); return { keys: t.map((x) => x[0]), title: t[2][1] }; }, claim: "the PWA head set is exactly five keyed tags and the app name in the title tag is escaped" },
+    run: (m) => { const t = m.grokPwaHeadTags("A&B"); return { keys: t.map((/** @type {any} */ x) => x[0]), title: t[2][1] }; }, claim: "the PWA head set is exactly five keyed tags and the app name in the title tag is escaped" },
   { slot: 220, target: SH, fn: "grokXCreatorHeadTags", input: ["Ann <x>", "123"], expected: ['<meta property="x:creator" content="Ann &lt;x&gt;">', '<meta property="x:creator:id" content="123">'], claim: "x:creator tags are emitted as a pair with the creator name escaped" },
   { slot: 221, target: SH, fn: "grokXCreatorHeadTags", input: ["Ann", ""], expected: [], claim: "a creator name without a creator id emits no tags at all" },
   { slot: 222, target: SH, fn: "grokExtensionsHeadTags", input: [""], expected: [SCRIPT], claim: "without a project id only the deferred extensions script is emitted" },
@@ -82,13 +81,13 @@ export const SPECS = [
   { slot: 234, target: SH, expected: ['<meta name="twitter:card" content="summary_large_image">', '<meta property="og:title" content="App">', '<meta property="og:image" content="https://og.grok.me/v1/card.png?host=app.grok.me&amp;title=App&amp;color=FF8800">', '<meta property="og:image:width" content="1200">', '<meta property="og:image:height" content="630">'],
     run: (m) => E(() => m.grokOgHeadTags({ host: "app.grok.me", appName: "X", site: { color: "#FF8800" }, cwd: tree() })), claim: "on a public host with no custom card the placeholder image URL carries host, title and the 6-digit site colour" },
   { slot: 235, target: SH, expected: '<meta property="og:image" content="https://app.grok.me/card.jpg">',
-    run: (m) => E(() => m.grokOgHeadTags({ host: "app.grok.me", site: { card: "custom", image: "/card.jpg", color: "#FF8800" }, cwd: tree() }).find((t) => t.includes("og:image\""))), claim: "a baked custom card is served from the app's own host and ignores the placeholder colour" },
+    run: (m) => E(() => m.grokOgHeadTags({ host: "app.grok.me", site: { card: "custom", image: "/card.jpg", color: "#FF8800" }, cwd: tree() }).find((/** @type {any} */ t) => t.includes("og:image\""))), claim: "a baked custom card is served from the app's own host and ignores the placeholder colour" },
   { slot: 236, target: SH, expected: ['<meta property="og:description" content="Fun">', '<meta property="og:type" content="x:game">', '<meta property="x:game:image" content="https://g.grok.me/x-banner.jpg">', '<meta property="x:game:image:width" content="1200">', '<meta property="x:game:image:height" content="264">'],
-    run: (m) => E(() => { const t = m.grokOgHeadTags({ host: "g.grok.me", site: { description: "Fun", type: "x:game", banner: "/x-banner.jpg", title: "G" }, cwd: tree() }); return t.filter((x) => /description|og:type|x:game/.test(x)); }), claim: "a game site emits description, og:type=x:game and the 1200x264 banner tags" },
+    run: (m) => E(() => { const t = m.grokOgHeadTags({ host: "g.grok.me", site: { description: "Fun", type: "x:game", banner: "/x-banner.jpg", title: "G" }, cwd: tree() }); return t.filter((/** @type {any} */ x) => /description|og:type|x:game/.test(x)); }), claim: "a game site emits description, og:type=x:game and the 1200x264 banner tags" },
   { slot: 237, target: SH, expected: ['<meta name="twitter:card" content="summary_large_image">', '<meta property="og:title" content="Local">'],
     run: (m) => E(() => m.grokOgHeadTags({ host: "localhost:5173", site: { title: "Local" }, cwd: tree() })), claim: "with no public host (localhost) only twitter:card and og:title are emitted - no image URL that cannot resolve" },
   { slot: 238, target: SH, expected: '<meta property="og:image" content="https://pub.grok.me/og.jpg">',
-    run: (m) => withEnv({ ...NOENV, VITE_PUBLIC_HOSTNAME: "pub.grok.me" }, () => m.grokOgHeadTags({ host: "x.vercel.app", site: { card: "custom" }, cwd: tree() }).find((t) => t.includes("og:image\""))), claim: "on a published app the og:image origin is VITE_PUBLIC_HOSTNAME even when the request Host is *.vercel.app" },
+    run: (m) => withEnv({ ...NOENV, VITE_PUBLIC_HOSTNAME: "pub.grok.me" }, () => m.grokOgHeadTags({ host: "x.vercel.app", site: { card: "custom" }, cwd: tree() }).find((/** @type {any} */ t) => t.includes("og:image\""))), claim: "on a published app the og:image origin is VITE_PUBLIC_HOSTNAME even when the request Host is *.vercel.app" },
   { slot: 239, target: SH, expected: '<meta property="og:title" content="Tom &amp; &quot;Jerry&quot;">',
     run: (m) => E(() => m.grokOgHeadTags({ site: { title: 'Tom & "Jerry"' }, cwd: tree() })[1]), claim: "an og:title containing & and quotes is attribute-escaped" },
   { slot: 240, target: SH, expected: '<meta name="description" content="keep"><meta name="viewport" content="w"><p>x</p>',
@@ -97,8 +96,8 @@ export const SPECS = [
     run: (m) => { const { cwd, ...rest } = m.normalizeHeadContext({ site: { title: "Baked" }, cwd: tree(), host: "x.grok.me", projectId: "p", creator: "c", creatorId: "i" }); void cwd; return rest; }, claim: "a baked site is kept as-is (no card file on disk) and the app name is its title" },
   { slot: 242, target: SH, expected: `<!doctype html><html><head><meta name="twitter:card" content="summary_large_image"><meta property="og:title" content="My App"><title>My App</title><link rel="manifest" href="/__grok/manifest.webmanifest"><link rel="apple-touch-icon" href="/__grok/icon-180.png"><meta name="apple-mobile-web-app-title" content="My App"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="theme-color" content="#000000">${SCRIPT}</head><body></body></html>`,
     run: (m) => E(() => m.injectGrokPwaHead("<!doctype html><html><head><title>My App</title></head><body></body></html>", CTX())), claim: "the full injection of a minimal document: share metas after <head>, PWA tags and the extensions script before </head>, document title used as the name" },
-  { slot: 243, target: SH, expected: { idempotent: true },
-    run: (m) => E(() => { const c = CTX({ projectId: "p1", creator: "Ann", creatorId: "7" }); const once = m.injectGrokPwaHead("<html><head><title>T</title></head><body></body></html>", c); return { idempotent: m.injectGrokPwaHead(once, c) === once }; }), claim: "injecting an already-injected document changes nothing (project id and creator tags included)" },
+  { slot: 243, target: SH, expected: { idempotent: true, projectIdTagOnce: 1, creatorTagPresent: true },
+    run: (m) => E(() => { const c = CTX({ projectId: "p1", creator: "Ann", creatorId: "7" }); const once = m.injectGrokPwaHead("<html><head><title>T</title></head><body></body></html>", c); return { idempotent: m.injectGrokPwaHead(once, c) === once, projectIdTagOnce: count(once, 'name="grok-project-id"'), creatorTagPresent: once.includes("Ann") }; }), claim: "injecting an already-injected document changes nothing, while the first injection added the project id tag exactly once and the creator" },
   { slot: 244, target: SH, expected: { extensionsScripts: 1, appIdMetas: 1, projectMetas: 1 },
     run: (m) => E(() => { const html = `<html><head><title>T</title>${SCRIPT}<meta property="grok:app_id" content="p9"></head></html>`; const o = m.injectGrokPwaHead(html, CTX({ projectId: "p9" })); return { extensionsScripts: count(o, "extensions.js"), appIdMetas: count(o, 'property="grok:app_id"'), projectMetas: count(o, 'name="grok-project-id"') }; }), claim: "an existing extensions script and grok:app_id are not duplicated, but the missing grok-project-id meta is added once" },
   { slot: 245, target: SH, expected: { start: "<!doctype html><html><head>", end: "</head><p>hi</p>", pwaOnce: 1 },

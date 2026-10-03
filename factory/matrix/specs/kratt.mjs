@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment -- the harness is untyped JS over dynamic target modules; tsconfig.cerberus.json type-checks factory/ with checkJs */
-// @ts-nocheck
 // KRATT/TOEPARA domain (slots 101-129): kratt/task.ts, paths.ts, actions.ts, evidence.ts.
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
@@ -10,19 +8,20 @@ const TASK = "kratt/task.ts";
 const PATHS = "kratt/paths.ts";
 const ACT = "kratt/actions.ts";
 const EVD = "kratt/evidence.ts";
-const sha = (s) => createHash("sha256").update(s).digest("hex");
+const sha = (/** @type {any} */ s) => createHash("sha256").update(s).digest("hex");
 function root(files = {}) {
   const r = mkdtempSync(join(tmpdir(), "m-kratt-"));
   for (const [rel, c] of Object.entries(files)) { mkdirSync(dirname(join(r, rel)), { recursive: true }); writeFileSync(join(r, rel), c); }
   return r;
 }
-const hashTask = (files, taskId = "t1") => ({ taskId, action: "hash-files", files });
+const hashTask = (/** @type {any} */ files, taskId = "t1") => ({ taskId, action: "hash-files", files });
 const rt = (over = {}) => ({ taskId: "rt1", action: "run-test", testFile: "kratt/tests/x.test.ts", timeoutMs: 5000, maxOutputBytes: 4096, ...over });
 /** ADMITTED-shaped facts for computeVerdict differentials. */
 const FACTS = { version: "toepara-evidence/v1", producer: "kratt/v1", taskId: "t", action: "hash-files", taskDigest: "0".repeat(64), command: ["in-process:hash-files"], exitCode: 0, timedOut: false, truncated: false, outputBytes: 0, stdoutSha256: "0".repeat(64), stderrSha256: "0".repeat(64), artifacts: [{ name: "a.txt", sha256: "1".repeat(64), bytes: 1 }], checks: { pass: 1, fail: 0 }, failure: null };
-const A = { taskId: "a1", action: "hash-files", files: ["a.txt"] };
-const evOf = async (m) => { const r = root({ "a.txt": "hello" }); const res = await m.executeTask(r, A); return res; };
+const A = /** @type {{ taskId: string, action: "hash-files", files: string[] }} */ ({ taskId: "a1", action: "hash-files", files: ["a.txt"] });
+const evOf = async (/** @type {any} */ m) => { const r = root({ "a.txt": "hello" }); const res = await m.executeTask(r, A); return res; };
 
+/** @type {import("../types.d.ts").Spec[]} */
 export const SPECS = [
   { slot: 101, target: TASK, fn: "validateTask", input: [hashTask(["a/b.txt", "c.md"])], expected: { ok: true, task: { taskId: "t1", action: "hash-files", files: ["a/b.txt", "c.md"] } },
     claim: "a well-formed hash-files task is accepted and returned unchanged" },
@@ -62,7 +61,7 @@ export const SPECS = [
     run: async (m) => { const outside = root({ "secret.txt": "s" }); const r = root(); symlinkSync(join(outside, "secret.txt"), join(r, "link.txt")); const x = await m.executeTask(r, hashTask(["link.txt"])); return { exitCode: x.exitCode, failure: x.failure }; },
     claim: "a symlink pointing outside the root is refused, not followed" },
   { slot: 122, target: ACT, expected: { exitCode: 0, checks: { pass: 1, fail: 0 }, names: ["a.txt", "m.json"] },
-    run: async (m) => { const man = JSON.stringify({ version: 1, files: [{ path: "a.txt", sha256: sha("hello") }] }); const r = await m.executeTask(root({ "a.txt": "hello", "m.json": man }), { taskId: "m", action: "validate-manifest", manifest: "m.json" }); return { exitCode: r.exitCode, checks: r.checks, names: r.artifacts.map((a) => a.name) }; },
+    run: async (m) => { const man = JSON.stringify({ version: 1, files: [{ path: "a.txt", sha256: sha("hello") }] }); const r = await m.executeTask(root({ "a.txt": "hello", "m.json": man }), { taskId: "m", action: "validate-manifest", manifest: "m.json" }); return { exitCode: r.exitCode, checks: r.checks, names: r.artifacts.map((/** @type {any} */ a) => a.name) }; },
     claim: "a manifest whose declared SHA-256 matches the real file passes and records both manifest and file as artifacts" },
   { slot: 123, target: ACT, expected: { exitCode: 1, failure: "sha256-mismatch:a.txt", checks: { pass: 0, fail: 1 } },
     run: async (m) => { const man = JSON.stringify({ version: 1, files: [{ path: "a.txt", sha256: sha("tampered") }] }); const r = await m.executeTask(root({ "a.txt": "hello", "m.json": man }), { taskId: "m", action: "validate-manifest", manifest: "m.json" }); return { exitCode: r.exitCode, failure: r.failure, checks: r.checks }; },

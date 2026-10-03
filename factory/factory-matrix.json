@@ -1,7 +1,7 @@
 {
-  "matrix_version": 3,
-  "note": "PASS means every check registered for the slot ran and succeeded; for a slot without its own spec that is only 'one named, already-existing test passed'. SPECIFIED_SLOTS counts slots with their own unique assertion spec (factory/matrix/specs); DOMAIN_VERIFIED counts those whose assertion ran against real domain code and matched with evidence. Counts come from scripts/matrix250/matrix.mjs, never from documentation.",
-  "headline": "executed 250/250; PASS 250/250 (of which 0 rest only on a generic named-test mapping); SPECIFIED_SLOTS 250/250; DOMAIN_VERIFIED 250/250",
+  "matrix_version": 4,
+  "note": "PASS means every check registered for the slot ran and succeeded; for a slot without its own spec that is only 'one named, already-existing test passed'. SPECIFIED_SLOTS counts slots with their own unique assertion spec (factory/matrix/specs); DOMAIN_VERIFIED counts those whose assertion ran against real domain code, depended on it, and matched with evidence; CONFIG_PINNED counts specified slots that pin configuration instead; SHARED_PATH counts slots executing the same code path as another slot. Counts come from scripts/matrix250/matrix.mjs, never from documentation.",
+  "headline": "executed 250/250; PASS 250/250 (of which 0 rest only on a generic named-test mapping); SPECIFIED_SLOTS 250/250; DOMAIN_VERIFIED 243/250; CONFIG_PINNED 7/250; SHARED_PATH 34/250 slots; GUARD_PROBES 12/12",
   "summary": {
     "total": 250,
     "executed": 250,
@@ -10,7 +10,11 @@
     "blocked": 0,
     "not_implemented": 0,
     "specified_slots": 250,
-    "domain_verified": 250,
+    "domain_verified": 243,
+    "config_pinned": 7,
+    "shared_path_slots": 34,
+    "guard_probes": 12,
+    "guard_probes_passed": 12,
     "named_test_only_pass": 0
   },
   "by_group": [
@@ -19,44 +23,195 @@
       "slots": 50,
       "pass": 50,
       "specified": 50,
-      "domain_verified": 50
+      "domain_verified": 44,
+      "config_pinned": 6
     },
     {
       "group": "SECURITY/TRUST",
       "slots": 50,
       "pass": 50,
       "specified": 50,
-      "domain_verified": 50
+      "domain_verified": 49,
+      "config_pinned": 1
     },
     {
       "group": "KRATT/TOEPARA",
       "slots": 50,
       "pass": 50,
       "specified": 50,
-      "domain_verified": 50
+      "domain_verified": 50,
+      "config_pinned": 0
     },
     {
       "group": "CERBERUS/RECOVERY",
       "slots": 50,
       "pass": 50,
       "specified": 50,
-      "domain_verified": 50
+      "domain_verified": 50,
+      "config_pinned": 0
     },
     {
       "group": "PWA/ASSET/INTEGRATION",
       "slots": 50,
       "pass": 50,
       "specified": 50,
-      "domain_verified": 50
+      "domain_verified": 50,
+      "config_pinned": 0
     }
   ],
   "unspecified_slots": [],
+  "config_pinned_slots": [
+    "001",
+    "002",
+    "003",
+    "004",
+    "010",
+    "050",
+    "051"
+  ],
+  "shared_path_groups": [
+    [
+      "012",
+      "013"
+    ],
+    [
+      "018",
+      "019",
+      "022",
+      "023"
+    ],
+    [
+      "020",
+      "021"
+    ],
+    [
+      "029",
+      "030"
+    ],
+    [
+      "035",
+      "036"
+    ],
+    [
+      "052",
+      "053"
+    ],
+    [
+      "055",
+      "056"
+    ],
+    [
+      "098",
+      "099",
+      "100"
+    ],
+    [
+      "151",
+      "153",
+      "165",
+      "169",
+      "176"
+    ],
+    [
+      "157",
+      "158",
+      "159",
+      "167"
+    ],
+    [
+      "177",
+      "178"
+    ],
+    [
+      "202",
+      "205"
+    ],
+    [
+      "212",
+      "213"
+    ]
+  ],
+  "guard_probes": [
+    {
+      "id": "G1009",
+      "target": "scripts/preview.mjs",
+      "passed": true,
+      "claim": "a pid that ignores SIGTERM is escalated to SIGKILL (and only that one); a pid that exits on SIGTERM is never SIGKILLed"
+    },
+    {
+      "id": "G1010",
+      "target": "scripts/preview.mjs",
+      "passed": true,
+      "claim": "a process-group id of 0 is not a group (null: killing -0 would signal our own group), real ids parse even when the command name contains spaces/parentheses"
+    },
+    {
+      "id": "G1011",
+      "target": "scripts/write-atomic.mjs",
+      "passed": true,
+      "claim": "CHARACTERISATION of a known gap: only paths strictly inside public/ are refused as staging sources; public/ itself is not (recorded as a finding in docs/factory/MATRIX.md, to be tightened in write-atomic.mjs, not asserted as desirable)"
+    },
+    {
+      "id": "G1012",
+      "target": "scripts/with-app-env.mjs",
+      "passed": true,
+      "claim": "when the wrapped command cannot be spawned the wrapper exits 127 (command-not-found convention) and names the command"
+    },
+    {
+      "id": "G1005",
+      "target": "kratt/actions.ts",
+      "passed": true,
+      "claim": "hash-files shares one 32 MiB byte budget across the task: four 7 MiB files pass, the fifth is refused as total-size-budget-exceeded naming it (not merely file-too-large)"
+    },
+    {
+      "id": "G1006",
+      "target": "kratt/actions.ts",
+      "passed": true,
+      "claim": "a manifest that lists the same file twice, or lists itself, is refused with manifest-lists-itself-or-duplicate (a duplicate never double-counts as a passed check)"
+    },
+    {
+      "id": "G1007",
+      "target": "scripts/brand-check.mjs",
+      "passed": true,
+      "claim": "the og card size limit is exactly 600 KiB: a file at the limit is fine, one byte over (and 3 MiB) draws the over-600-KB warning"
+    },
+    {
+      "id": "G1008",
+      "target": "scripts/grok-pwa-shared.mjs",
+      "passed": true,
+      "claim": "the install tutorial is requested by install=1 or install=true on iOS only; false/yes values, other platforms and a missing platform are not install requests"
+    },
+    {
+      "id": "G1001",
+      "target": "src/lib/auth/gate-identity.server.ts",
+      "passed": true,
+      "claim": "the JWKS key lookup only accepts an OKP key on curve Ed25519: an X25519 key under the right kid is refused with the no-matching-key error"
+    },
+    {
+      "id": "G1002",
+      "target": "src/lib/auth/gate-identity.server.ts",
+      "passed": true,
+      "claim": "verification pins the JWS algorithm to EdDSA: a token whose header says Ed25519, signed with the very same key, is rejected while the EdDSA token verifies"
+    },
+    {
+      "id": "G1003",
+      "target": "src/lib/auth/gate-identity.server.ts",
+      "passed": true,
+      "claim": "the issuer is enforced: a correctly signed, fresh token from a different issuer is rejected"
+    },
+    {
+      "id": "G1004",
+      "target": "src/lib/auth/gate-identity.server.ts",
+      "passed": true,
+      "claim": "a whitespace-only subject is rejected (no empty identity) and a padded subject is trimmed"
+    }
+  ],
   "factory_slots": [
     {
       "id": "050",
       "status": "PASS",
       "specified": true,
-      "domain_verified": true,
+      "domain_verified": false,
+      "config_pinned": true,
       "expected": "the .nvmrc Node major equals the first node-version in ci.yml (the runtime pin cannot drift from CI)",
       "evidence": "spec:050:.nvmrc:e017635b7c3c306b",
       "named_test": "test:scripts/node-pin.test.mjs::CI setup-node uses the .nvmrc major"
@@ -66,6 +221,7 @@
       "status": "PASS",
       "specified": true,
       "domain_verified": true,
+      "config_pinned": false,
       "expected": "an envelope allowing only hash-files maps its scope onto a closed KRATT hash-files task",
       "evidence": "spec:145:factory/kratt-stage.ts:cc0bc4e49489705b",
       "named_test": "test:factory/tests/loop.test.ts::CLOSED LOOP (hash-files, real files at the real HEAD): envelope -> KRATT -> RÄSTIK -> TÖEPÄRA -> CERBERUS = ADMIT, with real worker transitions"
@@ -75,6 +231,7 @@
       "status": "PASS",
       "specified": true,
       "domain_verified": true,
+      "config_pinned": false,
       "expected": "a run-test envelope clamps a 90 s wall budget to KRATT's 60 s maximum and carries the output cap through",
       "evidence": "spec:146:factory/kratt-stage.ts:1785bb9c245827b6",
       "named_test": "test:factory/tests/loop.test.ts::CLOSED LOOP (run-test): a real node:test file is executed by KRATT, re-executed by TÖEPÄRA, and ADMITTED"
@@ -84,6 +241,7 @@
       "status": "PASS",
       "specified": true,
       "domain_verified": true,
+      "config_pinned": false,
       "expected": "an envelope authorising two KRATT actions is refused (one task = one authorised action)",
       "evidence": "spec:147:factory/kratt-stage.ts#envelopeToKrattTask:bd26b493ee9a993f",
       "named_test": "test:factory/tests/toepara.test.ts::TÖEPÄRA: KRATT output alone never yields VERIFIED (self-verified receipt, even with a perfect evidence digest)"
@@ -93,6 +251,7 @@
       "status": "PASS",
       "specified": true,
       "domain_verified": true,
+      "config_pinned": false,
       "expected": "an action that is both allowed and forbidden is forbidden (forbidden wins)",
       "evidence": "spec:148:factory/kratt-stage.ts#envelopeToKrattTask:d005eb4d060914ea",
       "named_test": "test:factory/tests/toepara.test.ts::TÖEPÄRA: a self-consistent forgery (wrong file digest, evidenceDigest recomputed) is caught only because digests are recomputed from git"
@@ -102,6 +261,7 @@
       "status": "PASS",
       "specified": true,
       "domain_verified": true,
+      "config_pinned": false,
       "expected": "a sleeping worker cannot jump to ACTIVE: the edge is rejected, the worker stays SLEEP, and the rejected attempt is logged",
       "evidence": "spec:149:factory/dispatcher.ts:a9555581f02310e4",
       "named_test": "test:factory/tests/cerberus-gate.test.ts::CERBERUS: caller-supplied trust is worthless - a lying TÖEPÄRA result with a forged (self-consistent) bundle is DENIED"
@@ -111,6 +271,7 @@
       "status": "PASS",
       "specified": true,
       "domain_verified": true,
+      "config_pinned": false,
       "expected": "waking a worker with no task bound to it is refused ('no task, no wake') and logged",
       "evidence": "spec:150:factory/dispatcher.ts:ed274fc834fb12b1",
       "named_test": "test:factory/tests/rastik-attacks.test.ts::RÄSTIK: the battery is not vacuous - a verifier that admits everything is attacked successfully (every case CONFIRMED with a schema-valid finding)"

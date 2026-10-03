@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment -- the harness is untyped JS over dynamic target modules; tsconfig.cerberus.json type-checks factory/ with checkJs */
-// @ts-nocheck
 // SECURITY/TRUST domain (slots 52-100): auth-invariant, sign-out plan, sign-in gate, gate identity verification.
 import { generateKeyPairSync } from "node:crypto";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
@@ -13,8 +11,8 @@ const SIG = "src/lib/auth/sign-in-gate.ts";
 const GID = "src/lib/auth/gate-identity.server.ts";
 
 /** Run fn with the given env vars set (undefined = unset), restoring afterwards. */
-async function withEnv(vars, fn) {
-  const saved = {};
+async function withEnv(/** @type {any} */ vars, /** @type {any} */ fn) {
+  const saved = /** @type {Record<string, string | undefined>} */ ({});
   for (const k of Object.keys(vars)) { saved[k] = process.env[k]; if (vars[k] === undefined) delete process.env[k]; else process.env[k] = vars[k]; }
   try { return await fn(); } finally { for (const k of Object.keys(saved)) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; } }
 }
@@ -23,6 +21,7 @@ const KEYS = generateKeyPairSync("ed25519");
 const ISS = "https://gate.grok.me";
 const AUD = "app:proj-77";
 const now = () => Math.floor(Date.now() / 1000);
+/** @param {{ aud?: string, iss?: string, sub?: string, exp?: number | "set" | "none", iat?: number, claims?: Record<string, unknown> }} [o] */
 async function token({ aud = AUD, iss = ISS, sub = "user-1", exp = "set", iat = now(), claims = {} } = {}) {
   let j = new SignJWT({ ...claims }).setProtectedHeader({ alg: "EdDSA", kid: "k1" }).setSubject(sub).setIssuer(iss).setAudience(aud).setIssuedAt(iat);
   if (exp === "set") j = j.setExpirationTime(now() + 300);
@@ -30,25 +29,29 @@ async function token({ aud = AUD, iss = ISS, sub = "user-1", exp = "set", iat = 
   return j.sign(KEYS.privateKey);
 }
 const getKey = async () => KEYS.publicKey;
-const verify = (m, t, o = {}) => m.verifyGateIdentityToken(t, { issuer: ISS, audience: AUD, getKey, ...o });
+const verify = (/** @type {any} */ m, /** @type {any} */ t, o = {}) => m.verifyGateIdentityToken(t, { issuer: ISS, audience: AUD, getKey, ...o });
 
 /** Records which sign-out steps ran, in order. */
+/** @param {{ requestSignOut?: () => unknown }} [over] */
 function steps(over = {}) {
-  const calls = [];
+  /** @type {string[]} */ const calls = [];
   const behaviour = over.requestSignOut ?? (() => {});
   return { calls, s: { livePreview: true, hasBearer: true, clearToken: () => calls.push("clear"), redirect: () => calls.push("redirect"), timeoutMs: 20, ...over, requestSignOut: () => { calls.push("request"); return behaviour(); } } };
 }
-async function signOutOutcome(m, over, fnName = "runSignOut") {
+async function signOutOutcome(/** @type {any} */ m, /** @type {any} */ over, fnName = "runSignOut") {
   const { calls, s } = steps(over);
   let error = null;
-  try { await m[fnName](s); } catch (e) { error = e.message; }
+  try { await m[fnName](s); } catch (e) { error = /** @type {any} */ (e).message; }
   return { calls, error };
 }
 const hang = () => new Promise(() => {});
 
+/** @type {import("../types.d.ts").Spec[]} */
 export const SPECS = [
   // ---- check-auth-invariant (52-62)
-  { slot: 52, target: CAI, fn: "authEnabledFromEnvValue", input: ["false"], expected: false, claim: "only the exact string 'false' turns sign-in off" },
+  { slot: 52, target: CAI, expected: { exactFalseIsOff: false, trueIsOn: true, booleanFalseIsNotTheOffString: true, paddedIsOn: true },
+    run: (m) => ({ exactFalseIsOff: m.authEnabledFromEnvValue("false"), trueIsOn: m.authEnabledFromEnvValue("true"), booleanFalseIsNotTheOffString: m.authEnabledFromEnvValue(false), paddedIsOn: m.authEnabledFromEnvValue(" false") }),
+    claim: "only the exact string 'false' turns sign-in off: 'true', a boolean false and a space-padded ' false' all leave it on" },
   { slot: 53, target: CAI, expected: { unset: true, empty: true, zero: true, upper: true, no: true },
     run: (m) => ({ unset: m.authEnabledFromEnvValue(undefined), empty: m.authEnabledFromEnvValue(""), zero: m.authEnabledFromEnvValue("0"), upper: m.authEnabledFromEnvValue("FALSE"), no: m.authEnabledFromEnvValue("no") }),
     claim: "every value other than exactly 'false' (unset, empty, 0, FALSE, no) leaves sign-in ON - the fail-safe direction" },
@@ -65,7 +68,7 @@ export const SPECS = [
   { slot: 58, target: CAI, fn: "probeDevAuthEnabled", input: ["http://127.0.0.1:1", async () => { throw new Error("ECONNREFUSED"); }], expected: null,
     claim: "an unreachable dev server probes as null rather than throwing" },
   { slot: 59, target: CAI, expected: { notOk: null, requested: "http://127.0.0.1:8080/__app-env" },
-    run: async (m) => { let url = ""; const notOk = await m.probeDevAuthEnabled("http://127.0.0.1:8080", async (u) => { url = u; return { ok: false, text: async () => "{}" }; }); return { notOk, requested: url }; },
+    run: async (m) => { let url = ""; const notOk = await m.probeDevAuthEnabled("http://127.0.0.1:8080", async (/** @type {any} */ u) => { url = u; return { ok: false, text: async () => "{}" }; }); return { notOk, requested: url }; },
     claim: "a server without the endpoint (non-2xx) probes as null, and the probe asked exactly <dev>/__app-env" },
   { slot: 60, target: CAI, fn: "probeDevAuthEnabled", input: ["http://127.0.0.1:8080", async () => ({ ok: true, text: async () => '{"VITE_AUTH_ENABLED":"false"}' })], expected: false,
     claim: "a dev server reporting VITE_AUTH_ENABLED=false probes as sign-in off" },

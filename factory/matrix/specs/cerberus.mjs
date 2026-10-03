@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment -- the harness is untyped JS over dynamic target modules; tsconfig.cerberus.json type-checks factory/ with checkJs */
-// @ts-nocheck
 // CERBERUS/RECOVERY domain (slots 151-200): cerberus/core, policy, artifact-trust, integrations.
 // Hash literals are computed here with node:crypto directly, never with the code under test.
 import { createHash } from "node:crypto";
@@ -9,22 +7,23 @@ const NORM = "cerberus/core/normalize.ts";
 const POL = "cerberus/policy/policy.ts";
 const TRUST = "cerberus/artifact-trust/artifact-trust.ts";
 const ADP = "cerberus/integrations/verdict-adapters.ts";
-const sha = (s) => createHash("sha256").update(Buffer.from(s, "utf8")).digest("hex");
+const sha = (/** @type {any} */ s) => createHash("sha256").update(Buffer.from(s, "utf8")).digest("hex");
 const H = sha("hello");
 const ART = { name: "a.txt", content: "hello", sha256: H };
 const VALID = { action: "detect", toepara: "ADMITTED", trustGate: "AUTHORIZED", artifact: ART };
-const brief = (r) => ({ decision: r.decision, reasons: r.reasons });
-const ADM = (v) => ({ name: "a", verdict: () => v });
+const brief = (/** @type {any} */ r) => ({ decision: r.decision, reasons: r.reasons });
+const ADM = (/** @type {any} */ v) => ({ name: "a", verdict: () => v });
 const GOOD = { toepara: ADM("ADMITTED"), trustGate: ADM("AUTHORIZED") };
 const ALL_PASS = { input: "PASS", policy: "PASS", toepara: "PASS", trustGate: "PASS", artifactTrust: "PASS" };
 
+/** @type {import("../types.d.ts").Spec[]} */
 export const SPECS = [
   { slot: 151, target: DEC, expected: { decision: "PROCEED", reasons: [], verdictSource: "caller-supplied", stages: ALL_PASS },
     run: (m) => { const r = m.decide(VALID); return { decision: r.decision, reasons: r.reasons, verdictSource: r.verdictSource, stages: r.stages }; },
     claim: "fully valid evidence yields PROCEED, no reasons, all five stages PASS, source caller-supplied" },
-  { slot: 152, target: DEC, expected: { sameReceipt: true, keyOrderIrrelevant: true },
-    run: (m) => { const reordered = { artifact: { sha256: H, content: "hello", name: "a.txt" }, trustGate: "AUTHORIZED", toepara: "ADMITTED", action: "detect" }; return { sameReceipt: JSON.stringify(m.decide(VALID)) === JSON.stringify(m.decide(VALID)), keyOrderIrrelevant: m.decide(VALID).receiptDigest === m.decide(reordered).receiptDigest }; },
-    claim: "the same input (even with keys in another order) yields a byte-identical receipt" },
+  { slot: 152, target: DEC, expected: { nestedAndTopKeyOrderIrrelevant: true, swappedVerdictsDifferentDigest: true, valuesNotSortedAway: true },
+    run: (m) => { const reordered = { artifact: { sha256: H, content: "hello", name: "a.txt" }, trustGate: "AUTHORIZED", toepara: "ADMITTED", action: "detect" }; const swapped = { ...VALID, toepara: "AUTHORIZED", trustGate: "ADMITTED" }; return { nestedAndTopKeyOrderIrrelevant: m.decide(VALID).receiptDigest === m.decide(reordered).receiptDigest, swappedVerdictsDifferentDigest: m.decide(VALID).inputDigest !== m.decide(swapped).inputDigest, valuesNotSortedAway: m.decide(VALID).receiptDigest !== m.decide(swapped).receiptDigest }; },
+    claim: "key order (top-level and nested) never changes the receipt digest, but swapping the toepara/trustGate VALUES does - canonicalisation sorts keys, not values" },
   { slot: 153, target: DEC, expected: { inputDigestDiffers: true, receiptDigestDiffers: true },
     run: (m) => { const other = { ...VALID, artifact: { name: "a.txt", content: "bye", sha256: sha("bye") } }; const a = m.decide(VALID); const b = m.decide(other); return { inputDigestDiffers: a.inputDigest !== b.inputDigest, receiptDigestDiffers: a.receiptDigest !== b.receiptDigest }; },
     claim: "a different (still valid) artifact changes both the input digest and the receipt digest" },
@@ -55,7 +54,7 @@ export const SPECS = [
   { slot: 162, target: DEC, expected: { decision: "FAIL_CLOSED", reasons: ["input-not-plain-object"] },
     run: (m) => brief(m.decide(Object.create({ ...VALID }))), claim: "an object whose verdicts live only on its prototype is not a plain object and is denied" },
   { slot: 163, target: DEC, expected: { decision: "FAIL_CLOSED", reasons: ["toepara-not-admitted", "trust-gate-not-authorized"] },
-    run: (m) => { Object.prototype.toepara = "ADMITTED"; Object.prototype.trustGate = "AUTHORIZED"; try { return brief(m.decide({ action: "detect", artifact: ART })); } finally { delete Object.prototype.toepara; delete Object.prototype.trustGate; } },
+    run: (m) => { const proto = /** @type {any} */ (Object.prototype); proto.toepara = "ADMITTED"; proto.trustGate = "AUTHORIZED"; try { return brief(m.decide({ action: "detect", artifact: ART })); } finally { delete proto.toepara; delete proto.trustGate; } },
     claim: "a polluted Object.prototype cannot supply TOEPARA / Trust Gate verdicts" },
   { slot: 164, target: DEC, expected: { equal: true, decision: "PROCEED" },
     run: (m) => { const np = Object.assign(Object.create(null), VALID); return { equal: m.decide(np).receiptDigest === m.decide(VALID).receiptDigest, decision: m.decide(np).decision }; },
@@ -94,9 +93,9 @@ export const SPECS = [
     claim: "with every stage failing, all four reasons are listed in pipeline order (no short-circuit)" },
   { slot: 176, target: DEC, expected: { action: "detect", toepara: "ADMITTED", trustGate: "AUTHORIZED", artifact: { name: "a.txt", declaredSha256: H, computedSha256: H } },
     run: (m) => m.decide(VALID).evidence, claim: "the receipt carries the exact decision evidence including declared and computed digests" },
-  { slot: 177, target: DEC, expected: { equalWhenValid: true, differWhenTampered: true },
-    run: (m) => { const ok = m.decide(VALID).evidence.artifact; const bad = m.decide({ ...VALID, artifact: { ...ART, content: "hellO" } }).evidence.artifact; return { equalWhenValid: ok.declaredSha256 === ok.computedSha256, differWhenTampered: bad.declaredSha256 !== bad.computedSha256 }; },
-    claim: "declared equals computed digest only for untampered content" },
+  { slot: 177, target: DEC, expected: { computedIsIndependentSha: [true, true, true], declaredEqualsComputedWhenUntampered: [true, true, true], tamperKindsAllDiffer: { edited: true, truncated: true, appended: true } },
+    run: (m) => { const contents = ["", "h\u00e9llo \u2713", "x".repeat(5000)]; const ev = (/** @type {any} */ c, over = {}) => m.decide({ ...VALID, artifact: { name: "a.txt", content: c, sha256: sha(c), ...over } }).evidence.artifact; const ok = contents.map((c) => ev(c)); const base = "hello"; const bad = (/** @type {any} */ c) => { const e = ev(c, { sha256: sha(base) }); return e.declaredSha256 !== e.computedSha256; }; return { computedIsIndependentSha: ok.map((e, i) => e.computedSha256 === sha(contents[i])), declaredEqualsComputedWhenUntampered: ok.map((e) => e.declaredSha256 === e.computedSha256), tamperKindsAllDiffer: { edited: bad("hellO"), truncated: bad("hell"), appended: bad("hello!") } }; },
+    claim: "for empty, non-ASCII and 5000-char content the receipt's computed digest equals an independent sha256 and the declared one; each of three tamper kinds (edit, truncate, append) makes them differ" },
   { slot: 178, target: DEC, expected: { action: true, toepara: true, trustGate: true, name: true, content: true, sha256: true },
     run: (m) => { const base = m.decide(VALID).inputDigest; return { action: m.decide({ ...VALID, action: "recover" }).inputDigest !== base, toepara: m.decide({ ...VALID, toepara: "x" }).inputDigest !== base, trustGate: m.decide({ ...VALID, trustGate: "x" }).inputDigest !== base, name: m.decide({ ...VALID, artifact: { ...ART, name: "b.txt" } }).inputDigest !== base, content: m.decide({ ...VALID, artifact: { ...ART, content: "hellO" } }).inputDigest !== base, sha256: m.decide({ ...VALID, artifact: { ...ART, sha256: "0".repeat(64) } }).inputDigest !== base }; },
     claim: "changing ANY one of the six decision fields changes the input digest" },
@@ -128,9 +127,9 @@ export const SPECS = [
   { slot: 189, target: POL, expected: { detect: true, recover: true, recommend: true, Detect: false, merge: false, deploy: false, num: false, nul: false },
     run: (m) => ({ detect: m.isAllowedAction("detect"), recover: m.isAllowedAction("recover"), recommend: m.isAllowedAction("recommend"), Detect: m.isAllowedAction("Detect"), merge: m.isAllowedAction("merge"), deploy: m.isAllowedAction("deploy"), num: m.isAllowedAction(1), nul: m.isAllowedAction(null) }),
     claim: "the policy predicate allows exactly detect/recover/recommend, case-sensitively" },
-  { slot: 190, target: POL, expected: { list: ["detect", "recover", "recommend"], mergeAllowed: false },
-    run: (m) => ({ list: [...m.ALLOWED_ACTIONS], mergeAllowed: m.isAllowedAction("merge") }),
-    claim: "the allow-list constant is exactly [detect, recover, recommend]; merge is not in it" },
+  { slot: 190, target: POL, expected: { list: ["detect", "recover", "recommend"], predicateAgreesWithList: true, dangerousVerbsInList: [] },
+    run: (m) => { const list = [...m.ALLOWED_ACTIONS]; const dangerous = ["merge", "deploy", "authorize", "approve", "push", "delete", "admit", "release", "force-push"]; const universe = [...list, ...dangerous, "", "DETECT", " detect"]; return { list, predicateAgreesWithList: universe.every((v) => list.includes(v) === m.isAllowedAction(v)), dangerousVerbsInList: dangerous.filter((v) => list.includes(v)) }; },
+    claim: "the exported allow-list is exactly [detect, recover, recommend], contains none of nine dangerous verbs, and the predicate agrees with the list over the whole universe (no hidden second rule)" },
   { slot: 191, target: ADP, expected: { decision: "PROCEED", verdictSource: "adapter", reasons: [] },
     run: (m) => { const r = m.decideWithAdapters({ action: "detect", artifact: ART }, GOOD); return { decision: r.decision, verdictSource: r.verdictSource, reasons: r.reasons }; },
     claim: "when both adapters return the exact verdicts the pipeline proceeds and records source 'adapter'" },
@@ -138,13 +137,13 @@ export const SPECS = [
     run: (m) => brief(m.decideWithAdapters(VALID, { toepara: ADM("REJECTED"), trustGate: ADM("DENIED") })),
     claim: "caller-typed ADMITTED/AUTHORIZED are ignored in adapter mode: the adapters' REJECTED/DENIED decide" },
   { slot: 193, target: ADP, expected: { seenToepara: null, seenTrustGate: null, seenArtifact: "a.txt" },
-    run: (m) => { let seen = null; m.decideWithAdapters(VALID, { toepara: { name: "t", verdict: (e) => { seen = e; return "ADMITTED"; } }, trustGate: ADM("AUTHORIZED") }); return { seenToepara: seen.toepara, seenTrustGate: seen.trustGate, seenArtifact: seen.artifact.name }; },
+    run: (m) => { let seen = /** @type {any} */ (null); m.decideWithAdapters(VALID, { toepara: { name: "t", verdict: (/** @type {any} */ e) => { seen = e; return "ADMITTED"; } }, trustGate: ADM("AUTHORIZED") }); return { seenToepara: seen.toepara, seenTrustGate: seen.trustGate, seenArtifact: seen.artifact.name }; },
     claim: "adapters receive the artifact but never the caller's own verdict fields" },
   { slot: 194, target: ADP, expected: { decision: "FAIL_CLOSED", reasons: ["toepara-not-admitted"], threw: false },
     run: (m) => { let threw = false; let r; try { r = m.decideWithAdapters(VALID, { toepara: { name: "t", verdict: () => { throw new Error("down"); } }, trustGate: ADM("AUTHORIZED") }); } catch { threw = true; } return { ...brief(r), threw }; },
     claim: "an adapter that throws means no verdict: fail closed with the toepara reason and no exception" },
   { slot: 195, target: ADP, expected: { control: "PROCEED", promise: "FAIL_CLOSED", boxed: "FAIL_CLOSED", number: "FAIL_CLOSED" },
-    run: (m) => { const d = (v) => m.decideWithAdapters({ action: "detect", artifact: ART }, { toepara: GOOD.toepara, trustGate: ADM(v) }).decision; return { control: d("AUTHORIZED"), promise: d(Promise.resolve("AUTHORIZED")), boxed: d(new String("AUTHORIZED")), number: d(1) }; },
+    run: (m) => { const d = (/** @type {any} */ v) => m.decideWithAdapters({ action: "detect", artifact: ART }, { toepara: GOOD.toepara, trustGate: ADM(v) }).decision; return { control: d("AUTHORIZED"), promise: d(Promise.resolve("AUTHORIZED")), boxed: d(new String("AUTHORIZED")), number: d(1) }; },
     claim: "a Promise, boxed String or number from the trust gate is not a verdict (control with the exact string proceeds)" },
   { slot: 196, target: ADP, expected: { decision: "FAIL_CLOSED", reasons: ["toepara-not-admitted", "trust-gate-not-authorized"] },
     run: (m) => brief(m.decideWithAdapters({ action: "detect", artifact: ART }, undefined)), claim: "omitting the adapters entirely fails closed rather than skipping both gates" },
@@ -154,8 +153,9 @@ export const SPECS = [
   { slot: 198, target: ADP, expected: { sameInputDigestAsDecide: true, receiptDigestDiffers: true },
     run: async (m) => { const { decide } = await import("../../../cerberus/core/decide.ts"); const a = m.decideWithAdapters({ action: "detect", artifact: ART }, GOOD); const b = decide(VALID); return { sameInputDigestAsDecide: a.inputDigest === b.inputDigest, receiptDigestDiffers: a.receiptDigest !== b.receiptDigest }; },
     claim: "adapter mode decides on the same snapshot as decide() (equal inputDigest) but records a different verdict source (different receiptDigest)" },
-  { slot: 199, target: ADP, expected: { name: "stub:g", verdict: "AUTHORIZED" },
-    run: (m) => { const a = m.stubAdapter("g", "AUTHORIZED"); return { name: a.name, verdict: a.verdict() }; }, claim: "stubAdapter is named stub:<name> and returns its fixed verdict (stubs are visibly stubs)" },
+  { slot: 199, target: ADP, expected: { names: ["stub:t", "stub:g"], ignoresEvidence: true, bothFixedRight: { decision: "PROCEED", reasons: [] }, swapped: { decision: "FAIL_CLOSED", reasons: ["toepara-not-admitted", "trust-gate-not-authorized"] } },
+    run: (m) => { const t = m.stubAdapter("t", "ADMITTED"); const g = m.stubAdapter("g", "AUTHORIZED"); const brief2 = (/** @type {any} */ r) => ({ decision: r.decision, reasons: r.reasons }); return { names: [t.name, g.name], ignoresEvidence: t.verdict({ a: 1 }) === t.verdict({ b: 2 }), bothFixedRight: brief2(m.decideWithAdapters({ action: "detect", artifact: ART }, { toepara: t, trustGate: g })), swapped: brief2(m.decideWithAdapters({ action: "detect", artifact: ART }, { toepara: m.stubAdapter("x", "AUTHORIZED"), trustGate: m.stubAdapter("y", "ADMITTED") })) }; },
+    claim: "stub adapters are visibly named stub:<name>, return their fixed verdict whatever the evidence, and drive decideWithAdapters: right verdicts PROCEED, swapped verdicts fail closed on both gates" },
   { slot: 200, target: DEC, expected: { inputDigest: sha('{"malformed":"r"}'), reasons: ["r"], decision: "FAIL_CLOSED", input: "FAIL", rest: ["NOT_EVALUATED", "NOT_EVALUATED", "NOT_EVALUATED", "NOT_EVALUATED"] },
     run: (m) => { const r = m.malformedInputReceipt("r", "adapter"); return { inputDigest: r.inputDigest, reasons: r.reasons, decision: r.decision, input: r.stages.input, rest: [r.stages.policy, r.stages.toepara, r.stages.trustGate, r.stages.artifactTrust] }; },
     claim: "a malformed-input receipt digests canonical {malformed:reason} (independent sha256 literal) and marks later stages NOT_EVALUATED" },

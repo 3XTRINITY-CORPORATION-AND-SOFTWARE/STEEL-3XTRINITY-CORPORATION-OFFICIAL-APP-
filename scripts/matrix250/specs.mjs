@@ -26,23 +26,58 @@ export function execSpecFile(file, { mutate = false, root = process.cwd(), spawn
   return JSON.parse(line.slice("MATRIX_SPEC_RESULTS:".length));
 }
 
-/**
- * Run every spec file and merge. Result:
- *   { entries, specified: Map<slot, entry>, domainVerified: Set<slot>, violations, errors }
- * `exec` is injectable so tests can feed synthetic runner output.
- */
-export function runSpecs({ root = process.cwd(), mutate = false, files = specFiles(root), exec = execSpecFile } = {}) {
-  const entries = [];
-  const violations = [];
-  const errors = [];
-  for (const f of files) {
-    const r = exec(f, { mutate, root });
-    if (r.error) { errors.push(r.error); violations.push(`spec file ${f} did not run: ${r.error}`); continue; }
-    entries.push(...r.entries);
-    violations.push(...r.violations.map((v) => `${f}: ${v}`));
-  }
-  const c = combineEntries(entries);
-  return { entries, specified: c.specified, domainVerified: c.domainVerified, violations: [...violations, ...c.violations], errors };
+export const GUARD_DIR = "factory/matrix/guards";
+
+export function guardFiles(root = process.cwd()) {
+  const dir = join(root, GUARD_DIR);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).filter((f) => f.endsWith(".mjs")).sort().map((f) => `${GUARD_DIR}/${f}`);
 }
 
-export const EMPTY_SPEC_RUN = Object.freeze({ entries: [], specified: new Map(), domainVerified: new Set(), violations: [], errors: [] });
+/**
+ * Run every spec file and merge. Result:
+ *   { entries, specified: Map<slot, entry>, domainVerified: Set<slot>, configPinned: Set<slot>,
+ *     sharedPathGroups: number[][], sharedPathSlots: Set<slot>, guards: { entries, total, passed }, violations, errors }
+ * Regression guards (factory/matrix/guards) are executed with the same runner but are NOT slots: they never count towards
+ * SPECIFIED_SLOTS / DOMAIN_VERIFIED; they only have to pass and be unique (also against the slot specs).
+ * `exec` is injectable so tests can feed synthetic runner output. With explicit `files`, guards run only if `guards` is passed.
+ */
+export function runSpecs({ root = process.cwd(), mutate = false, files, guards, exec = execSpecFile } = {}) {
+  const specList = files ?? specFiles(root);
+  const guardList = guards ?? (files === undefined ? guardFiles(root) : []);
+  const entries = [];
+  const guardEntries = [];
+  const violations = [];
+  const errors = [];
+  const collect = (list, into) => {
+    for (const f of list) {
+      const r = exec(f, { mutate, root });
+      if (r.error) { errors.push(r.error); violations.push(`spec file ${f} did not run: ${r.error}`); continue; }
+      into.push(...r.entries);
+      violations.push(...r.violations.map((v) => `${f}: ${v}`));
+    }
+  };
+  collect(specList, entries);
+  collect(guardList, guardEntries);
+  const c = combineEntries(entries);
+  const g = combineEntries(guardEntries);
+  const guardViolations = g.violations.map((v) => `guards: ${v}`);
+  for (const [slot, e] of g.specified) {
+    if (entries.some((x) => x.fingerprint && x.fingerprint === e.fingerprint)) guardViolations.push(`guard ${slot} duplicates the assertion of a slot spec`);
+  }
+  const failedGuards = guardEntries.filter((e) => !(e.valid && e.result && e.result.ok));
+  for (const e of failedGuards) guardViolations.push(`guard ${e.slot} failed: ${e.result?.error ?? "invalid guard spec"}`);
+  return {
+    entries,
+    specified: c.specified,
+    domainVerified: c.domainVerified,
+    configPinned: c.configPinned,
+    sharedPathGroups: c.sharedPathGroups,
+    sharedPathSlots: c.sharedPathSlots,
+    guards: { entries: guardEntries, total: guardEntries.length, passed: guardEntries.length - failedGuards.length },
+    violations: [...violations, ...c.violations, ...guardViolations],
+    errors,
+  };
+}
+
+export const EMPTY_SPEC_RUN = Object.freeze({ entries: [], specified: new Map(), domainVerified: new Set(), configPinned: new Set(), sharedPathGroups: [], sharedPathSlots: new Set(), guards: { entries: [], total: 0, passed: 0 }, violations: [], errors: [] });

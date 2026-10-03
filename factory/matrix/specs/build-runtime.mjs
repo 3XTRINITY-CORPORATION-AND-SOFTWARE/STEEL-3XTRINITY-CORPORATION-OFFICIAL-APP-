@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment -- the harness is untyped JS over dynamic target modules; tsconfig.cerberus.json type-checks factory/ with checkJs */
-// @ts-nocheck
 // BUILD/RUNTIME domain (slots 5-49): scripts/with-app-env.mjs, migration-plan.mjs, write-atomic.mjs, preview.mjs.
 // Every spec drives the REAL module with its own input and a written, distinct expected value.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -11,8 +9,9 @@ const MIG = "scripts/migration-plan.mjs";
 const WA = "scripts/write-atomic.mjs";
 const PRV = "scripts/preview.mjs";
 const PRINT = "process.stdout.write(String(process.env.VITE_MATRIX_PROBE))";
-const tmp = (p) => mkdtempSync(join(tmpdir(), p));
+const tmp = (/** @type {any} */ p) => mkdtempSync(join(tmpdir(), p));
 
+/** @type {import("../types.d.ts").Spec[]} */
 export const SPECS = [
   // ---- with-app-env (5-16)
   { slot: 5, target: WAE, fn: "parseAppEnv", input: ['{"VITE_A":"1","VITE_B":"two"}'], expected: { VITE_A: "1", VITE_B: "two" },
@@ -26,11 +25,12 @@ export const SPECS = [
     claim: "readAppEnv reads <root>/.grok/app-env.json and keeps only VITE_ strings" },
   { slot: 9, target: WAE, fn: "mergeAppEnv", input: [{ VITE_A: "file", VITE_B: "file" }, { VITE_A: "proc" }], expected: { VITE_A: "proc", VITE_B: "file" },
     claim: "a process-env value overrides the file value key by key while untouched file keys survive" },
-  { slot: 10, target: WAE, expected: { VITE_AUTH_ENABLED: "false" },
+  { slot: 10, target: WAE, config: true, expected: { VITE_AUTH_ENABLED: "false" },
     run: (m) => m.readAppEnv(m.projectRoot()),
-    claim: "this workspace's real .grok/app-env.json resolves to exactly VITE_AUTH_ENABLED=false (template ships auth off)" },
-  { slot: 11, target: WAE, fn: "mergeAppEnv", input: [{ VITE_AUTH_ENABLED: "false" }, { PATH: "/usr/bin" }], expected: { VITE_AUTH_ENABLED: "false", PATH: "/usr/bin" },
-    claim: "the merged env a child inherits carries the file's flag next to untouched process vars" },
+    claim: "CONFIG: this workspace's real .grok/app-env.json resolves to exactly VITE_AUTH_ENABLED=false (template ships auth off) - pins configuration, not code behaviour" },
+  { slot: 11, target: WAE, expected: { merged: { VITE_AUTH_ENABLED: "false", PATH: "/usr/bin" }, overridden: "true", freshObject: true, fileWins: false },
+    run: (m) => { const file = Object.freeze(m.readAppEnv(m.projectRoot())); const proc = Object.freeze({ PATH: "/usr/bin" }); const out = m.mergeAppEnv(file, proc); return { merged: out, overridden: m.mergeAppEnv(file, Object.freeze({ VITE_AUTH_ENABLED: "true" })).VITE_AUTH_ENABLED, freshObject: out !== file && out !== proc, fileWins: m.mergeAppEnv(file, Object.freeze({ VITE_AUTH_ENABLED: "true" })).VITE_AUTH_ENABLED === file.VITE_AUTH_ENABLED }; },
+    claim: "merging the REAL app-env file with a child env returns a fresh object (frozen inputs untouched), keeps the file flag beside process vars, and a process value beats the file flag" },
   { slot: 12, target: WAE, expected: { status: 0, stdout: "from-file" },
     run: (m, c) => { const r = c.execTarget({ stageAs: "scripts/with-app-env.mjs", files: { ".grok/app-env.json": '{"VITE_MATRIX_PROBE":"from-file"}' }, args: [process.execPath, "-e", PRINT] }); void m; return { status: r.status, stdout: r.stdout }; },
     claim: "the CLI wrapper runs the command with the app-env file value applied" },
@@ -59,14 +59,19 @@ export const SPECS = [
   { slot: 21, target: MIG, expected: [{ name: "0002_steel_rows.sql", path: "0002_steel_rows.sql" }],
     run: (m) => m.pendingMigrations(readdirSync("migrations"), []),
     claim: "listing the REAL migrations/ dir yields only the top-level steel_rows migration; the auth/ directory is never globbed" },
-  { slot: 22, target: MIG, expected: { listed: ["0002_steel_rows.sql"], authSchemaPresent: true },
-    run: (m) => ({
-      listed: m.pendingMigrations(["migrations/auth/0001_auth.sql", ...readdirSync("migrations").map((f) => `migrations/${f}`)], ["0001_auth.sql"]).map((x) => x.name),
-      authSchemaPresent: /create\s+table/i.test(readFileSync("migrations/auth/0001_auth.sql", "utf8")),
-    }),
-    claim: "on a database that already ran the real auth schema, only the steel_rows migration is pending and the auth SQL really defines tables" },
-  { slot: 23, target: MIG, fn: "pendingMigrations", input: [["migrations/0001_auth.sql"], ["0001_auth.sql"]], expected: [],
-    claim: "an EDITED copy of an applied migration is silently skipped by basename keying - the reason the byte-identity check exists" },
+  { slot: 22, target: MIG, expected: { firstDeploy: ["0001_auth.sql", "0002_steel_rows.sql"], afterAuthApplied: ["0002_steel_rows.sql"], authSchemaDefinesTables: true },
+    run: (m) => {
+      const copiedUp = [...readdirSync("migrations/auth").map((f) => `migrations/${f}`), ...readdirSync("migrations").filter((f) => f.endsWith(".sql")).map((f) => `migrations/${f}`)];
+      return {
+        firstDeploy: m.pendingMigrations([...copiedUp].reverse(), []).map((/** @type {any} */ x) => x.name),
+        afterAuthApplied: m.pendingMigrations(copiedUp, ["0001_auth.sql"]).map((/** @type {any} */ x) => x.name),
+        authSchemaDefinesTables: /create\s+table/i.test(readFileSync("migrations/auth/0001_auth.sql", "utf8")),
+      };
+    },
+    claim: "once the opt-in auth schema is copied up next to the real steel_rows migration, a fresh database applies auth first then steel_rows (whatever the listing order) and an already-authed one only steel_rows" },
+  { slot: 23, target: MIG, expected: { fromSets: ["0002_b.sql", "0003_c.sql"], fromGenerator: ["0001_a.sql"], inputUntouched: ["m/0003_c.sql", "m/0001_a.sql", "m/0002_b.sql"] },
+    run: (m) => { const paths = ["m/0003_c.sql", "m/0001_a.sql", "m/0002_b.sql"]; const fromSets = m.pendingMigrations(new Set(paths), new Set(["0001_a.sql"])).map((/** @type {any} */ x) => x.name); const fromGenerator = m.pendingMigrations((function* () { yield "x/0001_a.sql"; })(), (function* () { yield "0009_z.sql"; })()).map((/** @type {any} */ x) => x.name); m.pendingMigrations(paths, []); return { fromSets, fromGenerator, inputUntouched: paths }; },
+    claim: "pendingMigrations accepts any iterable for paths and applied (Set, generator) and never reorders or consumes the caller's array" },
 
   // ---- write-atomic (24-34)
   { slot: 24, target: WA, fn: "parseWriteAtomicArgs", input: [[".grok/og.tmp", "public/og.jpg"]], expected: { staged: ".grok/og.tmp", target: "public/og.jpg" },
@@ -86,14 +91,14 @@ export const SPECS = [
     run: (m) => { const d = tmp("m30-"); writeFileSync(join(d, "s"), "deep"); const t = join(d, "a/b/c/t"); const before = existsSync(join(d, "a")); m.handOver(join(d, "s"), t); return { content: readFileSync(t, "utf8"), dirExisted: before }; },
     claim: "handOver creates the missing nested target directory before renaming" },
   { slot: 31, target: WA, expected: { code: "ENOENT", dirCreated: false },
-    run: (m) => { const d = tmp("m31-"); let code = null; try { m.handOver(join(d, "missing"), join(d, "newdir/t")); } catch (e) { code = e.code; } return { code, dirCreated: existsSync(join(d, "newdir")) }; },
+    run: (m) => { const d = tmp("m31-"); let code = null; try { m.handOver(join(d, "missing"), join(d, "newdir/t")); } catch (e) { code = /** @type {any} */ (e).code; } return { code, dirCreated: existsSync(join(d, "newdir")) }; },
     claim: "a missing staged file throws ENOENT and creates no directory for the target it never wrote" },
   { slot: 32, target: WA, expected: { message: true },
-    run: (m) => { const d = tmp("m32-"); writeFileSync(join(d, "s"), "x"); let msg = ""; try { m.handOver(join(d, "s"), join(d, "t"), { rename: () => { throw Object.assign(new Error("x"), { code: "EXDEV" }); } }); } catch (e) { msg = e.message; } return { message: /is on another filesystem than .* stage under \/workspace\/\.grok\/ instead/.test(msg) }; },
+    run: (m) => { const d = tmp("m32-"); writeFileSync(join(d, "s"), "x"); let msg = ""; try { m.handOver(join(d, "s"), join(d, "t"), { rename: () => { throw Object.assign(new Error("x"), { code: "EXDEV" }); } }); } catch (e) { msg = /** @type {any} */ (e).message; } return { message: /is on another filesystem than .* stage under \/workspace\/\.grok\/ instead/.test(msg) }; },
     claim: "an EXDEV from rename is turned into the 'stage under /workspace/.grok/' instruction instead of a copy" },
-  { slot: 33, target: WA, expected: { status: 0, stdoutHasWrote: true, targetBytes: "payload" },
-    run: (m, c) => { const r = c.execTarget({ stageAs: "scripts/write-atomic.mjs", files: { ".grok/o.tmp": "payload" }, args: [".grok/o.tmp", "public/o.jpg"] }); void m; return { status: r.status, stdoutHasWrote: /\[write-atomic\] wrote .*public\/o\.jpg/.test(r.stdout), targetBytes: "payload" }; },
-    claim: "the CLI hands a staged .grok/ file over to public/ and reports the written path" },
+  { slot: 33, target: WA, expected: { status: 0, stdoutHasWrote: true, targetBytes: "payload", stagedConsumed: true },
+    run: (m, c) => { const r = c.execTarget({ stageAs: "scripts/write-atomic.mjs", files: { ".grok/o.tmp": "payload" }, args: [".grok/o.tmp", "public/o.jpg"], collect: ["public/o.jpg", ".grok/o.tmp"] }); void m; return { status: r.status, stdoutHasWrote: /\[write-atomic\] wrote .*public\/o\.jpg/.test(r.stdout), targetBytes: r.files["public/o.jpg"], stagedConsumed: r.files[".grok/o.tmp"] === null }; },
+    claim: "the CLI really moves the staged .grok/ file onto public/ (target holds the payload afterwards, staged file is gone) and reports the written path" },
   { slot: 34, target: WA, expected: { status: 1, stderrNamesFailure: true },
     run: (m, c) => { const r = c.execTarget({ stageAs: "scripts/write-atomic.mjs", files: { "public/keep.txt": "keep" }, args: [".grok/nope.tmp", "public/keep.txt"] }); void m; return { status: r.status, stderrNamesFailure: /staged file is missing/.test(r.stderr) }; },
     claim: "the CLI fails with exit 1 and a 'staged file is missing' message when nothing was staged" },

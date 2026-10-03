@@ -7,8 +7,12 @@
 //                     test passed" - a generic mapping that says nothing about the slot's own behaviour.
 //   SPECIFIED_SLOTS = slots with their OWN unique assertion spec (factory/matrix/specs/*): unique assertion
 //                     fingerprint and unique behaviour fingerprint across all slots.
-//   DOMAIN_VERIFIED = SPECIFIED slots whose assertion, in this run, called real domain code and matched the written
-//                     expected value (evidence: spec:<slot>:<target>:<result digest>).
+//   DOMAIN_VERIFIED = SPECIFIED slots whose assertion, in this run, called real domain code, depended on what that code
+//                     returned (not a constant after a call), and matched the written expected value
+//                     (evidence: spec:<slot>:<target>[#fn]:<result digest>). Config-only specs are never DOMAIN_VERIFIED.
+//   CONFIG_PINNED   = SPECIFIED slots whose assertion pins configuration (a data file, or a spec declared `config: true`)
+//                     rather than domain code behaviour. They PASS but are counted here, not in DOMAIN_VERIFIED.
+//   SHARED_PATH     = specified slots whose executed code path is identical to another slot's (reported, never hidden).
 import { runSpecs, EMPTY_SPEC_RUN } from "./specs.mjs";
 import { readFileSync, existsSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -159,7 +163,7 @@ export function runMatrix(checks, specRun) {
     const g = GROUPS.find((x) => n >= x.from && n <= x.to);
     const c = cks[n];
     const e = byslot.get(n);
-    const base = { id: slotId(n), group: g.name, domain: g.name, owner: g.owner, blocker: "-", specified: false, domain_verified: false, named_test: "-", spec: "-" };
+    const base = { id: slotId(n), group: g.name, domain: g.name, owner: g.owner, blocker: "-", specified: false, domain_verified: false, config_pinned: false, shared_path: false, named_test: "-", spec: "-" };
     if (!c && !e) {
       slots.push({ ...base, status: "NOT_IMPLEMENTED", input: "-", expected: "-", actual: "no check registered", evidence: "-" });
       continue;
@@ -188,6 +192,8 @@ export function runMatrix(checks, specRun) {
       status,
       specified: isSpecified,
       domain_verified: status === "PASS" && spec.domainVerified.has(n),
+      config_pinned: status === "PASS" && (spec.configPinned ?? new Set()).has(n),
+      shared_path: isSpecified && (spec.sharedPathSlots ?? new Set()).has(n),
       named_test: legacy ? legacy.evidence : "-",
       spec: e ? e.claim : "-",
     };
@@ -197,7 +203,7 @@ export function runMatrix(checks, specRun) {
       const why = [legacy?.status === "FAIL" ? `named test: ${legacy.actual}` : null, specStatus === "FAIL" ? `spec: ${r?.error ?? "spec produced no result"}` : null].filter(Boolean).join(" | ");
       slots.push({ ...rec, input: e ? `${e.target}${e.fn ? `#${e.fn}` : ""}` : c.input, expected: e ? e.claim : c.expected, actual: why, evidence: specEvidence ?? legacy?.evidence ?? `spec:${slotId(n)}:failed` });
     } else if (e) {
-      slots.push({ ...rec, input: `${e.target}${e.fn ? `#${e.fn}` : ""}`, expected: e.claim, actual: `matched expected; ${r.calls} call(s) into target; result digest ${r.digest}${legacy ? `; named test also ok (${legacy.evidence})` : ""}`, evidence: specEvidence });
+      slots.push({ ...rec, input: `${e.target}${e.fn ? `#${e.fn}` : ""}`, expected: e.claim, actual: `matched expected; ${r.calls} call(s) into target; result digest ${r.digest}${rec.config_pinned ? "; CONFIG_PINNED (configuration pinned, no domain behaviour counted)" : ""}${legacy ? `; named test also ok (${legacy.evidence})` : ""}`, evidence: specEvidence });
     } else {
       slots.push({ ...rec, input: c.input, expected: c.expected, actual: legacy.actual, evidence: legacy.evidence });
     }
@@ -238,6 +244,8 @@ export function validateMatrix(slots) {
     if (s.status === "BLOCKED" && hasEvidence) v.push(`${where}: BLOCKED cannot carry PASS evidence`);
     if (s.status === "NOT_IMPLEMENTED" && hasEvidence) v.push(`${where}: NOT_IMPLEMENTED cannot carry evidence`);
     if (s.domain_verified === true && !(s.status === "PASS" && s.specified === true && /^spec:/.test(String(s.evidence)))) v.push(`${where}: domain_verified requires a PASS, specified slot with spec: evidence`);
+    if (s.config_pinned === true && !(s.status === "PASS" && s.specified === true && /^spec:/.test(String(s.evidence)))) v.push(`${where}: config_pinned requires a PASS, specified slot with spec: evidence`);
+    if (s.config_pinned === true && s.domain_verified === true) v.push(`${where}: a slot cannot be both config_pinned and domain_verified`);
     if (s.specified === true && (!isText(s.spec) || s.spec.trim().length < 20)) v.push(`${where}: specified slot needs its written claim`);
   });
   return v;
@@ -246,7 +254,7 @@ export function validateMatrix(slots) {
 export function summarize(slots) {
   const s = { PASS: 0, FAIL: 0, BLOCKED: 0, NOT_IMPLEMENTED: 0 };
   for (const x of slots) s[x.status]++;
-  return { total: slots.length, ...s, SPECIFIED: slots.filter((x) => x.specified === true).length, DOMAIN_VERIFIED: slots.filter((x) => x.domain_verified === true).length };
+  return { total: slots.length, ...s, SPECIFIED: slots.filter((x) => x.specified === true).length, DOMAIN_VERIFIED: slots.filter((x) => x.domain_verified === true).length, CONFIG_PINNED: slots.filter((x) => x.config_pinned === true).length, SHARED_PATH: slots.filter((x) => x.shared_path === true).length };
 }
 
 /**
@@ -255,9 +263,11 @@ export function summarize(slots) {
  * checked by validateResults, never assumed.
  * `specified_slots` and `domain_verified` are the strict metrics (see docs/factory/MATRIX.md). `pass` alone is NOT
  * evidence of per-slot behaviour: `named_test_only_pass` is the part of `pass` that rests solely on a generic
- * "one named existing test passed" mapping.
+ * "one named existing test passed" mapping. `config_pinned` slots pass but pin configuration, not code behaviour;
+ * `shared_path_slots` are specified slots that execute exactly the same code path as another slot; `guard_probes*` are
+ * regression guards (not slots) that must pass but never count as slot coverage.
  */
-export function toResults(slots) {
+export function toResults(slots, guards = { total: 0, passed: 0 }) {
   const s = summarize(slots);
   return {
     total: s.total,
@@ -268,6 +278,10 @@ export function toResults(slots) {
     not_implemented: s.NOT_IMPLEMENTED,
     specified_slots: s.SPECIFIED,
     domain_verified: s.DOMAIN_VERIFIED,
+    config_pinned: s.CONFIG_PINNED,
+    shared_path_slots: s.SHARED_PATH,
+    guard_probes: guards.total,
+    guard_probes_passed: guards.passed,
     named_test_only_pass: slots.filter((x) => x.status === "PASS" && x.specified !== true).length,
   };
 }
@@ -277,34 +291,37 @@ export function toResults(slots) {
  * say "250/250" for a figure that is exactly 250 (the figure is never rounded, defaulted or carried over).
  */
 export function headline(r) {
-  return `executed ${r.executed}/${r.total}; PASS ${r.pass}/${r.total} (of which ${r.named_test_only_pass} rest only on a generic named-test mapping); SPECIFIED_SLOTS ${r.specified_slots}/${r.total}; DOMAIN_VERIFIED ${r.domain_verified}/${r.total}`;
+  return `executed ${r.executed}/${r.total}; PASS ${r.pass}/${r.total} (of which ${r.named_test_only_pass} rest only on a generic named-test mapping); SPECIFIED_SLOTS ${r.specified_slots}/${r.total}; DOMAIN_VERIFIED ${r.domain_verified}/${r.total}; CONFIG_PINNED ${r.config_pinned}/${r.total}; SHARED_PATH ${r.shared_path_slots}/${r.total} slots; GUARD_PROBES ${r.guard_probes_passed}/${r.guard_probes}`;
 }
 
 /** Slots whose evidence comes from factory/ tests (or the registry-v3 slot 050), plus the real closed-loop task ids. */
 export const FACTORY_SLOTS = [50, 145, 146, 147, 148, 149, 150];
-export function toFactoryMatrix(slots, receipts) {
+export function toFactoryMatrix(slots, receipts, specRun = EMPTY_SPEC_RUN) {
   const loops = Array.isArray(receipts?.closed_loops) ? receipts.closed_loops.filter((r) => r && typeof r.task_id === "string") : [];
-  const results = toResults(slots);
+  const results = toResults(slots, specRun.guards);
   return {
-    matrix_version: 3,
+    matrix_version: 4,
     note:
-      "PASS means every check registered for the slot ran and succeeded; for a slot without its own spec that is only 'one named, already-existing test passed'. SPECIFIED_SLOTS counts slots with their own unique assertion spec (factory/matrix/specs); DOMAIN_VERIFIED counts those whose assertion ran against real domain code and matched with evidence. Counts come from scripts/matrix250/matrix.mjs, never from documentation.",
+      "PASS means every check registered for the slot ran and succeeded; for a slot without its own spec that is only 'one named, already-existing test passed'. SPECIFIED_SLOTS counts slots with their own unique assertion spec (factory/matrix/specs); DOMAIN_VERIFIED counts those whose assertion ran against real domain code, depended on it, and matched with evidence; CONFIG_PINNED counts specified slots that pin configuration instead; SHARED_PATH counts slots executing the same code path as another slot. Counts come from scripts/matrix250/matrix.mjs, never from documentation.",
     headline: headline(results),
     summary: results,
     by_group: GROUPS.map((g) => {
       const inG = slots.filter((x) => x.group === g.name);
-      return { group: g.name, slots: inG.length, pass: inG.filter((x) => x.status === "PASS").length, specified: inG.filter((x) => x.specified).length, domain_verified: inG.filter((x) => x.domain_verified).length };
+      return { group: g.name, slots: inG.length, pass: inG.filter((x) => x.status === "PASS").length, specified: inG.filter((x) => x.specified).length, domain_verified: inG.filter((x) => x.domain_verified).length, config_pinned: inG.filter((x) => x.config_pinned).length };
     }),
     unspecified_slots: slots.filter((x) => !x.specified).map((x) => x.id),
+    config_pinned_slots: slots.filter((x) => x.config_pinned).map((x) => x.id),
+    shared_path_groups: specRun.sharedPathGroups.map((g) => g.map(slotId)),
+    guard_probes: specRun.guards.entries.map((e) => ({ id: `G${e.slot}`, target: e.target, passed: !!(e.valid && e.result?.ok), claim: e.claim })),
     factory_slots: FACTORY_SLOTS.map((n) => {
       const s = slots[n - 1];
-      return { id: s.id, status: s.status, specified: s.specified, domain_verified: s.domain_verified, expected: s.expected, evidence: s.evidence, named_test: s.named_test };
+      return { id: s.id, status: s.status, specified: s.specified, domain_verified: s.domain_verified, config_pinned: s.config_pinned, expected: s.expected, evidence: s.evidence, named_test: s.named_test };
     }),
     closed_loops: loops.map((r) => ({ task_id: r.task_id, base_sha: r.base_sha, cerberus_decision: r.cerberus?.decision?.decision ?? null })),
   };
 }
 
-const RESULT_KEYS = ["total", "executed", "pass", "fail", "blocked", "not_implemented", "specified_slots", "domain_verified", "named_test_only_pass"];
+const RESULT_KEYS = ["total", "executed", "pass", "fail", "blocked", "not_implemented", "specified_slots", "domain_verified", "config_pinned", "shared_path_slots", "guard_probes", "guard_probes_passed", "named_test_only_pass"];
 
 /** Violations of a matrix-results object (empty = well-formed). Does not compare against a fresh run. */
 export function validateResults(r) {
@@ -321,7 +338,11 @@ export function validateResults(r) {
   if (r.specified_slots > r.total) v.push("specified_slots cannot exceed total");
   if (r.domain_verified > r.pass) v.push("domain_verified cannot exceed pass");
   if (r.named_test_only_pass > r.pass) v.push("named_test_only_pass cannot exceed pass");
-  if (r.named_test_only_pass + r.domain_verified > r.pass) v.push("named_test_only_pass + domain_verified cannot exceed pass");
+  if (r.named_test_only_pass + r.domain_verified + r.config_pinned > r.pass) v.push("named_test_only_pass + domain_verified + config_pinned cannot exceed pass");
+  if (r.domain_verified + r.config_pinned > r.specified_slots) v.push("domain_verified + config_pinned cannot exceed specified_slots");
+  if (r.config_pinned > r.pass) v.push("config_pinned cannot exceed pass");
+  if (r.shared_path_slots > r.specified_slots) v.push("shared_path_slots cannot exceed specified_slots");
+  if (r.guard_probes_passed > r.guard_probes) v.push("guard_probes_passed cannot exceed guard_probes");
   return v;
 }
 
@@ -331,14 +352,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const sum = summarize(slots);
   const problems = [...validateMatrix(slots), ...specRun.violations.map((x) => `spec: ${x}`)];
   console.log(JSON.stringify(sum));
-  console.log(headline(toResults(slots)));
+  console.log(headline(toResults(slots, specRun.guards)));
   if (problems.length) console.error(`INTEGRITY VIOLATIONS (${problems.length}):\n` + problems.join("\n"));
   if (process.argv.includes("--json")) console.log(JSON.stringify(slots, null, 2));
   const ei = process.argv.indexOf("--emit");
   if (ei !== -1) {
     const out = process.argv[ei + 1];
     if (!out || out.startsWith("--")) throw new Error("--emit needs an output path");
-    const results = toResults(slots);
+    const results = toResults(slots, specRun.guards);
     const bad = validateResults(results);
     if (bad.length) throw new Error(`refusing to emit malformed results: ${bad.join("; ")}`);
     writeFileSync(out, JSON.stringify(results, null, 2) + "\n");
@@ -348,7 +369,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (fi !== -1) {
     const out = process.argv[fi + 1];
     if (!out || out.startsWith("--")) throw new Error("--emit-factory needs an output path");
-    writeFileSync(out, JSON.stringify(toFactoryMatrix(slots, existsSync("factory/factory-receipts.json") ? json("factory/factory-receipts.json") : null), null, 2) + "\n");
+    writeFileSync(out, JSON.stringify(toFactoryMatrix(slots, existsSync("factory/factory-receipts.json") ? json("factory/factory-receipts.json") : null, specRun), null, 2) + "\n");
     console.log(`emitted ${out}`);
   }
   process.exit(sum.FAIL > 0 || problems.length ? 1 : 0);
