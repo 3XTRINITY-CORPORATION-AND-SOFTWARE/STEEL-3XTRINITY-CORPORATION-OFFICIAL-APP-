@@ -545,7 +545,9 @@ function startLoop(slot: DeskSlot, dest: AudioNode, ctx: AudioContext) {
 	if (!slot.buffer) return;
 	try {
 		slot.source?.stop();
-	} catch {}
+	} catch {
+		// best-effort: source may not be started or already stopped
+	}
 	const src = ctx.createBufferSource();
 	src.buffer = slot.buffer;
 	src.loop = true;
@@ -582,7 +584,9 @@ export function stopMix() {
 	try {
 		handle.beat.source?.stop();
 		handle.vocal.source?.stop();
-	} catch {}
+	} catch {
+		// best-effort: sources may not be started or already stopped
+	}
 	handle.beat.source = null;
 	handle.vocal.source = null;
 	handle.duck.gain.setTargetAtTime(1, handle.ctx.currentTime, .02);
@@ -894,16 +898,22 @@ export async function teardownDesk() {
 	if (rec) {
 		try {
 			rec.stop();
-		} catch {}
+		} catch {
+			// best-effort: recorder may already be inactive
+		}
 		rec = null;
 	}
 	if (handle) {
 		for (const o of handle.femaleOsc) try {
 			o.stop();
-		} catch {}
+		} catch {
+			// best-effort: oscillator may not be started or already stopped
+		}
 		try {
 			await handle.ctx.close();
-		} catch {}
+		} catch {
+			// best-effort: context may already be closed
+		}
 	}
 	handle = null;
 }
