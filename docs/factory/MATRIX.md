@@ -1,0 +1,6 @@
+# Matrix connection (250x)
+
+- `node scripts/matrix250/matrix.mjs --emit factory/matrix-results.json --emit-factory factory/factory-matrix.json` re-runs every registered check and writes the two files. `matrix-results.json` has exactly `{total, executed, pass, fail, blocked, not_implemented}`; `executed = pass + fail`; the invariant `pass+fail+blocked+not_implemented = 250` is validated (`validateResults`) before writing and in `scripts/matrix250/matrix.test.mjs`, which also requires the committed files to equal a fresh run.
+- Registry v3 maps slot 050 (`scripts/node-pin.test.mjs`) and slots 145-150 (`factory/tests/*`: closed-loop ADMIT x2, KRATT-alone-never-VERIFIED, self-consistent forgery, caller-supplied trust worthless, RÄSTIK battery not vacuous) to real executed tests, each with a written per-slot `expected` (4th registry element).
+- **Honesty caveat:** a PASS still means "one named, existing test passed in this run". Per-slot specifications for most of the 250 slots do not exist, so the counts are provisional and do not prove each slot's domain. Slots 050 and 145-150 are the only ones with written per-slot expectations. Documentation never converts a slot.
+- Weakening a guard flips slots: with TÖEPÄRA's self-verified check disabled, a real matrix run reported PASS 247 / FAIL 3 (restored afterwards).
