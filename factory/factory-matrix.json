@@ -1,56 +1,119 @@
 {
-  "matrix_version": 2,
-  "note": "PASS means exactly one named, already-existing test passed in this run; per-slot specifications for most slots do not exist, so the counts are provisional and do not prove each slot's whole domain. Counts come from scripts/matrix250/matrix.mjs, never from documentation.",
+  "matrix_version": 3,
+  "note": "PASS means every check registered for the slot ran and succeeded; for a slot without its own spec that is only 'one named, already-existing test passed'. SPECIFIED_SLOTS counts slots with their own unique assertion spec (factory/matrix/specs); DOMAIN_VERIFIED counts those whose assertion ran against real domain code and matched with evidence. Counts come from scripts/matrix250/matrix.mjs, never from documentation.",
+  "headline": "executed 250/250; PASS 250/250 (of which 0 rest only on a generic named-test mapping); SPECIFIED_SLOTS 250/250; DOMAIN_VERIFIED 250/250",
   "summary": {
     "total": 250,
     "executed": 250,
     "pass": 250,
     "fail": 0,
     "blocked": 0,
-    "not_implemented": 0
+    "not_implemented": 0,
+    "specified_slots": 250,
+    "domain_verified": 250,
+    "named_test_only_pass": 0
   },
+  "by_group": [
+    {
+      "group": "BUILD/RUNTIME",
+      "slots": 50,
+      "pass": 50,
+      "specified": 50,
+      "domain_verified": 50
+    },
+    {
+      "group": "SECURITY/TRUST",
+      "slots": 50,
+      "pass": 50,
+      "specified": 50,
+      "domain_verified": 50
+    },
+    {
+      "group": "KRATT/TOEPARA",
+      "slots": 50,
+      "pass": 50,
+      "specified": 50,
+      "domain_verified": 50
+    },
+    {
+      "group": "CERBERUS/RECOVERY",
+      "slots": 50,
+      "pass": 50,
+      "specified": 50,
+      "domain_verified": 50
+    },
+    {
+      "group": "PWA/ASSET/INTEGRATION",
+      "slots": 50,
+      "pass": 50,
+      "specified": 50,
+      "domain_verified": 50
+    }
+  ],
+  "unspecified_slots": [],
   "factory_slots": [
     {
       "id": "050",
       "status": "PASS",
-      "expected": "the first node-version in .github/workflows/ci.yml equals the .nvmrc Node major (runtime pin cannot drift from CI); only that first occurrence is checked",
-      "evidence": "test:scripts/node-pin.test.mjs::CI setup-node uses the .nvmrc major"
+      "specified": true,
+      "domain_verified": true,
+      "expected": "the .nvmrc Node major equals the first node-version in ci.yml (the runtime pin cannot drift from CI)",
+      "evidence": "spec:050:.nvmrc:e017635b7c3c306b",
+      "named_test": "test:scripts/node-pin.test.mjs::CI setup-node uses the .nvmrc major"
     },
     {
       "id": "145",
       "status": "PASS",
-      "expected": "a real hash-files task at the real HEAD runs envelope->KRATT->RÄSTIK->TÖEPÄRA->CERBERUS, ends ADMIT, and every worker transition is logged",
-      "evidence": "test:factory/tests/loop.test.ts::CLOSED LOOP (hash-files, real files at the real HEAD): envelope -> KRATT -> RÄSTIK -> TÖEPÄRA -> CERBERUS = ADMIT, with real worker transitions"
+      "specified": true,
+      "domain_verified": true,
+      "expected": "an envelope allowing only hash-files maps its scope onto a closed KRATT hash-files task",
+      "evidence": "spec:145:factory/kratt-stage.ts:cc0bc4e49489705b",
+      "named_test": "test:factory/tests/loop.test.ts::CLOSED LOOP (hash-files, real files at the real HEAD): envelope -> KRATT -> RÄSTIK -> TÖEPÄRA -> CERBERUS = ADMIT, with real worker transitions"
     },
     {
       "id": "146",
       "status": "PASS",
-      "expected": "a real run-test task is executed by KRATT and independently re-executed by TÖEPÄRA before CERBERUS admits it",
-      "evidence": "test:factory/tests/loop.test.ts::CLOSED LOOP (run-test): a real node:test file is executed by KRATT, re-executed by TÖEPÄRA, and ADMITTED"
+      "specified": true,
+      "domain_verified": true,
+      "expected": "a run-test envelope clamps a 90 s wall budget to KRATT's 60 s maximum and carries the output cap through",
+      "evidence": "spec:146:factory/kratt-stage.ts:1785bb9c245827b6",
+      "named_test": "test:factory/tests/loop.test.ts::CLOSED LOOP (run-test): a real node:test file is executed by KRATT, re-executed by TÖEPÄRA, and ADMITTED"
     },
     {
       "id": "147",
       "status": "PASS",
-      "expected": "a receipt that claims VERIFIED itself, with a perfect evidence digest, is not VERIFIED by TÖEPÄRA",
-      "evidence": "test:factory/tests/toepara.test.ts::TÖEPÄRA: KRATT output alone never yields VERIFIED (self-verified receipt, even with a perfect evidence digest)"
+      "specified": true,
+      "domain_verified": true,
+      "expected": "an envelope authorising two KRATT actions is refused (one task = one authorised action)",
+      "evidence": "spec:147:factory/kratt-stage.ts#envelopeToKrattTask:bd26b493ee9a993f",
+      "named_test": "test:factory/tests/toepara.test.ts::TÖEPÄRA: KRATT output alone never yields VERIFIED (self-verified receipt, even with a perfect evidence digest)"
     },
     {
       "id": "148",
       "status": "PASS",
-      "expected": "a forged receipt whose digests are internally consistent is REJECTED because TÖEPÄRA recomputes file digests from git",
-      "evidence": "test:factory/tests/toepara.test.ts::TÖEPÄRA: a self-consistent forgery (wrong file digest, evidenceDigest recomputed) is caught only because digests are recomputed from git"
+      "specified": true,
+      "domain_verified": true,
+      "expected": "an action that is both allowed and forbidden is forbidden (forbidden wins)",
+      "evidence": "spec:148:factory/kratt-stage.ts#envelopeToKrattTask:d005eb4d060914ea",
+      "named_test": "test:factory/tests/toepara.test.ts::TÖEPÄRA: a self-consistent forgery (wrong file digest, evidenceDigest recomputed) is caught only because digests are recomputed from git"
     },
     {
       "id": "149",
       "status": "PASS",
-      "expected": "CERBERUS DENIES a lying TÖEPÄRA result with a forged self-consistent bundle (it recomputes, it does not trust the caller)",
-      "evidence": "test:factory/tests/cerberus-gate.test.ts::CERBERUS: caller-supplied trust is worthless - a lying TÖEPÄRA result with a forged (self-consistent) bundle is DENIED"
+      "specified": true,
+      "domain_verified": true,
+      "expected": "a sleeping worker cannot jump to ACTIVE: the edge is rejected, the worker stays SLEEP, and the rejected attempt is logged",
+      "evidence": "spec:149:factory/dispatcher.ts:a9555581f02310e4",
+      "named_test": "test:factory/tests/cerberus-gate.test.ts::CERBERUS: caller-supplied trust is worthless - a lying TÖEPÄRA result with a forged (self-consistent) bundle is DENIED"
     },
     {
       "id": "150",
       "status": "PASS",
-      "expected": "the RÄSTIK attack battery CONFIRMS every case against an admit-everything verifier (the battery can fail, so its 0 findings on the real verifier is meaningful)",
-      "evidence": "test:factory/tests/rastik-attacks.test.ts::RÄSTIK: the battery is not vacuous - a verifier that admits everything is attacked successfully (every case CONFIRMED with a schema-valid finding)"
+      "specified": true,
+      "domain_verified": true,
+      "expected": "waking a worker with no task bound to it is refused ('no task, no wake') and logged",
+      "evidence": "spec:150:factory/dispatcher.ts:ed274fc834fb12b1",
+      "named_test": "test:factory/tests/rastik-attacks.test.ts::RÄSTIK: the battery is not vacuous - a verifier that admits everything is attacked successfully (every case CONFIRMED with a schema-valid finding)"
     }
   ],
   "closed_loops": [
