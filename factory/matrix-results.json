@@ -4,5 +4,12 @@
   "pass": 250,
   "fail": 0,
   "blocked": 0,
-  "not_implemented": 0
+  "not_implemented": 0,
+  "specified_slots": 250,
+  "domain_verified": 243,
+  "config_pinned": 7,
+  "shared_path_slots": 34,
+  "guard_probes": 12,
+  "guard_probes_passed": 12,
+  "named_test_only_pass": 0
 }
