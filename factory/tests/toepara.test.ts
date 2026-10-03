@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { toeparaVerify } from "../toepara.ts";
+import { isShallow } from "../git.ts";
 import { digestOf, validateToeparaVerdict, type ActionReceipt } from "../protocol/types.ts";
 import { REPO, ROOT, genuine, tempRepo } from "./helpers.ts";
 import { assembleRun } from "../rastik-attacks.ts";
@@ -71,12 +72,28 @@ test("TÖEPÄRA: unauthorized action, agent spoof, repository spoof, receipt/env
   assert.ok((await reasons(mut(receipt, (c) => { c.result.checks.pass += 1; }))).reasons.includes("receipt-result-contradicts-evidence"));
 });
 
-test("TÖEPÄRA: stale or unknown base_sha is REJECTED", async () => {
+test("TÖEPÄRA (temp repo, full history): stale or unknown base_sha is REJECTED", async () => {
+  const { dir, sha } = tempRepo({ "a.txt": "alpha\n" });
+  const { env, receipt } = await genuineIn(dir, sha, ["a.txt"]);
+  for (const bad of ["0".repeat(40), "1".repeat(40)]) {
+    const t = await toeparaVerify({ ...env, base_sha: bad }, { ...receipt, base_sha: bad }, null, ctx(dir));
+    assert.equal(t.verdict.verdict, "REJECTED");
+    assert.ok(t.verdict.reasons.includes("stale-base-sha") && t.verdict.reasons.includes("base-sha-unknown-commit"), t.verdict.reasons.join(","));
+  }
+});
+
+test("TÖEPÄRA (this checkout): unknown base_sha is never VERIFIED - REJECTED on full history, INSUFFICIENT_EVIDENCE on a shallow checkout (CI)", async () => {
   const { env, receipt } = await genuine();
   for (const sha of ["0".repeat(40), "1".repeat(40)]) {
     const t = await toeparaVerify({ ...env, base_sha: sha }, { ...receipt, base_sha: sha }, null, ctx());
-    assert.equal(t.verdict.verdict, "REJECTED");
-    assert.ok(t.verdict.reasons.includes("stale-base-sha") && t.verdict.reasons.includes("base-sha-unknown-commit"), t.verdict.reasons.join(","));
+    if (isShallow(ROOT)) {
+      assert.equal(t.verdict.verdict, "INSUFFICIENT_EVIDENCE");
+      assert.ok(t.verdict.reasons.includes("base-commit-unavailable:shallow-checkout"), t.verdict.reasons.join(","));
+    } else {
+      assert.equal(t.verdict.verdict, "REJECTED");
+      assert.ok(t.verdict.reasons.includes("stale-base-sha") && t.verdict.reasons.includes("base-sha-unknown-commit"), t.verdict.reasons.join(","));
+    }
+    assert.equal(t.bundle, null);
   }
 });
 
