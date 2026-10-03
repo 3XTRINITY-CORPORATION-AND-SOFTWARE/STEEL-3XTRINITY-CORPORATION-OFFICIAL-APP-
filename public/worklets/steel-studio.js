@@ -434,7 +434,6 @@ class SteelStudioProcessor extends AudioWorkletProcessor {
       if (trans === 1) {
         const mono = (L + R) * 0.5;
         this.bpR += (1 - Math.exp((-2 * Math.PI * 1700) / this.sr)) * (mono - this.bpR);
-        this.hpV = this.hpV;
         L = this.bpR * 0.95;
         R = this.bpR * 0.95;
       } else if (trans === 2) {
