@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, realpathSync } from "node:fs";
+import { join, sep } from "node:path";
 import { relPathFailure, resolveRegularFile } from "./paths.ts";
 import type { KrattTask } from "./task.ts";
 
@@ -179,6 +180,20 @@ function isFileLevelPseudoTest(tap: string, testFile: string): boolean {
   return tap.split("\n").some((l) => /^ok \d+ - /.test(l) && (l.endsWith(` - ${testFile}`) || l.endsWith(` - ${base}`)));
 }
 
+/** True when the real (symlink-resolved) path lies under the real path of one of the allowed directories. */
+function realPathAllowed(realRoot: string, realFile: string, dirs: readonly string[]): boolean {
+  for (const d of dirs) {
+    let realDir: string;
+    try {
+      realDir = realpathSync(join(realRoot, d));
+    } catch {
+      continue; // an allowed directory that does not exist allows nothing
+    }
+    if (realDir !== realRoot && realDir.startsWith(realRoot + sep) && realFile.startsWith(realDir + sep)) return true;
+  }
+  return false;
+}
+
 async function runTest(
   realRoot: string,
   t: Extract<KrattTask, { action: "run-test" }>,
@@ -197,6 +212,11 @@ async function runTest(
   const command = ["node", ...argv.map((a) => a.replace(realRoot, "<root>"))];
   const dirs = opts.allowedTestDirs ?? DEFAULT_ALLOWED_TEST_DIRS;
   if (!dirs.some((d) => t.testFile.startsWith(`${d}/`))) return failResult(command, "test-dir-not-allowed");
+  // The allow-list must also hold for where the file REALLY is: a symlink (or symlinked directory)
+  // inside an allowed directory must not make node execute a file from a directory that is not allowed.
+  const resolved = resolveRegularFile(realRoot, t.testFile, MAX_FILE_BYTES);
+  if (!resolved.ok) return failResult(command, resolved.reason);
+  if (!realPathAllowed(realRoot, resolved.abs, dirs)) return failResult(command, "test-dir-not-allowed");
   const budget = { left: MAX_TOTAL_HASH_BYTES };
   const before = hashFile(realRoot, t.testFile, budget);
   if (typeof before === "string") return failResult(command, before);
@@ -252,7 +272,10 @@ async function runTest(
   });
 
   const after = hashFile(realRoot, t.testFile, budget);
-  const tampered = typeof after === "string" || after.sha256 !== before.sha256;
+  // Tampering = content changed, unreadable afterwards, or the name now resolves to a different real file.
+  const resolvedAfter = resolveRegularFile(realRoot, t.testFile, MAX_FILE_BYTES);
+  const tampered =
+    typeof after === "string" || after.sha256 !== before.sha256 || !resolvedAfter.ok || resolvedAfter.abs !== resolved.abs;
   const text = run.out.toString("utf8");
   const pass = lastCount(text, "pass");
   const fail = lastCount(text, "fail");
