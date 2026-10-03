@@ -1,9 +1,14 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { GROUPS, runMatrix, summarize } from "./matrix.mjs";
+import { runSpecs } from "./specs.mjs";
+
+// One real run (named tests + specs + guards) shared by every describe below; it is the slow part.
+const REAL_RUN = runSpecs();
+const REAL = runMatrix(undefined, REAL_RUN);
 
 describe("250x matrix harness", () => {
-  const slots = runMatrix();
+  const slots = REAL;
   it("has exactly 250 unique, ordered slots across 5 groups of 50", () => {
     assert.equal(slots.length, 250);
     assert.equal(new Set(slots.map((s) => s.id)).size, 250);
@@ -27,14 +32,14 @@ describe("250x matrix harness", () => {
   });
 });
 
-import { parseTap, testCheck, registryChecks, allChecks, validateMatrix, STATES, toResults, validateResults, toFactoryMatrix, FACTORY_SLOTS } from "./matrix.mjs";
+import { parseTap, testCheck, registryChecks, allChecks, validateMatrix, STATES, toResults, validateResults, toFactoryMatrix, FACTORY_SLOTS, headline } from "./matrix.mjs";
 import { readFileSync } from "node:fs";
 import { TEST_REGISTRY } from "./test-registry.mjs";
 
 const fakeRunner = (results, error) => () => (error ? { error } : { results: parseTap(results) });
 
 describe("matrix integrity validation", () => {
-  const slots = runMatrix();
+  const slots = REAL;
   const clone = () => structuredClone(slots);
   const firstOf = (status) => slots.findIndex((s) => s.status === status);
 
@@ -72,25 +77,25 @@ describe("matrix integrity validation", () => {
       assert.ok(validateMatrix(m).length > 0, bad);
     }
   });
-  it("PASS requires evidence (and a check:/test: reference)", () => {
+  it("PASS requires evidence (and a check:/test:/spec: reference)", () => {
     const i = firstOf("PASS");
     const m = clone(); m[i].evidence = "-";
     assert.match(validateMatrix(m).join("|"), /PASS requires evidence/);
     const n = clone(); n[i].evidence = "trust me";
-    assert.match(validateMatrix(n).join("|"), /check:\/test:/);
+    assert.match(validateMatrix(n).join("|"), /check:\/test:\/spec:/);
   });
   it("FAIL requires actual", () => {
-    const m = clone(); m[0] = { ...m[0], status: "FAIL", actual: "-" };
+    const m = clone(); m[0] = { ...m[0], specified: false, domain_verified: false, config_pinned: false, status: "FAIL", actual: "-" };
     assert.match(validateMatrix(m).join("|"), /FAIL requires actual/);
-    const n = clone(); n[0] = { ...n[0], status: "FAIL", actual: "boom" };
+    const n = clone(); n[0] = { ...n[0], specified: false, domain_verified: false, config_pinned: false, status: "FAIL", actual: "boom" };
     assert.deepEqual(validateMatrix(n), []);
   });
   it("BLOCKED requires a blocker and cannot carry evidence", () => {
-    const m = clone(); m[0] = { ...m[0], status: "BLOCKED", blocker: "-", evidence: "-" };
+    const m = clone(); m[0] = { ...m[0], specified: false, domain_verified: false, config_pinned: false, status: "BLOCKED", blocker: "-", evidence: "-" };
     assert.match(validateMatrix(m).join("|"), /BLOCKED requires blocker/);
-    const n = clone(); n[0] = { ...n[0], status: "BLOCKED", blocker: "no server", evidence: "-" };
+    const n = clone(); n[0] = { ...n[0], specified: false, domain_verified: false, config_pinned: false, status: "BLOCKED", blocker: "no server", evidence: "-" };
     assert.deepEqual(validateMatrix(n), []);
-    const e = clone(); e[0] = { ...e[0], status: "BLOCKED", blocker: "x" };
+    const e = clone(); e[0] = { ...e[0], specified: false, domain_verified: false, config_pinned: false, status: "BLOCKED", blocker: "x" };
     assert.match(validateMatrix(e).join("|"), /BLOCKED cannot carry PASS evidence/);
   });
   it("NOT_IMPLEMENTED cannot carry PASS evidence", () => {
@@ -159,7 +164,7 @@ describe("test-backed slots", () => {
     for (const [, f] of TEST_REGISTRY) assert.ok(!f.includes("matrix250"));
   });
   it("every registered test file/name exists and passes in the real run", () => {
-    const real = runMatrix();
+    const real = REAL;
     for (const [n, file, name] of TEST_REGISTRY) {
       const s = real[n - 1];
       assert.equal(s.status, "PASS", `${s.id} ${file} :: ${name} => ${s.actual}`);
@@ -168,8 +173,8 @@ describe("test-backed slots", () => {
 });
 
 describe("matrix results (machine-readable) and factory connection", () => {
-  const slots = runMatrix();
-  const fresh = toResults(slots);
+  const slots = REAL;
+  const fresh = toResults(slots, REAL_RUN.guards);
 
   it("fresh results are well-formed: total 250, pass+fail+blocked+not_implemented = 250, executed = pass+fail", () => {
     assert.deepEqual(validateResults(fresh), []);
@@ -207,28 +212,154 @@ describe("matrix results (machine-readable) and factory connection", () => {
   });
   it("NOT_IMPLEMENTED stays NOT_IMPLEMENTED: with no check registered the factory slots are not PASS and are not executed", () => {
     const r = toResults(runMatrix({}));
-    assert.deepEqual(r, { total: 250, executed: 0, pass: 0, fail: 0, blocked: 0, not_implemented: 250 });
+    assert.deepEqual(r, { total: 250, executed: 0, pass: 0, fail: 0, blocked: 0, not_implemented: 250, specified_slots: 0, domain_verified: 0, config_pinned: 0, shared_path_slots: 0, guard_probes: 0, guard_probes_passed: 0, named_test_only_pass: 0 });
   });
   it("a failing factory check turns that slot FAIL, never PASS", () => {
     const checks = { 145: { input: "x", expected: "y", run: () => { throw new Error("factory test failed"); } } };
     const r = runMatrix(checks);
     assert.equal(r[144].status, "FAIL");
-    assert.deepEqual(toResults(r), { total: 250, executed: 1, pass: 0, fail: 1, blocked: 0, not_implemented: 249 });
+    assert.deepEqual(toResults(r), { total: 250, executed: 1, pass: 0, fail: 1, blocked: 0, not_implemented: 249, specified_slots: 0, domain_verified: 0, config_pinned: 0, shared_path_slots: 0, guard_probes: 0, guard_probes_passed: 0, named_test_only_pass: 0 });
   });
-  it("slots 050 and 145-150 carry a written per-slot expectation and a real test reference as evidence", () => {
+  it("slots 050 and 145-150 carry their own spec: unique claim, spec: evidence, and the old named test only as regression evidence", () => {
     for (const n of FACTORY_SLOTS) {
       const s = slots[n - 1];
       assert.equal(s.status, "PASS", `slot ${s.id}`);
-      assert.match(s.evidence, /^test:.+::.+/);
+      assert.equal(s.specified, true, `slot ${s.id} specified`);
+      assert.equal(s.domain_verified, n !== 50, `slot ${s.id} domain_verified (slot 050 pins .nvmrc/ci.yml: CONFIG_PINNED instead)`);
+      assert.equal(s.config_pinned, n === 50, `slot ${s.id} config_pinned`);
+      assert.match(s.evidence, /^spec:\d{3}:.+:[0-9a-f]{16}$/);
       assert.notEqual(s.expected, "named test case runs and reports ok (not skipped, not todo)", `slot ${s.id} still has the generic expectation`);
+      assert.match(s.named_test, /^test:.+::.+/);
     }
-    for (const n of FACTORY_SLOTS.filter((x) => x >= 145)) assert.match(slots[n - 1].evidence, /^test:factory\/tests\//);
+    for (const n of FACTORY_SLOTS.filter((x) => x >= 145)) assert.match(slots[n - 1].named_test, /^test:factory\/tests\//);
   });
   it("the committed factory/factory-matrix.json agrees with a fresh run and lists the real closed loops", () => {
     const committed = JSON.parse(readFileSync("factory/factory-matrix.json", "utf8"));
     const receipts = JSON.parse(readFileSync("factory/factory-receipts.json", "utf8"));
-    assert.deepEqual(committed, toFactoryMatrix(slots, receipts));
+    assert.deepEqual(committed, toFactoryMatrix(slots, receipts, REAL_RUN));
     assert.equal(committed.closed_loops.length, receipts.closed_loops.length);
     assert.deepEqual(committed.summary, fresh);
+  });
+});
+
+describe("strict metrics: SPECIFIED_SLOTS and DOMAIN_VERIFIED", () => {
+  const slots = REAL;
+  const fresh = toResults(slots, REAL_RUN.guards);
+  const entry = (slot, over = {}) => ({ slot, file: "f.mjs", target: "scripts/preview.mjs", fn: "parsePid", claim: "synthetic claim for the test", valid: true, fingerprint: `fp${slot}`, behaviour: `bh${slot}`, result: { ok: true, calls: 1, digest: "abcdabcdabcdabcd", path: "p", error: null }, ...over });
+  const specRun = (entries, over = {}) => ({ entries, specified: new Map(entries.filter((e) => e.valid).map((e) => [e.slot, e])), domainVerified: new Set(entries.filter((e) => e.valid && e.result?.ok).map((e) => e.slot)), violations: [], errors: [], ...over });
+
+  it("the real run: every counted slot is backed by its own spec and the numbers are internally consistent", () => {
+    assert.deepEqual(validateResults(fresh), []);
+    assert.equal(fresh.specified_slots, slots.filter((s) => s.specified).length);
+    assert.equal(fresh.domain_verified, slots.filter((s) => s.domain_verified).length);
+    assert.equal(fresh.named_test_only_pass, slots.filter((s) => s.status === "PASS" && !s.specified).length);
+    for (const s of slots.filter((x) => x.domain_verified)) {
+      assert.equal(s.status, "PASS");
+      assert.equal(s.specified, true);
+      assert.match(s.evidence, /^spec:\d{3}:.+:[0-9a-f]{16}$/);
+      assert.ok(s.spec.length >= 20);
+    }
+  });
+  it("a generic named test alone is never SPECIFIED or DOMAIN_VERIFIED", () => {
+    const run = fakeRunner("TAP version 13\nok 1 - good one");
+    const r = runMatrix({ 9: testCheck("f", "good one", run) });
+    assert.equal(r[8].status, "PASS");
+    assert.equal(r[8].specified, false);
+    assert.equal(r[8].domain_verified, false);
+    assert.deepEqual(toResults(r), { total: 250, executed: 1, pass: 1, fail: 0, blocked: 0, not_implemented: 249, specified_slots: 0, domain_verified: 0, config_pinned: 0, shared_path_slots: 0, guard_probes: 0, guard_probes_passed: 0, named_test_only_pass: 1 });
+  });
+  it("a spec result that fails turns the slot FAIL even when its named test passes, and is neither specified-verified nor PASS", () => {
+    const run = fakeRunner("TAP version 13\nok 1 - good one");
+    const bad = entry(9, { result: { ok: false, calls: 1, digest: "-", path: "p", error: "expected X but got Y" } });
+    const r = runMatrix({ 9: testCheck("f", "good one", run) }, specRun([bad], { domainVerified: new Set() }));
+    assert.equal(r[8].status, "FAIL");
+    assert.equal(r[8].domain_verified, false);
+    assert.match(r[8].actual, /spec: expected X but got Y/);
+    assert.deepEqual(validateMatrix(r).filter((x) => x.includes("slot[8]")), []);
+  });
+  it("a spec-only slot is PASS with spec: evidence, SPECIFIED and DOMAIN_VERIFIED; a spec without observed domain call is not DOMAIN_VERIFIED", () => {
+    const r = runMatrix({}, specRun([entry(9), entry(10)], { domainVerified: new Set([9]) }));
+    assert.equal(r[8].status, "PASS");
+    assert.equal(r[8].specified, true);
+    assert.equal(r[8].domain_verified, true);
+    assert.match(r[8].evidence, /^spec:009:scripts\/preview\.mjs#parsePid:abcdabcdabcdabcd$/);
+    assert.equal(r[9].specified, true);
+    assert.equal(r[9].domain_verified, false);
+    assert.deepEqual(toResults(r), { total: 250, executed: 2, pass: 2, fail: 0, blocked: 0, not_implemented: 248, specified_slots: 2, domain_verified: 1, config_pinned: 0, shared_path_slots: 0, guard_probes: 0, guard_probes_passed: 0, named_test_only_pass: 0 });
+  });
+  it("a config-only spec is PASS and SPECIFIED but CONFIG_PINNED, never DOMAIN_VERIFIED; shared-path slots are flagged", () => {
+    const run = specRun([entry(9), entry(10)], { domainVerified: new Set([9]), configPinned: new Set([10]), sharedPathSlots: new Set([9]), sharedPathGroups: [[9, 11]] });
+    const r = runMatrix({}, run);
+    assert.deepEqual([r[9].status, r[9].specified, r[9].config_pinned, r[9].domain_verified], ["PASS", true, true, false]);
+    assert.match(r[9].actual, /CONFIG_PINNED/);
+    assert.deepEqual([r[8].config_pinned, r[8].domain_verified, r[8].shared_path], [false, true, true]);
+    assert.deepEqual(toResults(r), { total: 250, executed: 2, pass: 2, fail: 0, blocked: 0, not_implemented: 248, specified_slots: 2, domain_verified: 1, config_pinned: 1, shared_path_slots: 1, guard_probes: 0, guard_probes_passed: 0, named_test_only_pass: 0 });
+    assert.deepEqual(validateMatrix(r).filter((x) => x.includes("slot[8]") || x.includes("slot[9]")), []);
+  });
+  it("validateMatrix rejects a slot that is both config_pinned and domain_verified, and a config_pinned slot without spec evidence", () => {
+    const m = structuredClone(REAL);
+    const i = m.findIndex((x) => x.config_pinned);
+    assert.ok(i >= 0, "the real matrix has config-pinned slots");
+    m[i].domain_verified = true;
+    assert.match(validateMatrix(m).join("|"), /cannot be both config_pinned and domain_verified/);
+    const n = structuredClone(REAL);
+    n[i].evidence = "test:x::y";
+    assert.match(validateMatrix(n).join("|"), /config_pinned requires a PASS, specified slot with spec: evidence/);
+  });
+  it("the real matrix: CONFIG_PINNED slots are exactly the data/config specs, none of them DOMAIN_VERIFIED", () => {
+    const cfg = slots.filter((x) => x.config_pinned).map((x) => +x.id);
+    assert.deepEqual(cfg, [1, 2, 3, 4, 10, 50, 51]);
+    for (const x of slots.filter((y) => y.config_pinned)) assert.equal(x.domain_verified, false, x.id);
+    assert.equal(fresh.domain_verified + fresh.config_pinned, fresh.specified_slots);
+  });
+  it("an invalid/non-unique spec leaves the slot unspecified", () => {
+    const e = entry(9, { valid: false });
+    const r = runMatrix({}, { ...specRun([e]), specified: new Map(), domainVerified: new Set() });
+    assert.equal(r[8].specified, false);
+    assert.equal(r[8].domain_verified, false);
+  });
+  it("validateMatrix rejects domain_verified without spec evidence and specified without a claim", () => {
+    const m = structuredClone(slots);
+    const i = m.findIndex((s) => s.domain_verified);
+    m[i].evidence = "test:x::y";
+    assert.match(validateMatrix(m).join("|"), /domain_verified requires a PASS, specified slot with spec: evidence/);
+    const n = structuredClone(slots);
+    n[i].spec = "-";
+    assert.match(validateMatrix(n).join("|"), /specified slot needs its written claim/);
+    const q = structuredClone(slots);
+    q[i].domain_verified = false;
+    q[i].spec = "-";
+    assert.match(validateMatrix(q).join("|"), /specified slot needs its written claim/);
+  });
+  it("validateResults guards the strict metrics", () => {
+    assert.notDeepEqual(validateResults({ ...fresh, domain_verified: fresh.specified_slots + 1 }), []);
+    assert.notDeepEqual(validateResults({ ...fresh, specified_slots: 251 }), []);
+    assert.notDeepEqual(validateResults({ ...fresh, named_test_only_pass: fresh.pass + 1 }), []);
+    assert.notDeepEqual(validateResults({ total: 250, executed: 0, pass: 0, fail: 0, blocked: 0, not_implemented: 250, specified_slots: 0, domain_verified: 1, config_pinned: 0, shared_path_slots: 0, guard_probes: 0, guard_probes_passed: 0, named_test_only_pass: 0 }), []);
+    const missing = { ...fresh };
+    delete missing.domain_verified;
+    assert.notDeepEqual(validateResults(missing), []);
+  });
+  it("the headline prints measured numbers only and never says 250/250 unless that many checks ran", () => {
+    const part = { total: 250, executed: 249, pass: 249, fail: 0, blocked: 1, not_implemented: 0, specified_slots: 100, domain_verified: 99, config_pinned: 1, shared_path_slots: 30, guard_probes: 11, guard_probes_passed: 10, named_test_only_pass: 149 };
+    assert.equal(headline(part), "executed 249/250; PASS 249/250 (of which 149 rest only on a generic named-test mapping); SPECIFIED_SLOTS 100/250; DOMAIN_VERIFIED 99/250; CONFIG_PINNED 1/250; SHARED_PATH 30/250 slots; GUARD_PROBES 10/11");
+    assert.ok(!headline(part).includes("250/250"));
+    const none = toResults(runMatrix({}));
+    assert.ok(!/(executed|PASS|SPECIFIED_SLOTS|DOMAIN_VERIFIED) 250\/250/.test(headline(none)));
+    assert.match(headline(fresh), new RegExp(`^executed ${fresh.executed}/250; PASS ${fresh.pass}/250 `));
+    // a claim of 250/250 is only possible when the measured figure is exactly 250
+    for (const k of ["executed", "pass", "specified_slots", "domain_verified"]) if (fresh[k] !== 250) assert.ok(!new RegExp(`${k === "executed" ? "executed" : k === "pass" ? "PASS" : k === "specified_slots" ? "SPECIFIED_SLOTS" : "DOMAIN_VERIFIED"} 250/250`).test(headline(fresh)));
+  });
+  it("the committed factory-matrix headline equals the computed one", () => {
+    const committed = JSON.parse(readFileSync("factory/factory-matrix.json", "utf8"));
+    assert.equal(committed.headline, headline(fresh));
+    assert.deepEqual(committed.unspecified_slots, slots.filter((s) => !s.specified).map((s) => s.id));
+  });
+  it("docs/factory/MATRIX.md carries the strict definitions", () => {
+    const md = readFileSync("docs/factory/MATRIX.md", "utf8");
+    assert.match(md, /SPECIFIED_SLOTS/);
+    assert.match(md, /DOMAIN_VERIFIED/);
+    assert.match(md, /assertion fingerprint/i);
+    assert.match(md, /behaviour fingerprint/i);
   });
 });
