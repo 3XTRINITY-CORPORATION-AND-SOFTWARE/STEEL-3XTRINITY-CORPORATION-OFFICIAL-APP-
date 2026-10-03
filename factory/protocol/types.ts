@@ -276,6 +276,7 @@ function snapshotJson(v: unknown, depth = 0): unknown {
 // ZWNJ/ZWJ (U+200C/D) stay legal: they are needed for real scripts and emoji sequences.
 // Trade-off: emoji presentation selectors (U+FE0F, e.g. "\u2764\uFE0F") are rejected too; the bare symbol is accepted.
 const OBJECTIVE_SPOOFING =
+  // eslint-disable-next-line no-misleading-character-class -- the class deliberately lists combining/joining format characters
   /[\u0080-\u009f\u00ad\u034f\u061c\u180e\u200b\u200e\u200f\u2028\u2029\u202a-\u202e\u2060-\u2064\u2066-\u2069\u206a-\u206f\u3164\ufe00-\ufe0f\ufeff\uffa0\ud800-\udfff\u{e0000}-\u{e007f}\u{e0100}-\u{e01ef}]/u;
 const isDotSegment = (s: string): boolean => /^\.+$/.test(s);
 /** Mirrors `git check-ref-format` for the parts the permissive BRANCH character class leaves open. */
