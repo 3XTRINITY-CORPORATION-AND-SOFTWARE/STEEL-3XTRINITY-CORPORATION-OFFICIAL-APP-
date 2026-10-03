@@ -19,6 +19,22 @@ Result of the second search: **no production caller of `decide`, `decideWithAdap
 * Trust Gate verdict: computed locally from policy, never passed in.
 * KRATT `verification_state` is always `UNVERIFIED`; a receipt claiming otherwise is REJECTED.
 
+## TÖEPÄRA independence + shallow/partial checkouts (this slice, stacked on trust-hardening)
+Independence evidence (`factory/tests/toepara-independence.test.ts`, 6 tests):
+* Source boundary test: `factory/toepara.ts` may import only `cerberus/core/decide` (canonicalize), `kratt/actions` (executeTask, for run-test re-execution), `kratt/evidence` (`parseEvidence` + type only), `kratt/task` (taskDigest), `./git`, `./kratt-stage`, `./protocol/types`, `./rastik-types`. It must not import `kratt/run`, `computeVerdict`, `ReplayGuard`, `createToeparaAdapter`, `evidenceToArtifact`, must not read KRATT's `.verdict` field, and neither it nor `git.ts` may read files directly. `git.ts` is limited to `cat-file`, `diff`, `rev-parse`, `config`, `ls-tree`.
+* Bundle `source_digests` of a VERIFIED result equal an independent `git cat-file` + sha256 computed in the test.
+* Table of 11 self-consistent forgeries (evidenceDigest re-sealed): none VERIFIED. A genuine KRATT receipt with no git to recompute from is not VERIFIED.
+* **Finding fixed here (R-IND-1):** for `hash-files`, KRATT's claimed `checks.pass` was not tied to anything TÖEPÄRA recomputed, so an inflated count (re-sealed) was VERIFIED. TÖEPÄRA now requires `checks.pass == |scope|` and `checks.fail == 0` (regression test: "KRATT verdict/checks inflated"). `validate-manifest` check counts are still only cross-checked KRATT-evidence vs KRATT-result, not recomputed from the committed manifest (open).
+
+Shallow / partial checkouts (`factory/tests/git-shallow.test.ts`, 7 tests, real `git clone --depth 1` and `--filter=blob:none` over file://):
+* Base commit absent and checkout is shallow => `INSUFFICIENT_EVIDENCE` (`base-commit-unavailable:shallow-checkout`), never VERIFIED; dependent checks are skipped (no derived noise). CERBERUS then FAIL_CLOSED/DENY.
+* Unknown commit in a full clone => still REJECTED (`base-sha-unknown-commit`).
+* Partial clone (commit present, blob object missing) => `INSUFFICIENT_EVIDENCE` (`base-blob-unavailable:<path>`). git runs with `GIT_NO_LAZY_FETCH=1`, so TÖEPÄRA never triggers a network fetch. A path absent from the commit stays REJECTED (`source-not-in-base-sha`).
+* Not implemented (optional): an explicit, opt-in `fetch <sha>` to deepen a shallow checkout. Callers must deepen/fetch before invoking the loop.
+* `factory/tests/snapshot.test.ts` still treats `base-commit-unavailable` as a skip; it was outside this slice's lease and not edited.
+
+Host-trust limit (documented, not tested): `ctx.rerun` is a host-supplied cache for run-test re-execution. A poisoned cache from the host process would be trusted; TÖEPÄRA's independence is from KRATT, not from its own host.
+
 ## Still not solved (honest)
 * Evidence is hashed, not signed. Whoever can rewrite a receipt, recompute every digest AND rewrite the git object database can forge it. Signing needs a key: **human gate**.
 * The RÄSTIK report handed to TÖEPÄRA is integrity-checked (digest, bound to the receipt digest) but not authenticated.
