@@ -2,7 +2,7 @@ import { canonicalize } from "../cerberus/core/decide.ts";
 import { executeTask } from "../kratt/actions.ts";
 import { parseEvidence, type ToeparaEvidence } from "../kratt/evidence.ts";
 import { taskDigest } from "../kratt/task.ts";
-import { blobDigest, commitExists, diffDigest, headSha } from "./git.ts";
+import { blobDigest, blobState, commitExists, diffDigest, headSha, isShallow } from "./git.ts";
 import { envelopeToKrattTask } from "./kratt-stage.ts";
 import {
   PROTOCOL_VERSION,
@@ -135,10 +135,16 @@ async function verifyInner(envelopeRaw: unknown, receiptRaw: unknown, rastik: Ra
   note("action-authorized", env.allowed_actions.includes(r.action) && !env.forbidden_actions.includes(r.action), `unauthorized-action:${r.action}`);
 
   // --- freshness ------------------------------------------------------------------------
+  // Shallow checkout: a base commit that is simply not present cannot be recomputed from. That is missing
+  // evidence (INSUFFICIENT_EVIDENCE), never a pass, and the checks that depend on it are not run (no derived noise).
   const exists = commitExists(ctx.root, r.base_sha);
-  note("base-sha-exists", exists, "base-sha-unknown-commit");
-  const head = headSha(ctx.root);
-  note("base-sha-is-current-head", head !== null && head === r.base_sha, "stale-base-sha");
+  const baseUnavailable = !exists && isShallow(ctx.root);
+  if (baseUnavailable) note("base-commit-available", false, "base-commit-unavailable:shallow-checkout", "insufficient");
+  else {
+    note("base-sha-exists", exists, "base-sha-unknown-commit");
+    const head = headSha(ctx.root);
+    note("base-sha-is-current-head", head !== null && head === r.base_sha, "stale-base-sha");
+  }
 
   // --- KRATT evidence structure + binding ------------------------------------------------
   const parsed = parseEvidence(canonicalize(r.evidence));
@@ -161,7 +167,8 @@ async function verifyInner(envelopeRaw: unknown, receiptRaw: unknown, rastik: Ra
 
   // --- recompute source digests from git (never from the receipt) ------------------------
   const sourceDigests: EvidenceBundle["source_digests"] = [];
-  if (kev) {
+  let blobsUnavailable = false;
+  if (kev && !baseUnavailable) {
     const names = kev.artifacts.map((a) => a.name);
     const scopeSet = new Set(env.scope);
     if (r.action === "validate-manifest") note("artifacts-cover-scope", names.includes(env.scope[0] ?? ""), "artifacts-do-not-include-manifest");
@@ -171,7 +178,10 @@ async function verifyInner(envelopeRaw: unknown, receiptRaw: unknown, rastik: Ra
       const d = blobDigest(ctx.root, r.base_sha, a.name);
       if (d === null) {
         allMatch = false;
-        reject.push(`source-not-in-base-sha:${a.name}`);
+        if (blobState(ctx.root, r.base_sha, a.name) === "object-unavailable") {
+          blobsUnavailable = true;
+          insufficient.push(`base-blob-unavailable:${a.name}`);
+        } else reject.push(`source-not-in-base-sha:${a.name}`);
         continue;
       }
       sourceDigests.push({ path: a.name, sha256: d.sha256, bytes: d.bytes });
@@ -181,9 +191,11 @@ async function verifyInner(envelopeRaw: unknown, receiptRaw: unknown, rastik: Ra
       }
     }
     checks.push({ name: "source-digests-recomputed-from-git", ok: allMatch });
+    // hash-files: KRATT's claimed check count must equal the number of files TÖEPÄRA itself found in git (regression: R-IND-1, an inflated count used to pass)
+    if (r.action === "hash-files" && !blobsUnavailable) note("hash-files-check-count-recomputed", kev.checks.pass === scopeSet.size && kev.checks.fail === 0 && r.result.checks.pass === scopeSet.size, "check-count-differs-from-recomputed-files");
   }
-  const scopeDiff = exists ? diffDigest(ctx.root, r.base_sha, env.scope) : null;
-  note("diff-computable", scopeDiff !== null, "diff-not-computable");
+  const scopeDiff = exists && !blobsUnavailable ? diffDigest(ctx.root, r.base_sha, env.scope) : null;
+  if (!baseUnavailable && !blobsUnavailable) note("diff-computable", scopeDiff !== null, "diff-not-computable");
   if (scopeDiff) note("working-tree-matches-base-sha", scopeDiff.empty, "working-tree-differs-from-base-sha");
 
   // --- independent test re-execution (run-test) ------------------------------------------
