@@ -1,0 +1,261 @@
+{
+  "baseline_version": 1,
+  "generated_at": "2026-10-03T06:30:00+03:00",
+  "cache_key": "repository+head_sha (reuse an entry only while head_sha is unchanged)",
+  "gitlab": {
+    "status": "EXTERNAL_CONNECTOR_BLOCKED",
+    "note": "recorded once; no GitLab data read, inferred or requested"
+  },
+  "not_listed": [
+    "3XTRINITY-CORPORATION-AND-SOFTWARE/{animated-umbrella,potential-guide,supreme-octo-journey}-demo-repository, demo-repository, the-book-of-secret-knowledge: unrelated demo/third-party repos (private demos not inspected)",
+    "antonioportfelli-boop forks paperclip, forbidden, django-rest-framework, apiflask: third-party forks, not relevant to GOLIATH/TrinityOS/PANDORA/ARHIDEKT (no repo with those names exists in either account)"
+  ],
+  "classification_legend": {
+    "VERIFIED": "commands run by this session on that exact SHA",
+    "PARTIAL": "remote metadata/CI read, not built here",
+    "BLOCKED_EXTERNAL": "needs a connector/credential we must not use",
+    "NOT_IMPLEMENTED": "nothing to verify"
+  },
+  "repositories": [
+    {
+      "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-3XTRINITY-CORPORATION-OFFICIAL-APP-",
+      "default_branch": "main",
+      "head_sha": "c754f2df7ddf6772d26a213c7f70a0eec7ed39ad",
+      "runtime": "Node 22 (pinned; Node 20 fails the scripts/**/*.test.mjs glob)",
+      "package_manager": "npm",
+      "build_command": "npm run build",
+      "test_command": "npm test",
+      "open_prs": [
+        {
+          "number": 45,
+          "head_sha": "fb60c2ce0b1e64ecac456a3533dd64539468b5bb",
+          "title": "fix(ci): repair main broken by stacked squash merges (duplicate lines)",
+          "ci": "7 checks green (Vite CI, CodeQL, Code Quality)"
+        }
+      ],
+      "open_mrs": {
+        "status": "BLOCKED_EXTERNAL",
+        "reason": "GitLab connector blocked; no GitLab state read or inferred"
+      },
+      "ci_state": "main c754f2d: Vite CI FAILURE (Typecheck, duplicate lines from stacked squash merges); CodeQL success; Security deception batch success. PR #45 head fb60c2c: Vite CI success",
+      "known_blockers": [
+        "main Vite CI red until PR #45 merges (human gate: merge)",
+        "evidence hashed not signed (needs key)",
+        "no real TÖEPÄRA/Trust Gate client",
+        "replay guard in-memory"
+      ],
+      "classification": "PARTIAL",
+      "last_verified_at": "2026-10-03T06:30:00+03:00",
+      "depends_on": [],
+      "verified_by": "gh api repos/.../commits/main + gh run list + gh pr list (2026-10-03)"
+    },
+    {
+      "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/STEEL-AURA-ULTIMA",
+      "default_branch": "main",
+      "head_sha": "aeb48dd703c6093793c7ebb691ef05e15c2d1ae7",
+      "runtime": "Node 22 (verified this session)",
+      "package_manager": "npm (workspaces: packages/*, apps/*)",
+      "build_command": "npm run build",
+      "test_command": "npm test",
+      "open_prs": [
+        {
+          "number": 34,
+          "head_sha": "33d5c63bc6347b75d813a225b4253eb7ab6ccd84",
+          "title": "ci: minimal CodeQL (javascript-typescript, actions)",
+          "ci": "not checked"
+        }
+      ],
+      "open_mrs": {
+        "status": "BLOCKED_EXTERNAL",
+        "reason": "GitLab connector blocked; no GitLab state read or inferred"
+      },
+      "ci_state": "main aeb48dd: CI success (gh run list). Local Node 22 clean npm ci + typecheck + test (21 pass: sync 3, mix 10, ultima 1, journal 7) + build + npm audit: all rc 0, 0 vulnerabilities",
+      "known_blockers": [
+        "docs/contracts/aura-into-steel.v1.md is a stub ('not implemented')",
+        "apps/os-host has no GOLIATH control-plane spec (README only describes SyncClock/SyncPingV1 bridge)"
+      ],
+      "classification": "VERIFIED",
+      "last_verified_at": "2026-10-03T06:30:00+03:00",
+      "depends_on": [
+        "3XTRINITY-CORPORATION-AND-SOFTWARE/goliathOS-2 (documentation only: docs/GOLIATH-BRIDGE.md lists patterns to lift; no code import verified)"
+      ],
+      "verified_by": "npm ci/typecheck/test/build/audit under Node 22 in worktree at aeb48dd"
+    },
+    {
+      "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/AURA-3XTRINITY-CORPORATION-SOFTWARE-OFFICIAL-visualizer-programm",
+      "default_branch": "main",
+      "head_sha": "ce62a09f422e9b5ecb43665899230f74d9091c9b",
+      "runtime": "not verified",
+      "package_manager": "npm (package-lock.json present)",
+      "build_command": "tsc -p tsconfig.app.json --noEmit && vite build",
+      "test_command": null,
+      "open_prs": [],
+      "open_mrs": {
+        "status": "BLOCKED_EXTERNAL",
+        "reason": "GitLab connector blocked; no GitLab state read or inferred"
+      },
+      "ci_state": "CI success on main ce62a09 (gh run list); not built locally",
+      "known_blockers": [
+        "no test script in package.json"
+      ],
+      "classification": "PARTIAL",
+      "last_verified_at": "2026-10-03T06:30:00+03:00",
+      "depends_on": [],
+      "verified_by": "gh api contents + gh run list; no local build"
+    },
+    {
+      "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/goliathOS-2",
+      "default_branch": "main",
+      "head_sha": "70835687e3617477fb5ea8b1ca47cf2d6aa86957",
+      "runtime": "not verified",
+      "package_manager": "npm",
+      "build_command": "node scripts/with-app-env.mjs vite build && npm run db:migrate",
+      "test_command": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test ...",
+      "open_prs": [],
+      "open_mrs": {
+        "status": "BLOCKED_EXTERNAL",
+        "reason": "GitLab connector blocked; no GitLab state read or inferred"
+      },
+      "ci_state": "workflow 'NodeJS with Webpack' FAILURE on main (template webpack workflow, same one STEEL replaced with Vite CI)",
+      "known_blockers": [
+        "no GOLIATH control-plane spec: shallow clone grep for 'goliath', 'tasks/run', 'control-plane', '/api/tasks' found nothing",
+        "private repo; not built locally"
+      ],
+      "classification": "PARTIAL",
+      "last_verified_at": "2026-10-03T06:30:00+03:00",
+      "depends_on": [],
+      "verified_by": "shallow clone + rg; gh run list"
+    },
+    {
+      "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/ETHER.-NET9",
+      "default_branch": "main",
+      "head_sha": "0677975f57d0617a9bdc3113e91f56f6aacfa70f",
+      "runtime": "not verified",
+      "package_manager": "npm",
+      "build_command": "node scripts/with-app-env.mjs vite build && ...",
+      "test_command": "node --test ...",
+      "open_prs": [],
+      "open_mrs": {
+        "status": "BLOCKED_EXTERNAL",
+        "reason": "GitLab connector blocked; no GitLab state read or inferred"
+      },
+      "ci_state": "Vite CI success on main 0677975",
+      "known_blockers": [],
+      "classification": "PARTIAL",
+      "last_verified_at": "2026-10-03T06:30:00+03:00",
+      "depends_on": [],
+      "verified_by": "gh api + gh run list; not built locally"
+    },
+    {
+      "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/main",
+      "default_branch": "main",
+      "head_sha": "7742c5dc501345589de47c9573aeb7c3b85e3153",
+      "runtime": "not verified",
+      "package_manager": "npm",
+      "build_command": "node scripts/with-app-env.mjs vite build && ...",
+      "test_command": "node --test ...",
+      "open_prs": [],
+      "open_mrs": {
+        "status": "BLOCKED_EXTERNAL",
+        "reason": "GitLab connector blocked; no GitLab state read or inferred"
+      },
+      "ci_state": "Security deception batch FAILURE on main 7742c5d",
+      "known_blockers": [
+        "repo literally named 'main' (description 'sourceˇ1'); contains a stray file 'tatus --short' and Agent5/Calude 2/Claude 2 dirs, i.e. a STEEL tree copy; relation to STEEL not verified"
+      ],
+      "classification": "PARTIAL",
+      "last_verified_at": "2026-10-03T06:30:00+03:00",
+      "depends_on": [],
+      "verified_by": "gh api + gh run list; not built locally"
+    },
+    {
+      "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/APEX-OFFER-DESK",
+      "default_branch": "main",
+      "head_sha": "ff2764d37fe06fc1c86b425127211086f3ec086c",
+      "runtime": "not verified",
+      "package_manager": "npm",
+      "build_command": "tsc -b && vite build",
+      "test_command": null,
+      "open_prs": [],
+      "open_mrs": {
+        "status": "BLOCKED_EXTERNAL",
+        "reason": "GitLab connector blocked; no GitLab state read or inferred"
+      },
+      "ci_state": "'NodeJS with Webpack' FAILURE on main ff2764d",
+      "known_blockers": [
+        "no test script",
+        "template webpack workflow failing"
+      ],
+      "classification": "PARTIAL",
+      "last_verified_at": "2026-10-03T06:30:00+03:00",
+      "depends_on": [],
+      "verified_by": "gh api + gh run list; not built locally"
+    },
+    {
+      "repository": "3XTRINITY-CORPORATION-AND-SOFTWARE/RIPPLE-3XTRINITY-CORPORATION-SOFTWARE-OFFICIAL-wake-canvas",
+      "default_branch": "main",
+      "head_sha": "1bcf2c13e6a3c31adc27b5c82f0a99ce982da06b",
+      "runtime": "n/a",
+      "package_manager": "n/a (no package.json at root)",
+      "build_command": null,
+      "test_command": null,
+      "open_prs": [],
+      "open_mrs": {
+        "status": "BLOCKED_EXTERNAL",
+        "reason": "GitLab connector blocked; no GitLab state read or inferred"
+      },
+      "ci_state": "no workflow runs",
+      "known_blockers": [
+        "root has only README.md and trinitywayve-ripple/; not inspected further"
+      ],
+      "classification": "NOT_IMPLEMENTED",
+      "last_verified_at": "2026-10-03T06:30:00+03:00",
+      "depends_on": [],
+      "verified_by": "gh api contents (root listing only)"
+    },
+    {
+      "repository": "antonioportfelli-boop/jev-and-ai-sdk",
+      "default_branch": "main",
+      "head_sha": "d7a675cccbaa029de0491aa6978c2b5307ff2ad3",
+      "runtime": "not verified",
+      "package_manager": "pnpm",
+      "build_command": "next build",
+      "test_command": "vitest run",
+      "open_prs": [],
+      "open_mrs": {
+        "status": "BLOCKED_EXTERNAL",
+        "reason": "GitLab connector blocked; no GitLab state read or inferred"
+      },
+      "ci_state": "CI success on main (gh run list)",
+      "known_blockers": [
+        "no stated relation to GOLIATH/TrinityOS/PANDORA/ARHIDEKT; listed for completeness"
+      ],
+      "classification": "PARTIAL",
+      "last_verified_at": "2026-10-03T06:30:00+03:00",
+      "depends_on": [],
+      "verified_by": "gh api; not built locally"
+    },
+    {
+      "repository": "antonioportfelli-boop/jubilant-space-meme",
+      "default_branch": "main",
+      "head_sha": null,
+      "runtime": null,
+      "package_manager": null,
+      "build_command": null,
+      "test_command": null,
+      "open_prs": [],
+      "open_mrs": {
+        "status": "BLOCKED_EXTERNAL",
+        "reason": "GitLab connector blocked; no GitLab state read or inferred"
+      },
+      "ci_state": "n/a",
+      "known_blockers": [
+        "repository is empty (GitHub API 409 'Git Repository is empty')"
+      ],
+      "classification": "NOT_IMPLEMENTED",
+      "last_verified_at": "2026-10-03T06:30:00+03:00",
+      "depends_on": [],
+      "verified_by": "gh api (HTTP 409)"
+    }
+  ]
+}

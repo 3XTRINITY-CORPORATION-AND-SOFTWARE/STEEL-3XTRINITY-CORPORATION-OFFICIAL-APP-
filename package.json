@@ -21,10 +21,11 @@
     "preview:stop": "node scripts/preview.mjs stop",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.cerberus.json",
     "check:auth": "node scripts/check-auth-invariant.mjs",
-    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/sign-in-gate.test.ts src/lib/preview-host-bridge.test.ts cerberus/tests/decide.test.ts cerberus/tests/hardening.test.ts kratt/tests/kratt.test.ts rastik/tests/rastik.test.ts",
+    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/sign-in-gate.test.ts src/lib/preview-host-bridge.test.ts cerberus/tests/decide.test.ts cerberus/tests/hardening.test.ts kratt/tests/kratt.test.ts rastik/tests/rastik.test.ts factory/tests/protocol.test.ts factory/tests/registry.test.ts factory/tests/dispatcher.test.ts",
     "test:coverage": "c8 --reporter=text --reporter=lcov npm test",
     "lint": "eslint .",
     "rastik": "node --experimental-strip-types rastik/cli.ts",
+    "factory": "node --experimental-strip-types factory/cli.ts",
     "format": "prettier --write ."
   },
   "dependencies": {
