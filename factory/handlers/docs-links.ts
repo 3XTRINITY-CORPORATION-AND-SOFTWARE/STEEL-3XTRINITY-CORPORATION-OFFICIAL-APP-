@@ -1,6 +1,16 @@
 import { DEFAULT_LIMITS, READ_ONLY, byAscii, type Analysis, type Finding, type Handler } from "./types.ts";
 import type { RepoView } from "./repo-view.ts";
 
+function stripHtmlLikeTags(input: string): string {
+  let out = input;
+  let prev: string;
+  do {
+    prev = out;
+    out = out.replace(/<[^>]*>/g, "");
+  } while (out !== prev);
+  return out;
+}
+
 /** GitHub-style heading slug, with -1/-2 suffixes for duplicates. */
 export function headingSlugs(md: string): Set<string> {
   const out = new Set<string>();
@@ -11,7 +21,7 @@ export function headingSlugs(md: string): Set<string> {
     if (fence) continue;
     const m = /^ {0,3}#{1,6}\s+(.+?)\s*#*\s*$/.exec(line);
     if (!m) continue;
-    const base = (m[1] ?? "").replace(/<[^>]*>/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[`*_~]/g, "").toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, "").trim().replace(/\s/g, "-");
+    const base = stripHtmlLikeTags(m[1] ?? "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[`*_~]/g, "").toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, "").trim().replace(/\s/g, "-");
     const n = used.get(base) ?? 0;
     used.set(base, n + 1);
     out.add(n === 0 ? base : `${base}-${n}`);
