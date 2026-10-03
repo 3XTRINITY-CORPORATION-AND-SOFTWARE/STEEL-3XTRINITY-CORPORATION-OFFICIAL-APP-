@@ -249,7 +249,6 @@ const V2: Record<AttackClass, Case[]> = {
       id: "timestamp-impossible-calendar-date",
       hypothesis: "timestamp 2026-13-45T99:99:99Z (matches the ISO regex, is not a date) is admitted",
       fix: "After the ISO_UTC regex, also require !Number.isNaN(Date.parse(v)) and a round-trip toISOString() check in the ActionReceipt timestamp spec.",
-      openDefect: { component: "factory/protocol/types.ts (ActionReceipt.timestamp = ISO_UTC regex only)" },
       build: (g) => one(g, (c) => { c.timestamp = "2026-13-45T99:99:99Z"; }),
     },
     { id: "scope-0-entries", hypothesis: "an empty scope is admitted", fix: "scope minItems 1.", build: (g, e) => both(g, e, (r, env) => { r.scope = []; env.scope = []; }) },
@@ -330,21 +329,18 @@ const V2: Record<AttackClass, Case[]> = {
       id: "forged-role-toepara-commander-produces-kratt-receipt",
       hypothesis: "a KRATT action receipt/envelope issued to CITADEL-101 (the TÖEPÄRA commander) is admitted: the verifier certifies work that its own role produced",
       fix: "In localPolicyTrustGate (and TÖEPÄRA identity checks) require agent_id to hold the capability `kratt:<action>` per CAPABILITIES (FORGE-026 only) and reject CITADEL-1xx as producer of a KRATT receipt.",
-      openDefect: { component: "factory/cerberus-gate.ts localPolicyTrustGate + factory/toepara.ts identity checks (no producer-capability / separation-of-duty check)" },
       build: (g, e) => both(g, e, (r, env) => { r.agent_id = env.agent_id = "CITADEL-101"; env.factory = "CITADEL"; }),
     },
     {
       id: "forged-role-cerberus-commander-produces-kratt-receipt",
       hypothesis: "a KRATT action receipt/envelope issued to CITADEL-111 (the CERBERUS commander) is admitted by CERBERUS itself",
       fix: "Same as forged-role-toepara-commander: producer must hold `kratt:<action>`; the deciding role may not be the producing role.",
-      openDefect: { component: "factory/cerberus-gate.ts localPolicyTrustGate (no producer-capability / separation-of-duty check)" },
       build: (g, e) => both(g, e, (r, env) => { r.agent_id = env.agent_id = "CITADEL-111"; env.factory = "CITADEL"; }),
     },
     {
       id: "forged-role-rastik-commander-produces-kratt-receipt",
       hypothesis: "a KRATT action receipt/envelope issued to SERPENT-051 (the RÄSTIK commander, the attacker) is admitted",
       fix: "Producer must hold `kratt:<action>`; an attacker role may not produce the evidence it attacks.",
-      openDefect: { component: "factory/cerberus-gate.ts localPolicyTrustGate (no producer-capability check)" },
       build: (g, e) => both(g, e, (r, env) => { r.agent_id = env.agent_id = "SERPENT-051"; env.factory = "SERPENT"; }),
     },
     { id: "envelope-factory-prefix-mismatch", hypothesis: "an envelope whose factory (SERPENT) does not match its agent_id prefix (FORGE) is admitted", fix: "validateEnvelope: agent_id must start with `${factory}-`.", build: (g, e) => both(g, e, (_r, env) => { env.factory = "SERPENT"; }) },
@@ -377,14 +373,12 @@ const V2: Record<AttackClass, Case[]> = {
       id: "replay-retimestamped",
       hypothesis: "the identical receipt with only its timestamp changed is admitted a second time (replay guard keyed on a digest that covers the timestamp)",
       fix: "Key the replay guard on the stable identity of the work, e.g. digestOf({task_id, action, base_sha, kratt_evidence_digest}), not on bundle_digest (which covers receipt.timestamp); or reject non-monotonic/duplicate task_id.",
-      openDefect: { component: "factory/cerberus-gate.ts replay guard (ctx.guard.consume(freshBundle.bundle_digest)); bundle_digest covers receipt.timestamp" },
       build: (g) => ({ seq: [clone(g), retimestamp(g, "2030-01-01T00:00:00.000Z")] }),
     },
     {
       id: "replay-reordered-retimestamped",
       hypothesis: "a re-timestamped copy, then the original, then another re-timestamped copy are all admitted (reordered replay; last one decides)",
       fix: "Same as replay-retimestamped: replay guard must be independent of receipt.timestamp.",
-      openDefect: { component: "factory/cerberus-gate.ts replay guard (ctx.guard.consume(freshBundle.bundle_digest)); bundle_digest covers receipt.timestamp" },
       build: (g) => ({ seq: [retimestamp(g, "2029-01-01T00:00:00Z"), clone(g), retimestamp(g, "2031-01-01T00:00:00Z")] }),
     },
     { id: "replay-against-other-task-envelope", hypothesis: "a valid receipt replayed against the envelope of a different task is admitted", fix: "receipt.task_id must equal envelope.task_id.", build: (g, e) => ({ seq: [clone(g)], envelope: { ...clone(e), task_id: `${e.task_id}-b`.slice(0, 64) } }) },
@@ -606,7 +600,6 @@ interface FinalCase {
   noReseal?: boolean;
 }
 
-const LOOP_SELF_CHECK = "factory/loop.ts selfCheckFinalReceipt (checks final_digest + 4 flags only; inner digests and cross-links are not recomputed)";
 const FINAL_FIX =
   "In selfCheckFinalReceipt also: validateCerberusDecision + recompute decision_digest = digestOf(decision minus decision_digest); decision.toepara_evidence_digest === toepara.verdict.evidence_digest; validateEvidenceBundle + recompute bundle_digest; bundle.action_receipt_digest === digestOf(action_receipt); rastikEvidenceDigest recompute.";
 
@@ -623,35 +616,30 @@ const FINAL_CASES: FinalCase[] = [
     id: "decision-body-tampered-decision-digest-stale",
     hypothesis: "a CERBERUS decision whose reasons were edited (decision_digest left stale, final_digest re-sealed) passes the self-check",
     fix: FINAL_FIX,
-    openDefect: { component: LOOP_SELF_CHECK },
     mutate: (r) => { r.cerberus.decision.reasons = [...r.cerberus.decision.reasons, "attacker-edited"]; },
   },
   {
     id: "decision-bound-to-other-toepara-evidence",
     hypothesis: "a CERBERUS decision pointing at a different TÖEPÄRA evidence digest (evidence substitution between tasks; re-sealed) passes the self-check",
     fix: FINAL_FIX,
-    openDefect: { component: LOOP_SELF_CHECK },
     mutate: (r) => { r.cerberus.decision.toepara_evidence_digest = flip(r.cerberus.decision.toepara_evidence_digest); },
   },
   {
     id: "toepara-bundle-body-tampered",
     hypothesis: "a TÖEPÄRA bundle whose source digest was swapped (bundle_digest left stale, re-sealed) passes the self-check",
     fix: FINAL_FIX,
-    openDefect: { component: LOOP_SELF_CHECK },
     mutate: (r) => { r.toepara.bundle.source_digests[0].sha256 = flip(r.toepara.bundle.source_digests[0].sha256); },
   },
   {
     id: "action-receipt-swapped-after-verification",
     hypothesis: "an action receipt edited after TÖEPÄRA verified it (bundle.action_receipt_digest no longer matches; re-sealed) passes the self-check",
     fix: FINAL_FIX,
-    openDefect: { component: LOOP_SELF_CHECK },
     mutate: (r) => { r.action_receipt.agent_id = "CITADEL-111"; },
   },
   {
     id: "rastik-report-tampered-evidence-digest-stale",
     hypothesis: "a RÄSTIK report whose findings/cases were edited (evidence_digest stale; re-sealed) passes the self-check",
     fix: FINAL_FIX,
-    openDefect: { component: LOOP_SELF_CHECK },
     mutate: (r) => { r.rastik.cases_executed += 1; },
   },
 ];

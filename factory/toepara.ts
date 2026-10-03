@@ -17,6 +17,7 @@ import {
   type ToeparaVerdict,
 } from "./protocol/types.ts";
 import { rastikEvidenceDigest, type RastikRun } from "./rastik-types.ts";
+import { producerMayRunAction } from "./trust-gate.ts";
 
 /**
  * TÖEPÄRA stage: independent evidence verification (the brief's "KRATT output alone can
@@ -132,6 +133,7 @@ async function verifyInner(envelopeRaw: unknown, receiptRaw: unknown, rastik: Ra
   note("identity-base-sha", r.base_sha === env.base_sha, "receipt-base-sha-mismatch");
   note("identity-scope", canonicalize(r.scope) === canonicalize(env.scope), "receipt-scope-mismatch");
   note("not-self-verified", r.verification_state === "UNVERIFIED", `kratt-self-verified:${r.verification_state}`);
+  note("producer-role", producerMayRunAction(r.agent_id, r.action), `producer-lacks-capability:kratt:${r.action}`);
   note("action-authorized", env.allowed_actions.includes(r.action) && !env.forbidden_actions.includes(r.action), `unauthorized-action:${r.action}`);
 
   // --- freshness ------------------------------------------------------------------------

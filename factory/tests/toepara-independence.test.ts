@@ -37,7 +37,7 @@ test("INDEPENDENCE (source boundary): toepara.ts/git.ts never import KRATT's ver
   const src = readFileSync(join(ROOT, "factory/toepara.ts"), "utf8");
   const gsrc = readFileSync(join(ROOT, "factory/git.ts"), "utf8");
   const imports = [...src.matchAll(/from "([^"]+)"/g)].map((m) => m[1]).sort();
-  assert.deepEqual(imports, ["../cerberus/core/decide.ts", "../kratt/actions.ts", "../kratt/evidence.ts", "../kratt/task.ts", "./git.ts", "./kratt-stage.ts", "./protocol/types.ts", "./rastik-types.ts"]);
+  assert.deepEqual(imports, ["../cerberus/core/decide.ts", "../kratt/actions.ts", "../kratt/evidence.ts", "../kratt/task.ts", "./git.ts", "./kratt-stage.ts", "./protocol/types.ts", "./rastik-types.ts", "./trust-gate.ts"]);
   // from kratt/evidence.ts only the pure strict parser (+ the type) may be used
   const evImport = src.match(/import \{([^}]*)\} from "\.\.\/kratt\/evidence\.ts"/)?.[1].split(",").map((x) => x.trim()).sort();
   assert.deepEqual(evImport, ["type ToeparaEvidence", "parseEvidence"].sort());

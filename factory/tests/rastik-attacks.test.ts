@@ -124,21 +124,8 @@ import { SCOPE, setup } from "./helpers.ts";
  * the `openDefect` flag of that case in factory/rastik-attacks.ts (the case then joins the default
  * battery and guards the fix) and the id below.
  */
-const OPEN_RECEIPT_DEFECTS = [
-  "boundary/timestamp-impossible-calendar-date",
-  "replay/replay-reordered-retimestamped",
-  "replay/replay-retimestamped",
-  "unauthorized-action/forged-role-cerberus-commander-produces-kratt-receipt",
-  "unauthorized-action/forged-role-rastik-commander-produces-kratt-receipt",
-  "unauthorized-action/forged-role-toepara-commander-produces-kratt-receipt",
-];
-const OPEN_FINAL_DEFECTS = [
-  "final-receipt/action-receipt-swapped-after-verification",
-  "final-receipt/decision-body-tampered-decision-digest-stale",
-  "final-receipt/decision-bound-to-other-toepara-evidence",
-  "final-receipt/rastik-report-tampered-evidence-digest-stale",
-  "final-receipt/toepara-bundle-body-tampered",
-];
+const OPEN_RECEIPT_DEFECTS: string[] = []; // all fixed (impossible timestamp, replay key, producer role); the cases now run in the default battery
+const OPEN_FINAL_DEFECTS: string[] = []; // all fixed (selfCheckFinalReceipt recomputes inner digests and cross-links)
 
 test("RÄSTIK v2: default battery (malformed, prototype pollution, confusables, traversal, substitution, forged trust, replay) is REPELLED by the real verifier, with >= 90 cases and no pollution", async () => {
   const { env, receipt } = await genuine();
@@ -176,9 +163,14 @@ test("RÄSTIK v2: real bypasses are CONFIRMED against the current verifier and m
   }
 });
 
-test("RÄSTIK v2: the generated regression test for a confirmed finding really fails today (only + includeOpenDefects reproduces the bypass)", async () => {
+test("RÄSTIK v2: the generated regression test for the (now fixed) replay finding is REPELLED by the real verifier and still reproduces against a verifier with no replay protection", async () => {
   const { env, receipt } = await genuine();
-  const r = await runAttackClass("replay", receipt, env, { target: real(), includeOpenDefects: true, only: "replay-retimestamped" });
+  const fixed = await runAttackClass("replay", receipt, env, { target: real(), includeOpenDefects: true, only: "replay-retimestamped" });
+  assert.equal(fixed.control_admitted, true);
+  assert.deepEqual(fixed.records.map((x) => `${x.case_id}:${x.outcome}`), ["replay-retimestamped:REPELLED"]);
+  assert.deepEqual(fixed.findings, []);
+  const weak: AttackTarget = async () => true;
+  const r = await runAttackClass("replay", receipt, env, { target: weak, includeOpenDefects: true, only: "replay-retimestamped" });
   assert.equal(r.control_admitted, true);
   assert.deepEqual(r.findings.map((f) => f.finding_id), ["RASTIK-RCPT-replay-replay-retimestamped"]);
   assert.match(r.findings[0]?.reproduction ?? "", /on two independent runs/);

@@ -12,6 +12,7 @@ import {
   validateEnvelope,
   validateEvidenceBundle,
   type CerberusDecision,
+  type EvidenceBundle,
   type TaskEnvelope,
 } from "./protocol/types.ts";
 import { isUnresolvedHigh, type RastikRun } from "./rastik-types.ts";
@@ -64,12 +65,32 @@ export interface GateOutput {
   signature_status: SignatureReport;
 }
 
+/**
+ * Identity of "this action, on this base, with this KRATT evidence" for the replay guard. It deliberately excludes
+ * everything an attacker can vary without changing the work: the receipt timestamp (and so the receipt digest and the
+ * bundle digest), the RÄSTIK report and the signatures. Consuming bundle_digest let a re-stamped copy of an
+ * already-admitted receipt through (RÄSTIK finding).
+ */
+export function replayKey(b: Pick<EvidenceBundle, "task_id" | "action" | "base_sha" | "kratt_evidence_digest">): string {
+  return digestOf({ task_id: b.task_id, action: b.action, base_sha: b.base_sha, kratt_evidence_digest: b.kratt_evidence_digest });
+}
+
+/** agent_id claimed by a (possibly hostile) receipt; null when unreadable so the producer check fails closed. */
+function producerOf(receipt: unknown): string | null {
+  try {
+    const a = typeof receipt === "object" && receipt !== null ? (receipt as { agent_id?: unknown }).agent_id : undefined;
+    return typeof a === "string" ? a : null;
+  } catch {
+    return null;
+  }
+}
+
 export function localPolicyTrustGate(envelope: TaskEnvelope, receipt: unknown, repository: string, sink: string[]): VerdictAdapter {
   return {
     name: "local-policy-trust-gate(NOT the real Trust Gate)",
     verdict() {
       const action = typeof receipt === "object" && receipt !== null ? (receipt as { action?: unknown }).action : undefined;
-      const why = policyViolations(envelope, action, repository);
+      const why = policyViolations(envelope, action, repository, producerOf(receipt));
       sink.push(...why);
       return why.length === 0 ? "AUTHORIZED" : "DENIED";
     },
@@ -113,7 +134,7 @@ export async function cerberusDecide(input: GateInput, ctx: CerberusCtx): Promis
       if (fresh.verdict.verdict !== "VERIFIED" || freshBundle === null) return reject(`toepara-recompute-${fresh.verdict.verdict.toLowerCase()}:${fresh.verdict.reasons[0] ?? "no-reason"}`);
       if (canonicalize(freshBundle) !== a.content) return reject("bundle-differs-from-recomputed");
       if (signingBlock !== null) return reject(signingBlock);
-      if (!ctx.guard.consume(freshBundle.bundle_digest)) return reject("replayed-bundle");
+      if (!ctx.guard.consume(replayKey(freshBundle))) return reject("replayed-bundle");
       return "ADMITTED";
     },
   };
@@ -128,12 +149,13 @@ export async function cerberusDecide(input: GateInput, ctx: CerberusCtx): Promis
       task_id: ev.value.task_id,
       repository: ev.value.repository,
       action: typeof action === "string" ? action : null,
+      producer_agent_id: producerOf(input.receipt),
       envelope: structuredClone(ev.value),
       host_repository: ctx.repository,
     });
     const res = await resolveTrustGate(ctx.trustGate ?? stubPolicyTrustGate, req, ctx.trustGateTimeoutMs ?? DEFAULT_TRUST_TIMEOUT_MS);
     // Defense in depth: the local policy ALWAYS applies, even when an external gate says AUTHORIZED.
-    const local = policyViolations(ev.value, action, ctx.repository);
+    const local = policyViolations(ev.value, action, ctx.repository, producerOf(input.receipt));
     gateVerdict = res.verdict === "AUTHORIZED" && local.length === 0 ? "AUTHORIZED" : "DENIED";
     adapterReasons.push(...res.reasons, ...local);
   }

@@ -7,7 +7,7 @@
  * properties (no accessors, no extra keys, no symbols).
  */
 export type Spec =
-  | { k: "str"; re?: RegExp; min?: number; max?: number }
+  | { k: "str"; re?: RegExp; min?: number; max?: number; /** timestamp must survive a Date round-trip (rejects 2026-02-30, 24:00:00, :60 ...) */ isoRoundTrip?: boolean }
   | { k: "int"; min: number; max: number }
   | { k: "bool" }
   | { k: "null" }
@@ -18,7 +18,23 @@ export type Spec =
   | { k: "json" } // opaque plain JSON object; validated deeper by its own owner (e.g. KRATT evidence)
   | { k: "or"; any: Spec[] };
 
-export const str = (o: { re?: RegExp; min?: number; max?: number } = {}): Spec => ({ k: "str", ...o });
+export const str = (o: { re?: RegExp; min?: number; max?: number; isoRoundTrip?: boolean } = {}): Spec => ({ k: "str", ...o });
+
+/**
+ * True when an ISO-8601 UTC timestamp (`YYYY-MM-DDTHH:MM:SS[.f{1,3}]Z`) names a real instant: parsing it and printing it
+ * again gives the same text (fraction normalised to 3 digits). The regex alone accepts 2026-02-30T25:61:61Z.
+ */
+export function isoRoundTrips(v: string): boolean {
+  const m = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,3}))?Z$/.exec(v);
+  if (m === null) return false;
+  const t = Date.parse(v);
+  if (!Number.isFinite(t)) return false;
+  try {
+    return new Date(t).toISOString() === `${m[1]}.${(m[2] ?? "").padEnd(3, "0")}Z`;
+  } catch {
+    return false;
+  }
+}
 export const int = (min: number, max: number): Spec => ({ k: "int", min, max });
 export const bool: Spec = { k: "bool" };
 export const nul: Spec = { k: "null" };
@@ -51,6 +67,7 @@ function checkInner(spec: Spec, v: unknown, path: string): string | null {
       if (spec.min !== undefined && v.length < spec.min) return `${path}:too-short`;
       if (spec.max !== undefined && v.length > spec.max) return `${path}:too-long`;
       if (spec.re && !spec.re.test(v)) return `${path}:pattern`;
+      if (spec.isoRoundTrip === true && !isoRoundTrips(v)) return `${path}:impossible-timestamp`;
       return null;
     case "int":
       if (typeof v !== "number" || !Number.isSafeInteger(v)) return `${path}:not-integer`;
