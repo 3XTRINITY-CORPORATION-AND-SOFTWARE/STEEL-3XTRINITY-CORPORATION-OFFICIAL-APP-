@@ -1,6 +1,5 @@
 // Slot -> existing named unit test. Generated once from each file's TAP leaf tests, committed as an
 // explicit, reviewable table. A slot is PASS only if that exact test case runs and reports ok (not skipped/todo).
-// Not every test is mapped; unmapped slots stay NOT_IMPLEMENTED. No KRATT/TOEPARA slot is mapped: this repo has no such code.
 // Not every test is mapped; unmapped slots stay NOT_IMPLEMENTED. KRATT/TOEPARA slots 101-129 map to kratt/tests; 130-144 map to rastik/tests (adversarial verification of KRATT/Cerberus); 145-150 stay unmapped.
 export const TEST_REGISTRY = [
   [5, "scripts/with-app-env.test.mjs", "keeps VITE_-prefixed string entries"],
