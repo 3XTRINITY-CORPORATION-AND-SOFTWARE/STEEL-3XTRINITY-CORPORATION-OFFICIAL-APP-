@@ -307,7 +307,11 @@
       "factory": "FORGE",
       "role": "KRATT Engineer",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "kratt:hash-files",
+        "kratt:validate-manifest",
+        "kratt:run-test"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -607,7 +611,9 @@
       "factory": "SERPENT",
       "role": "RÄSTIK Commander",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "rastik:run-probes"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -619,7 +625,9 @@
       "factory": "SERPENT",
       "role": "Input Fuzzer",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "rastik:attack:invalid-input"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -631,7 +639,9 @@
       "factory": "SERPENT",
       "role": "Boundary Tester",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "rastik:attack:boundary"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -667,7 +677,9 @@
       "factory": "SERPENT",
       "role": "Schema Breaker",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "rastik:attack:malformed-receipt"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -715,7 +727,10 @@
       "factory": "SERPENT",
       "role": "Replay Tester",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "rastik:attack:stale-base-sha",
+        "rastik:attack:replay"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -739,7 +754,9 @@
       "factory": "SERPENT",
       "role": "Authorization Tester",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "rastik:attack:unauthorized-action"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -763,7 +780,9 @@
       "factory": "SERPENT",
       "role": "Evidence Tester",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "rastik:attack:missing-evidence"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -775,7 +794,9 @@
       "factory": "SERPENT",
       "role": "Digest Tester",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "rastik:attack:tampered-evidence"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -1207,7 +1228,9 @@
       "factory": "CITADEL",
       "role": "TÖEPÄRA Commander",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "toepara:verify"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,
@@ -1327,7 +1350,9 @@
       "factory": "CITADEL",
       "role": "CERBERUS Commander",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "cerberus:decide"
+      ],
       "current_task": null,
       "completed_tasks": 0,
       "failed_tasks": 0,

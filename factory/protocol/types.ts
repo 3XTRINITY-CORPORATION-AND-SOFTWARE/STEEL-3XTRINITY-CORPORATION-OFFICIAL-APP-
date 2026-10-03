@@ -28,6 +28,8 @@ const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
 // eslint-disable-next-line no-control-regex
 const TEXT = /^[^\u0000-\u001f\u007f]*$/;
 
+// eslint-disable-next-line no-control-regex
+const TEXT_ML = /^[^\u0000-\u0008\u000b-\u001f\u007f]*$/; // multi-line text: \n and \t allowed
 const taskId = str({ re: TASK_ID });
 const agentId = str({ re: AGENT_ID });
 const sha1 = str({ re: SHA1_HEX });
@@ -35,6 +37,7 @@ const sha256 = str({ re: SHA256_HEX });
 const relPath = str({ re: REL_PATH, min: 1, max: 200 });
 const token = str({ re: TOKEN });
 const text = (max: number): Spec => str({ re: TEXT, min: 1, max });
+const multiline = (max: number): Spec => str({ re: TEXT_ML, min: 1, max });
 const factory = oneOf("FORGE", "SERPENT", "CITADEL");
 const version = lit(PROTOCOL_VERSION);
 
@@ -188,7 +191,7 @@ export const SPECS = {
     severity: oneOf("low", "medium", "high", "critical"),
     status: oneOf("CONFIRMED", "UNCONFIRMED"),
     evidence: json,
-    regression_test: text(4000),
+    regression_test: multiline(4000),
     proposed_smallest_fix: text(1000),
   }),
   ToeparaVerdict: obj({

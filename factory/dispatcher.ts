@@ -77,6 +77,12 @@ export class Dispatcher {
     for (const w of registry.workers) this.#byId.set(w.id, w);
   }
 
+  /** Reload persisted queue + transition log (the registry itself is passed to the constructor). */
+  restore(queue: QueueEntry[], log: TransitionRecord[]): void {
+    this.queue.push(...queue);
+    this.log.push(...log);
+  }
+
   worker(id: string): Worker {
     const w = this.#byId.get(id);
     if (!w) throw new DispatchError("unknown-worker");

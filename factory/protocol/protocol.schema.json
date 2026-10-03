@@ -432,7 +432,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 4000,
-          "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+          "pattern": "^[^\\u0000-\\u0008\\u000b-\\u001f\\u007f]*$"
         },
         "proposed_smallest_fix": {
           "type": "string",
