@@ -8,6 +8,7 @@
 |---|---|---|---|---|---|
 | 1 | main f429a20 after merging #50, #51, #56 (with the #52 line) | #50 / #51 / #52 each rewrote the `test` line | three `"test"` keys in `package.json`; Vite CI `ci` -> Test red | `scripts/config-json-integrity.test.mjs` "package.json parses without syntax errors and has no duplicate keys" | #58 (63e3332): one `test` script = union of the three, 2 unlisted tests added |
 | 2 | main 1d7fb48 after merging #58, #59, #60 (Vite CI run 37106759630) | #60 was stacked on #58 and rewrote the same line (adding `factory/tests/status.test.ts`); the #59 squash had also dropped its own 7 test registrations | duplicate `"test"` at `package.json` lines 24 and 25; the 7 boundary tests from #57 were not registered, i.e. not run | same guard | this PR (`fix(main)`: `fix/main-test-dup-2`): one `test` script, the 7 files registered |
+| 3 | main 6bcf1da after merging #62 (adds mutation tests to the `test` line) and #65 (adds 3 CRB-REC-01 test files; #65 was my early-pushed branch merged as pushed, based on d7793e5) | two PRs based on the same main each appended to the single-line `test` script; the second squash left a second `"test"` key | duplicate `test` at `package.json` lines 24/25 (the #61 guard) | `exec/cerberus-recovery` (CRB-REC-01): one `test` script = union (44 test files) |
 
 **Cause:** stacked PRs that touch the same one-line config value; a squash merge of a stack does not conflict on separate-but-adjacent lines, and the merged result is valid text with a semantic defect (duplicate key).
 
