@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { FORGE_ROLES, SERPENT_ROLES, CITADEL_ROLES } from "../roles.ts";
+import { CAPABILITIES } from "../capabilities.ts";
 import { buildInitialRegistry, countRegistry, validateInitialRegistry, validateRegistryShape } from "../registry.ts";
 
 const committed = () => JSON.parse(readFileSync(new URL("../factory-registry.json", import.meta.url), "utf8"));
@@ -58,6 +59,7 @@ test("validator rejects each broken initial invariant", () => {
 
 test("committed factory-registry.json is structurally valid and consistent with the role definitions", () => {
   assert.deepEqual(validateRegistryShape(committed()), []);
+  assert.deepEqual(validateRegistryShape(committed(), CAPABILITIES), []);
 });
 
 test("factory-baseline.json: every repo is classified, SHAs are 40-hex or null, GitLab is recorded as blocked and never as data", () => {
@@ -71,4 +73,12 @@ test("factory-baseline.json: every repo is classified, SHAs are 40-hex or null, 
     for (const k of ["repository", "default_branch", "runtime", "package_manager", "build_command", "test_command", "open_prs", "ci_state", "known_blockers", "last_verified_at"]) assert.ok(k in r, `${r.repository}: ${k}`);
     assert.ok(r.classification !== "VERIFIED" || (r.verified_by && r.head_sha), `${r.repository}: VERIFIED needs head_sha and verified_by`);
   }
+});
+
+test("initial registry with the capability map: still 150 SLEEP / 0 tasks; exactly the 11 handler-backed workers carry capabilities", () => {
+  const reg = buildInitialRegistry(CAPABILITIES);
+  assert.deepEqual(validateInitialRegistry(reg, CAPABILITIES), []);
+  assert.equal(countRegistry(reg).with_capabilities, Object.keys(CAPABILITIES).length);
+  assert.equal(Object.keys(CAPABILITIES).length, 11);
+  assert.equal(countRegistry(reg).executed_tasks, 0);
 });

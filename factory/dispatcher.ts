@@ -74,7 +74,13 @@ export class Dispatcher {
     this.registry = registry;
     this.#clock = opts.clock ?? (() => new Date().toISOString());
     this.#handlers = new Set(opts.handlers ?? []);
-    for (const w of registry.workers) this.#byId.set(w.id, w);
+    for (const w of registry.workers) this.#byId.set(w.id, w)
+  }
+
+  /** Reload persisted queue + transition log (the registry itself is passed to the constructor). */
+  restore(queue: QueueEntry[], log: TransitionRecord[]): void {
+    this.queue.push(...queue);
+    this.log.push(...log);
   }
 
   worker(id: string): Worker {

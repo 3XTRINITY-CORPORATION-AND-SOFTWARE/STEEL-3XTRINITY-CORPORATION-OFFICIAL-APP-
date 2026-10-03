@@ -312,6 +312,18 @@
       "completed_tasks": 0,
       "failed_tasks": 0,
       "evidence": []
+      "capabilities": [
+        "kratt:hash-files",
+        "kratt:validate-manifest",
+        "kratt:run-test"
+      ],
+      "current_task": null,
+      "completed_tasks": 2,
+      "failed_tasks": 0,
+      "evidence": [
+        "action-receipt:cl-hash-files-ea4521a:41dbef0493af15691800ba6df74186cc68a53117be07960b07108ea8ed55c5f6",
+        "action-receipt:cl-run-test-ea4521a:cf3301dbfc98bc5b1164105bbcd1690080d3ce59266916180a0a2f50e1c45061"
+      ]
     },
     {
       "id": "FORGE-027",
@@ -612,6 +624,16 @@
       "completed_tasks": 0,
       "failed_tasks": 0,
       "evidence": []
+      "capabilities": [
+        "rastik:run-probes"
+      ],
+      "current_task": null,
+      "completed_tasks": 2,
+      "failed_tasks": 0,
+      "evidence": [
+        "rastik-run:f4dafae38897f71f840f87b3cd6af0e65e84683c5a42358489785a72b72782be",
+        "rastik-run:e278f05f3e5c7ea4f6b09d770d346332549fe7197ec24e1f686f6f37e37febfc"
+      ]
     },
     {
       "id": "SERPENT-052",
@@ -624,6 +646,16 @@
       "completed_tasks": 0,
       "failed_tasks": 0,
       "evidence": []
+      "capabilities": [
+        "rastik:attack:invalid-input"
+      ],
+      "current_task": null,
+      "completed_tasks": 2,
+      "failed_tasks": 0,
+      "evidence": [
+        "rastik-attacks:invalid-input:2e50187a85590c6d533a6cc6efef826c54edf567352385d73d3c6b05be3ead99",
+        "rastik-attacks:invalid-input:2e50187a85590c6d533a6cc6efef826c54edf567352385d73d3c6b05be3ead99"
+      ]
     },
     {
       "id": "SERPENT-053",
@@ -636,6 +668,16 @@
       "completed_tasks": 0,
       "failed_tasks": 0,
       "evidence": []
+      "capabilities": [
+        "rastik:attack:boundary"
+      ],
+      "current_task": null,
+      "completed_tasks": 2,
+      "failed_tasks": 0,
+      "evidence": [
+        "rastik-attacks:boundary:f36cfde107e73caafe0754b872f0bb1c5e2261fc959e45b09e9cf40c8024f435",
+        "rastik-attacks:boundary:f36cfde107e73caafe0754b872f0bb1c5e2261fc959e45b09e9cf40c8024f435"
+      ]
     },
     {
       "id": "SERPENT-054",
@@ -672,6 +714,16 @@
       "completed_tasks": 0,
       "failed_tasks": 0,
       "evidence": []
+      "capabilities": [
+        "rastik:attack:malformed-receipt"
+      ],
+      "current_task": null,
+      "completed_tasks": 2,
+      "failed_tasks": 0,
+      "evidence": [
+        "rastik-attacks:malformed-receipt:3fa63cce631779b8005d8f1406edf60da0bf233a4b7bb96c6d6304945bd5ad2d",
+        "rastik-attacks:malformed-receipt:3fa63cce631779b8005d8f1406edf60da0bf233a4b7bb96c6d6304945bd5ad2d"
+      ]
     },
     {
       "id": "SERPENT-057",
@@ -720,6 +772,19 @@
       "completed_tasks": 0,
       "failed_tasks": 0,
       "evidence": []
+      "capabilities": [
+        "rastik:attack:stale-base-sha",
+        "rastik:attack:replay"
+      ],
+      "current_task": null,
+      "completed_tasks": 4,
+      "failed_tasks": 0,
+      "evidence": [
+        "rastik-attacks:stale-base-sha:917faaac539b5a3741c4a7c0bcb030309231867a36a4e9a140c4023ec17cb2e5",
+        "rastik-attacks:replay:d396dba7925c53d9809ed4076078f404b2dc99ec31906afdbb3c426379afb3bb",
+        "rastik-attacks:stale-base-sha:917faaac539b5a3741c4a7c0bcb030309231867a36a4e9a140c4023ec17cb2e5",
+        "rastik-attacks:replay:d396dba7925c53d9809ed4076078f404b2dc99ec31906afdbb3c426379afb3bb"
+      ]
     },
     {
       "id": "SERPENT-061",
@@ -744,6 +809,16 @@
       "completed_tasks": 0,
       "failed_tasks": 0,
       "evidence": []
+      "capabilities": [
+        "rastik:attack:unauthorized-action"
+      ],
+      "current_task": null,
+      "completed_tasks": 2,
+      "failed_tasks": 0,
+      "evidence": [
+        "rastik-attacks:unauthorized-action:a6caead8e29f899417226c910b37c8439ca80dc4244f29052381741fbb40998f",
+        "rastik-attacks:unauthorized-action:a6caead8e29f899417226c910b37c8439ca80dc4244f29052381741fbb40998f"
+      ]
     },
     {
       "id": "SERPENT-063",
@@ -763,11 +838,16 @@
       "factory": "SERPENT",
       "role": "Evidence Tester",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "rastik:attack:missing-evidence"
+      ],
       "current_task": null,
-      "completed_tasks": 0,
+      "completed_tasks": 2,
       "failed_tasks": 0,
-      "evidence": []
+      "evidence": [
+        "rastik-attacks:missing-evidence:c37d6cf96222a01cb8e94cfcf22e09631ea789662c0a628aa774ff9c09005111",
+        "rastik-attacks:missing-evidence:c37d6cf96222a01cb8e94cfcf22e09631ea789662c0a628aa774ff9c09005111"
+      ]
     },
     {
       "id": "SERPENT-065",
@@ -775,11 +855,16 @@
       "factory": "SERPENT",
       "role": "Digest Tester",
       "state": "SLEEP",
-      "capabilities": [],
+      "capabilities": [
+        "rastik:attack:tampered-evidence"
+      ],
       "current_task": null,
-      "completed_tasks": 0,
+      "completed_tasks": 2,
       "failed_tasks": 0,
-      "evidence": []
+      "evidence": [
+        "rastik-attacks:tampered-evidence:9f39b170cc7507171c63488ee9db15ebbca99b68b8e48df444998e4ef5e42e54",
+        "rastik-attacks:tampered-evidence:9f39b170cc7507171c63488ee9db15ebbca99b68b8e48df444998e4ef5e42e54"
+      ]
     },
     {
       "id": "SERPENT-066",
@@ -1212,6 +1297,16 @@
       "completed_tasks": 0,
       "failed_tasks": 0,
       "evidence": []
+      "capabilities": [
+        "toepara:verify"
+      ],
+      "current_task": null,
+      "completed_tasks": 2,
+      "failed_tasks": 0,
+      "evidence": [
+        "toepara-verdict:VERIFIED:f1c53c6e8048df73c8d89720f3a1021b292d5c244ea0f6c809fdb0f9b6f5c611",
+        "toepara-verdict:VERIFIED:07bf35a19ee1cc07a868d58fb595aba73cae67430b9038c8627cde9177de62ab"
+      ]
     },
     {
       "id": "CITADEL-102",
@@ -1332,6 +1427,16 @@
       "completed_tasks": 0,
       "failed_tasks": 0,
       "evidence": []
+      "capabilities": [
+        "cerberus:decide"
+      ],
+      "current_task": null,
+      "completed_tasks": 2,
+      "failed_tasks": 0,
+      "evidence": [
+        "cerberus-decision:ADMIT:d738535c2c027642c31fbe77a1da9906a738fd5d5c49372ac9977d8cf145b369",
+        "cerberus-decision:ADMIT:4e945fdb333412242dda902d0d0547858b9469d421308b2b3b6dff6360b7d81d"
+      ]
     },
     {
       "id": "CITADEL-112",
