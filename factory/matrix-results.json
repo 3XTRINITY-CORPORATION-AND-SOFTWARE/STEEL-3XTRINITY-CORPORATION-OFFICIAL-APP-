@@ -4,5 +4,8 @@
   "pass": 250,
   "fail": 0,
   "blocked": 0,
-  "not_implemented": 0
+  "not_implemented": 0,
+  "specified_slots": 250,
+  "domain_verified": 250,
+  "named_test_only_pass": 0
 }
