@@ -362,6 +362,12 @@ const V2: Record<AttackClass, Case[]> = {
   "malformed-receipt": [
     { id: "result-exit-code-contradicts-evidence", hypothesis: "result.exit_code = 1 with ok = true, contradicting the evidence (exit code 0), is admitted", fix: "result.exit_code must equal evidence.exitCode (result-matches-evidence).", build: (g) => one(g, (c) => { c.result.exit_code = 1; }) },
     { id: "extra-key-in-result", hypothesis: "result with an extra key is admitted", fix: "Closed key set on nested objects.", build: (g) => one(g, (c) => { c.result.verified = true; }) },
+    { id: "caller-supplied-admit-decision", hypothesis: "a receipt that carries its own `decision: ADMIT` is admitted on that say-so", fix: "Closed key set on the receipt; the decision is only ever computed by CERBERUS.", build: (g) => one(g, (c) => { c.decision = "ADMIT"; }) },
+    { id: "caller-supplied-verdict-verified", hypothesis: "a receipt that carries its own `verdict: VERIFIED` is admitted on that say-so", fix: "Closed key set on the receipt; the verdict is only ever computed by TÖEPÄRA.", build: (g) => one(g, (c) => { c.verdict = "VERIFIED"; }) },
+    { id: "caller-supplied-status-pass", hypothesis: "a receipt that carries its own `status: PASS` is admitted on that say-so", fix: "Closed key set on the receipt.", build: (g) => one(g, (c) => { c.status = "PASS"; }) },
+    { id: "caller-supplied-result-status-pass", hypothesis: "result.status = PASS (an extra result key) is admitted", fix: "Closed key set on nested objects.", build: (g) => one(g, (c) => { c.result.status = "PASS"; }) },
+    { id: "caller-supplied-evidence-verdict-pass", hypothesis: "evidence.verdict = PASS (outside KRATT's own enum) is admitted", fix: "parseEvidence accepts only its own verdict enum and TÖEPÄRA never trusts it.", build: (g) => one(g, (c) => { c.evidence.verdict = "PASS"; }) },
+    { id: "caller-supplied-verification-state-admit", hypothesis: "verification_state = ADMIT / PASS (values from another state machine) is admitted", fix: "verification_state is an enum validated by the protocol and must equal UNVERIFIED from a producer.", build: (g) => one(g, (c) => { c.verification_state = "ADMIT"; }) },
     { id: "extra-key-in-result-checks", hypothesis: "result.checks with an extra key is admitted", fix: "Closed key set on nested objects.", build: (g) => one(g, (c) => { c.result.checks.skipped = 0; }) },
     { id: "accessor-property-receipt", hypothesis: "a receipt whose task_id is a getter (TOCTOU: value changes between reads) is admitted", fix: "Validators reject accessor properties (own data properties only).", build: (g) => one(g, (c) => { const v = c.task_id; let n = 0; Object.defineProperty(c, "task_id", { enumerable: true, configurable: true, get: () => (n++ === 0 ? v : "other") }); }) },
   ],
@@ -916,6 +922,298 @@ export function runRuntimeDriftAttacks(
         `});`,
       ].join("\n"),
       proposed_smallest_fix: c.fix.slice(0, 1000),
+    });
+  }
+  return { control_clean, control_violations, records, findings };
+}
+
+// ---------------------------------------------------------------------------------------------
+// STACKED_CONFIG_COLLISION attacks: stacked-branch merges that leave the gate configuration
+// ambiguous (duplicate package.json keys where the LAST one silently wins, conflict markers, a
+// test registered nowhere, a gate made non-blocking). The declarations are read once (bounded,
+// read-only), mutated as text, and the hypothesis for each case is "the collided configuration
+// passes the config check". The check is injectable so a weak checker can be shown to be attacked.
+// ---------------------------------------------------------------------------------------------
+export interface ConfigDeclarations {
+  /** Raw package.json text, or null when absent. */
+  package_json: string | null;
+  /** Raw text of every .github/workflows/*.yml. */
+  workflows: { name: string; text: string }[];
+  /** Repo-relative paths of every *.test.ts in the factory/cerberus/kratt/rastik test directories. */
+  test_files: string[];
+  /** For each of those, the sibling test files it pulls in with a side-effect `import "./x.test.ts";`. */
+  test_imports: Record<string, string[]>;
+}
+
+/** Duplicate keys (path of the object + key) in a JSON text, or null when the text is not valid JSON. Bounded, no eval. */
+export function jsonDuplicateKeys(text: string): string[] | null {
+  let i = 0;
+  const dups: string[] = [];
+  const ws = (): void => {
+    while (i < text.length && " \t\r\n".includes(text[i] as string)) i++;
+  };
+  const str = (): string | null => {
+    if (text[i] !== '"') return null;
+    let out = "";
+    i++;
+    while (i < text.length && text[i] !== '"') {
+      if (text[i] === "\\") {
+        out += text.slice(i, i + 2);
+        i += 2;
+      } else out += text[i++];
+    }
+    if (text[i] !== '"') return null;
+    i++;
+    return out;
+  };
+  const value = (path: string, depth: number): boolean => {
+    if (depth > 64) return false;
+    ws();
+    const ch = text[i];
+    if (ch === "{") {
+      i++;
+      const seen = new Set<string>();
+      ws();
+      if (text[i] === "}") {
+        i++;
+        return true;
+      }
+      for (;;) {
+        ws();
+        const k = str();
+        if (k === null) return false;
+        if (seen.has(k)) dups.push(`${path}${path ? "." : ""}${k}`);
+        seen.add(k);
+        ws();
+        if (text[i++] !== ":") return false;
+        if (!value(`${path}${path ? "." : ""}${k}`, depth + 1)) return false;
+        ws();
+        if (text[i] === ",") {
+          i++;
+          continue;
+        }
+        if (text[i] === "}") {
+          i++;
+          return true;
+        }
+        return false;
+      }
+    }
+    if (ch === "[") {
+      i++;
+      ws();
+      if (text[i] === "]") {
+        i++;
+        return true;
+      }
+      for (;;) {
+        if (!value(`${path}[]`, depth + 1)) return false;
+        ws();
+        if (text[i] === ",") {
+          i++;
+          continue;
+        }
+        if (text[i] === "]") {
+          i++;
+          return true;
+        }
+        return false;
+      }
+    }
+    if (ch === '"') return str() !== null;
+    const m = /^(?:-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null)/.exec(text.slice(i, i + 40));
+    if (!m) return false;
+    i += m[0].length;
+    return true;
+  };
+  if (!value("", 0)) return null;
+  ws();
+  return i === text.length ? dups : null;
+}
+
+const CONFLICT_MARKER = /^(<{7}|={7}|>{7})(\s|$)/m;
+const GATE_BYPASS = /\|\|\s*(?:true|exit\s+0|:)(?=\s|$|[;&|])|;\s*(?:true|exit\s+0)(?=\s|$|[;&|])/;
+
+/** Reasons the gate configuration is ambiguous or weakened; [] means "one unambiguous, blocking, complete configuration". */
+export function configCollisionViolations(d: ConfigDeclarations): string[] {
+  const v: string[] = [];
+  if (d.package_json === null) return ["package-json-missing"];
+  if (CONFLICT_MARKER.test(d.package_json)) v.push("package-json-conflict-marker");
+  const dups = jsonDuplicateKeys(d.package_json);
+  if (dups === null) {
+    v.push("package-json-invalid-json");
+    return v;
+  }
+  for (const k of dups) v.push(`duplicate-key:${k}`);
+  let test: unknown;
+  try {
+    test = (JSON.parse(d.package_json) as { scripts?: { test?: unknown } }).scripts?.test;
+  } catch {
+    return [...v, "package-json-invalid-json"];
+  }
+  if (typeof test !== "string" || test.trim() === "") v.push("test-script-missing");
+  else {
+    if (GATE_BYPASS.test(test)) v.push("test-script-gate-bypass");
+    // a test file is registered when the test script names it, or a registered file side-effect-imports it
+    const registered = new Set<string>();
+    const queue = d.test_files.filter((f) => test.includes(f));
+    while (queue.length > 0) {
+      const f = queue.pop() as string;
+      if (registered.has(f)) continue;
+      registered.add(f);
+      queue.push(...(d.test_imports[f] ?? []));
+    }
+    for (const f of [...d.test_files].sort()) if (!registered.has(f)) v.push(`unregistered-test:${f}`);
+  }
+  for (const w of d.workflows) {
+    if (CONFLICT_MARKER.test(w.text)) v.push(`workflow-conflict-marker:${w.name}`);
+    if (/^\s*(?:-\s*)?continue-on-error:\s*(?:true|\$\{\{[^}]*\}\})\s*(?:#.*)?$/m.test(w.text)) v.push(`workflow-continue-on-error:${w.name}`);
+    if (/^\s*(?:-\s*)?run:.*(?:\|\|\s*(?:true|exit\s+0)|;\s*true)\s*$/m.test(w.text)) v.push(`workflow-run-gate-bypass:${w.name}`);
+  }
+  return v;
+}
+
+export function readConfigDeclarations(root: string): ConfigDeclarations {
+  const read = (rel: string): string | null => {
+    try {
+      const p = join(root, rel);
+      return statSync(p).size > 4_000_000 ? null : readFileSync(p, "utf8");
+    } catch {
+      return null;
+    }
+  };
+  const workflows: { name: string; text: string }[] = [];
+  try {
+    for (const f of readdirSync(join(root, ".github/workflows")).sort()) {
+      if (!/\.ya?ml$/.test(f)) continue;
+      const t = read(`.github/workflows/${f}`);
+      if (t !== null) workflows.push({ name: f, text: t });
+    }
+  } catch {
+    // no workflows
+  }
+  const test_files: string[] = [];
+  const test_imports: Record<string, string[]> = {};
+  for (const dir of ["factory/tests", "cerberus/tests", "kratt/tests", "rastik/tests"]) {
+    let names: string[] = [];
+    try {
+      names = readdirSync(join(root, dir)).sort();
+    } catch {
+      continue;
+    }
+    for (const n of names) {
+      if (!n.endsWith(".test.ts")) continue;
+      const rel = `${dir}/${n}`;
+      test_files.push(rel);
+      const src = read(rel) ?? "";
+      test_imports[rel] = [...src.matchAll(/^import "\.\/([^"/]+\.test\.ts)";/gm)].map((m) => `${dir}/${m[1]}`);
+    }
+  }
+  return { package_json: read("package.json"), workflows, test_files, test_imports };
+}
+
+const CONFIG_FIX = "Reject the configuration in a repository check (and CI): package.json parsed with a duplicate-key-aware reader (configCollisionViolations), no conflict markers, one `test` script that names every test file, no `|| true` / continue-on-error on a gate.";
+
+interface ConfigCase {
+  id: string;
+  hypothesis: string;
+  mutate: (d: ConfigDeclarations) => void;
+}
+
+const testLine = (pj: string): string | null => /^[ \t]*"test": .*$/m.exec(pj)?.[0] ?? null;
+const addAfterTestLine = (d: ConfigDeclarations, f: (line: string) => string): void => {
+  const line = d.package_json === null ? null : testLine(d.package_json);
+  if (d.package_json === null || line === null) return;
+  d.package_json = d.package_json.replace(line, `${line}${line.endsWith(",") ? "" : ","}\n${f(line)}`);
+};
+
+const CONFIG_CASES: ConfigCase[] = [
+  { id: "stacked-duplicate-test-line", hypothesis: "two identical `test` script keys (a stacked-branch merge keeping both sides) are accepted", mutate: (d) => addAfterTestLine(d, (l) => l) },
+  { id: "stacked-duplicate-test-line-union-conflict", hypothesis: "a second `test` key that DROPS tests (the last key silently wins) is accepted", mutate: (d) => addAfterTestLine(d, (l) => l.replace(/ factory\/tests\/[a-z-]+\.test\.ts(?=[ ",])/, "")) },
+  { id: "stacked-triple-test-line", hypothesis: "three stacked `test` keys are accepted", mutate: (d) => { addAfterTestLine(d, (l) => l); addAfterTestLine(d, (l) => l); } },
+  { id: "stacked-duplicate-lint-script", hypothesis: "a duplicate `lint` script key is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(/^([ \t]*"lint": .*?),?$/m, (m, a) => `${a},\n${a.replace(/eslint \./, "true")},`); } },
+  { id: "stacked-duplicate-scripts-block", hypothesis: "two `scripts` blocks (the last wins) are accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(/\n}\s*$/, ',\n  "scripts": { "test": "true" }\n}\n'); } },
+  { id: "stacked-duplicate-engines-block", hypothesis: "two `engines` blocks (the last wins) are accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(/\n}\s*$/, ',\n  "engines": { "node": ">=18" }\n}\n'); } },
+  { id: "merge-conflict-markers-in-package-json", hypothesis: "package.json with `<<<<<<<` conflict markers left in a line is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(/^\{/, "{\n<<<<<<< HEAD"); } },
+  { id: "merge-conflict-markers-in-workflow", hypothesis: "a workflow with `=======` conflict markers is accepted", mutate: (d) => { const w = d.workflows[0]; if (w) w.text += "\n=======\n"; } },
+  { id: "package-json-trailing-comma", hypothesis: "invalid JSON (a trailing comma left by a hand-merge) is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(/\n}\s*$/, ',\n}\n'); } },
+  { id: "test-script-deleted", hypothesis: "a package.json without a `test` script is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(/^[ \t]*"test": .*\n/m, ""); } },
+  { id: "test-script-empty", hypothesis: "an empty `test` script is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(/^([ \t]*"test": ).*$/m, '$1"",'); } },
+  { id: "test-script-or-true", hypothesis: "a `test` script that ends in `|| true` (never red) is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(/^([ \t]*"test": ".*?)(",?)$/m, "$1 || true$2"); } },
+  { id: "test-script-semicolon-true", hypothesis: "a `test` script that ends in `; true` is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(/^([ \t]*"test": ".*?)(",?)$/m, "$1; true$2"); } },
+  { id: "test-script-drops-a-registered-test", hypothesis: "a `test` script that silently stops running a factory test file (not imported by another registered file) is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(" factory/tests/trust-gate.test.ts", ""); } },
+  { id: "new-test-file-registered-nowhere", hypothesis: "a new security test file named in no script and imported by nothing (so it never runs) is accepted", mutate: (d) => { d.test_files.push("factory/tests/new-security.test.ts"); d.test_imports["factory/tests/new-security.test.ts"] = []; } },
+  { id: "workflow-continue-on-error", hypothesis: "`continue-on-error: true` on a CI step is accepted", mutate: (d) => { const w = d.workflows[0]; if (w) w.text += "\n      - run: npm test\n        continue-on-error: true\n"; } },
+  { id: "workflow-run-or-true", hypothesis: "a CI `run: npm test || true` step is accepted", mutate: (d) => { const w = d.workflows[0]; if (w) w.text += "\n      - run: npm test || true\n"; } },
+];
+
+export interface ConfigAttackRecord {
+  attack_id: string;
+  case_id: string;
+  hypothesis: string;
+  outcome: "REPELLED" | "SUCCEEDED" | "INAPPLICABLE";
+  reproduced: boolean | null;
+  detail: string;
+}
+
+export function configCaseCount(): number {
+  return CONFIG_CASES.length;
+}
+
+export function runConfigCollisionAttacks(
+  genuine: ConfigDeclarations,
+  check: (d: ConfigDeclarations) => string[] = configCollisionViolations,
+  o: { only?: string } = {},
+): { control_clean: boolean; control_violations: string[]; records: ConfigAttackRecord[]; findings: RastikFinding[] } {
+  const safe = (d: ConfigDeclarations): string[] => {
+    try {
+      return check(d);
+    } catch {
+      return ["check-threw"]; // a throwing config check is a violation
+    }
+  };
+  const control_violations = safe(clone(genuine));
+  const control_clean = control_violations.length === 0;
+  const records: ConfigAttackRecord[] = [];
+  const findings: RastikFinding[] = [];
+  if (!control_clean) return { control_clean, control_violations, records, findings };
+  const digest = digestOf(genuine);
+  for (const c of CONFIG_CASES) {
+    if (o.only !== undefined && c.id !== o.only) continue;
+    const attack_id = `config-collision/${c.id}`;
+    const attempt = (): { v: string[]; changed: boolean } => {
+      const d = clone(genuine);
+      c.mutate(d);
+      return { v: safe(d), changed: digestOf(d) !== digest };
+    };
+    const first = attempt();
+    if (!first.changed) {
+      records.push({ attack_id, case_id: c.id, hypothesis: c.hypothesis, outcome: "INAPPLICABLE", reproduced: null, detail: "mutation did not change the declarations" });
+      continue;
+    }
+    if (first.v.length > 0) {
+      records.push({ attack_id, case_id: c.id, hypothesis: c.hypothesis, outcome: "REPELLED", reproduced: null, detail: first.v.join(",") });
+      continue;
+    }
+    const again = attempt().v.length === 0;
+    records.push({ attack_id, case_id: c.id, hypothesis: c.hypothesis, outcome: "SUCCEEDED", reproduced: again, detail: "accepted" });
+    findings.push({
+      finding_id: `RASTIK-CONFIG-${c.id}`,
+      target: "gate configuration check over package.json scripts, test-file registration and .github/workflows",
+      hypothesis: c.hypothesis,
+      reproduction: `Take the declarations (digest ${digest}), apply mutation "${c.id}" (factory/rastik-attacks.ts CONFIG_CASES); the config check returned no violation${again ? " on two independent runs" : " once, but not on the re-run"}.`,
+      severity: "high",
+      status: again ? "CONFIRMED" : "UNCONFIRMED",
+      evidence: { attack_id, declarations_digest: digest, admitted_on_rerun: again },
+      regression_test: [
+        `test(${JSON.stringify(`RASTIK config-collision/${c.id}: the collision must be reported`)}, () => {`,
+        `  // hypothesis: ${c.hypothesis}`,
+        `  const r = runConfigCollisionAttacks(readConfigDeclarations(ROOT), configCollisionViolations, { only: ${JSON.stringify(c.id)} });`,
+        `  assert.equal(r.control_clean, true);`,
+        `  assert.deepEqual(r.findings.map((f) => f.finding_id), []);`,
+        `});`,
+      ].join("\n"),
+      proposed_smallest_fix: CONFIG_FIX.slice(0, 1000),
     });
   }
   return { control_clean, control_violations, records, findings };

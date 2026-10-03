@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { formatMarkdown, reportProblems, runMutation, validateCatalog } from "./engine.ts";
 import { MUTANTS } from "./mutants.ts";
 import { availableParallelism } from "node:os";
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync } from "node:fs";
 
 /**
  * node --experimental-strip-types factory/mutation/run.ts [--only T01,G01] [--json out.json] [--md out.md] [--concurrency N] [--timeout-ms N]
@@ -21,15 +21,9 @@ if (problems.length > 0) {
   console.error(`mutant catalog is stale:\n${problems.join("\n")}`);
   process.exit(2);
 }
-// mutation.test.ts tests this harness (skipped in children anyway); mutation-kills.test.ts is registered through the
-// side-effect import in rastik-attacks.test.ts (asserted below), so listing it again would only run it twice.
-const attacksTest = readFileSync(resolve(root, "factory/tests/rastik-attacks.test.ts"), "utf8");
-if (!attacksTest.includes('import "./mutation-kills.test.ts";')) {
-  console.error("factory/tests/rastik-attacks.test.ts must import ./mutation-kills.test.ts (otherwise the kill tests are not part of the mutant runs)");
-  process.exit(2);
-}
+// mutation.test.ts tests this harness itself (it skips inside mutant runs); every other factory test, incl. mutation-kills.test.ts, runs.
 const testFiles = readdirSync(resolve(root, "factory/tests"))
-  .filter((f) => f.endsWith(".test.ts") && f !== "mutation.test.ts" && f !== "mutation-kills.test.ts")
+  .filter((f) => f.endsWith(".test.ts") && f !== "mutation.test.ts")
   .sort()
   .map((f) => `factory/tests/${f}`);
 const only = opt("--only")?.split(",").filter(Boolean);

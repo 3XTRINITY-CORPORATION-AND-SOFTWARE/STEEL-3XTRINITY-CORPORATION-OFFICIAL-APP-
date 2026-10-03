@@ -136,6 +136,17 @@ const RAW: Mutant[] = [
   m("RD07", RA, "runtime drift: only the first CI node-version entry of the workflows is read", `if (ci.length < 100) ci.push(m[1] ?? "")`, `if (ci.length < 1) ci.push(m[1] ?? "")`),
   m("RD08", RA, "runtime drift: devcontainer major no longer compared with .nvmrc", `else if (pin !== null && dc !== pin) why.push("devcontainer-major-differs-from-nvmrc");`, ``),
   m("RD09", RA, "runtime drift attacks: a throwing checker is treated as clean", `return ["check-threw"]; // fail-closed`, `return [];`),
+  // ---- RÄSTIK v2 stacked-config-collision check -----------------------------------------------------
+  m("CC01", RA, "config collision: duplicate package.json keys are no longer reported", `for (const k of dups) v.push(\`duplicate-key:\${k}\`);`, ``),
+  m("CC02", RA, "config collision: merge-conflict markers in package.json are no longer reported", `if (CONFLICT_MARKER.test(d.package_json)) v.push("package-json-conflict-marker");`, ``),
+  m("CC03", RA, "config collision: a test script ending in `|| true` is accepted", `if (GATE_BYPASS.test(test)) v.push("test-script-gate-bypass");`, ``),
+  m("CC04", RA, "config collision: test files registered nowhere are accepted", `for (const f of [...d.test_files].sort()) if (!registered.has(f)) v.push(\`unregistered-test:\${f}\`);`, ``),
+  m("CC05", RA, "config collision: side-effect imports no longer count as registration (over-reports)", `queue.push(...(d.test_imports[f] ?? []));`, ``),
+  m("CC06", RA, "config collision: continue-on-error in a workflow is accepted", `v.push(\`workflow-continue-on-error:\${w.name}\`);`, `void 0;`),
+  m("CC07", RA, "config collision: `run: ... || true` in a workflow is accepted", `v.push(\`workflow-run-gate-bypass:\${w.name}\`);`, `void 0;`),
+  m("CC08", RA, "config collision: a missing test script is accepted", `if (typeof test !== "string" || test.trim() === "") v.push("test-script-missing");`, `if (typeof test !== "string") v.push("test-script-missing");`),
+  m("CC09", RA, "config collision: duplicate-key scanner treats an escaped quote as a string end", `out += text.slice(i, i + 2);\n        i += 2;`, `out += text[i];\n        i += 1;`),
+  m("CC10", RA, "config collision attacks: a throwing checker is treated as clean", `return ["check-threw"]; // a throwing config check is a violation`, `return []; // a throwing config check is a violation`),
 
   // ---- RÄSTIK battery itself (a battery that cannot fail is worthless) -------------------------
   m("R01", RA, "RÄSTIK: control receipt requirement removed (a rejecting verifier would look 'all repelled')", `if (!control_admitted) return { records, findings, control_admitted };`, ``),

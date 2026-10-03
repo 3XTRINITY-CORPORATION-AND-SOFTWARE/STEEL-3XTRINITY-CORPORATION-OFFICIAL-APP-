@@ -1,9 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ATTACK_CLASSES } from "../capabilities.ts";
-import { caseCount, configureParentLookup, realAttackTarget, runAttackClass, type AttackTarget } from "../rastik-attacks.ts";
-import { validateRastikFinding } from "../protocol/types.ts";
-import { ROOT, REPO, genuine } from "./helpers.ts";
+import { execFileSync } from "node:child_process";
+import {
+  caseCount,
+  configCaseCount,
+  configCollisionViolations,
+  configureParentLookup,
+  jsonDuplicateKeys,
+  readConfigDeclarations,
+  realAttackTarget,
+  runAttackClass,
+  runConfigCollisionAttacks,
+  type AttackTarget,
+  type ConfigDeclarations,
+} from "../rastik-attacks.ts";
+import { toeparaVerify } from "../toepara.ts";
+import { runKrattStage } from "../kratt-stage.ts";
+import { validateRastikFinding, type ActionReceipt } from "../protocol/types.ts";
+import { ROOT, REPO, genuine, tempRepo } from "./helpers.ts";
 
 configureParentLookup(ROOT);
 const real = () => realAttackTarget({ root: ROOT, repository: REPO, rerun: new Map() });
@@ -375,7 +390,141 @@ test("RÄSTIK runtime drift: readRuntimeDeclarations reads EVERY workflow node-v
   }
 });
 
-// Mutation-testing kill tests + harness tests (registered in this process so `npm test` runs them;
-// package.json lists test files explicitly and is outside this change's file lease).
-import "./mutation-kills.test.ts";
-import "./mutation.test.ts";
+// ---------------------------------------------------------------------------------------------
+// STACKED_CONFIG_COLLISION
+// ---------------------------------------------------------------------------------------------
+test("RÄSTIK config collision: jsonDuplicateKeys finds duplicates at every depth and rejects non-JSON", () => {
+  assert.deepEqual(jsonDuplicateKeys('{"a":1,"b":{"c":1}}'), []);
+  assert.deepEqual(jsonDuplicateKeys('{"a":1,"a":2}'), ["a"]);
+  assert.deepEqual(jsonDuplicateKeys('{"s":{"test":"x","lint":"y","test":"z"}}'), ["s.test"]);
+  assert.deepEqual(jsonDuplicateKeys('{"s":[{"k":1,"k":2}]}'), ["s[].k"]);
+  assert.deepEqual(jsonDuplicateKeys('{"a":"x\\"y","a":"q"}'), ["a"], "escaped quotes do not end a string");
+  assert.deepEqual(jsonDuplicateKeys('{"a":{"x":1},"b":{"x":2}}'), [], "same key in different objects is fine");
+  for (const bad of ["", "{", '{"a":1,}', "{'a':1}", '{"a":1} x', "<<<<<<< HEAD\n{}", "[1,]", '{"a" 1}']) assert.equal(jsonDuplicateKeys(bad), null, JSON.stringify(bad));
+  assert.equal(jsonDuplicateKeys("[".repeat(100) + "]".repeat(100)), null, "depth bound");
+});
+
+test("RÄSTIK config collision: the real repo configuration is clean and every collision (17 cases) is REPELLED with a specific reason", () => {
+  const decl = readConfigDeclarations(ROOT);
+  assert.deepEqual(configCollisionViolations(decl), [], "package.json must hold ONE test script that names/imports every test file; no gate bypass");
+  assert.ok(decl.test_files.length >= 18 && decl.workflows.length >= 1);
+  const r = runConfigCollisionAttacks(decl);
+  assert.equal(r.control_clean, true);
+  assert.equal(r.records.length, configCaseCount());
+  assert.equal(configCaseCount(), 17);
+  assert.deepEqual(r.records.filter((x) => x.outcome !== "REPELLED").map((x) => `${x.case_id}:${x.outcome}`), []);
+  assert.deepEqual(r.findings, []);
+  const reason = (id: string) => r.records.find((x) => x.case_id === id)?.detail ?? "";
+  assert.match(reason("stacked-duplicate-test-line"), /duplicate-key:scripts\.test/);
+  assert.match(reason("stacked-triple-test-line"), /duplicate-key:scripts\.test,duplicate-key:scripts\.test/);
+  assert.match(reason("stacked-duplicate-scripts-block"), /duplicate-key:scripts/);
+  assert.match(reason("stacked-duplicate-engines-block"), /duplicate-key:engines/);
+  assert.match(reason("merge-conflict-markers-in-package-json"), /package-json-conflict-marker/);
+  assert.match(reason("merge-conflict-markers-in-workflow"), /workflow-conflict-marker/);
+  assert.match(reason("package-json-trailing-comma"), /package-json-invalid-json/);
+  assert.match(reason("test-script-deleted"), /test-script-missing/);
+  assert.match(reason("test-script-or-true"), /test-script-gate-bypass/);
+  assert.match(reason("test-script-semicolon-true"), /test-script-gate-bypass/);
+  assert.match(reason("test-script-drops-a-registered-test"), /unregistered-test:factory\/tests\/trust-gate\.test\.ts/);
+  assert.match(reason("new-test-file-registered-nowhere"), /unregistered-test:factory\/tests\/new-security\.test\.ts/);
+  assert.match(reason("workflow-continue-on-error"), /workflow-continue-on-error:/);
+  assert.match(reason("workflow-run-or-true"), /workflow-run-gate-bypass:/);
+});
+
+test("RÄSTIK config collision: not vacuous - an accept-all checker and a JSON.parse-only checker (what `npm` effectively does: last key wins) are attacked successfully, each finding CONFIRMED + schema-valid", () => {
+  const decl = readConfigDeclarations(ROOT);
+  const acceptAll = runConfigCollisionAttacks(decl, () => []);
+  assert.equal(acceptAll.findings.length, configCaseCount());
+  for (const f of acceptAll.findings) {
+    assert.equal(f.status, "CONFIRMED");
+    assert.ok(validateRastikFinding(f).ok, f.finding_id);
+    assert.match(f.regression_test, /^test\(/);
+  }
+  const parseOnly = (d: ConfigDeclarations): string[] => {
+    try {
+      JSON.parse(d.package_json ?? "");
+      return [];
+    } catch {
+      return ["invalid-json"];
+    }
+  };
+  const weak = runConfigCollisionAttacks(decl, parseOnly);
+  const succeeded = weak.records.filter((x) => x.outcome === "SUCCEEDED").map((x) => x.case_id);
+  for (const id of ["stacked-duplicate-test-line", "stacked-duplicate-test-line-union-conflict", "stacked-triple-test-line", "stacked-duplicate-lint-script", "stacked-duplicate-scripts-block", "stacked-duplicate-engines-block", "test-script-or-true", "test-script-drops-a-registered-test", "workflow-continue-on-error"]) {
+    assert.ok(succeeded.includes(id), `a parse-only check misses ${id}`);
+  }
+  assert.ok(!succeeded.includes("package-json-trailing-comma"), "parse-only DOES catch invalid JSON");
+  // a throwing checker is fail-closed
+  assert.deepEqual(runConfigCollisionAttacks(decl, () => { throw new Error("boom"); }).control_clean, false);
+});
+
+test("RÄSTIK config collision: reproduction of the main f429a20 defect - three stacked `test` keys; the last silently wins and the effective script does not run six existing test files", () => {
+  const decl = readConfigDeclarations(ROOT);
+  const line = /^[ \t]*"test": .*$/m.exec(decl.package_json as string)?.[0] as string;
+  const stacked = { ...decl, package_json: (decl.package_json as string).replace(line, `${line.replace("factory/tests/trust-gate.test.ts ", "")}\n${line.replace(/ factory\/tests\/signing\.test\.ts/, "")}\n${line}`) };
+  const v = configCollisionViolations(stacked);
+  assert.equal(v.filter((x) => x === "duplicate-key:scripts.test").length, 2);
+  assert.equal(JSON.parse(stacked.package_json).scripts.test, line.replace(/^[^:]*:\s*"/, "").replace(/",?$/, ""), "JSON.parse keeps only the LAST key");
+});
+
+// ---------------------------------------------------------------------------------------------
+// Workspace attacks against the existing TÖEPÄRA: stale SHA, dirty tree, TOCTOU
+// ---------------------------------------------------------------------------------------------
+const gitIn = (dir: string, ...a: string[]) => execFileSync("git", a, { cwd: dir, encoding: "utf8", env: { PATH: process.env.PATH ?? "", GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t", HOME: dir } }).trim();
+const FILES = { "a.txt": "alpha\n", "b/c.txt": "beta\n" };
+async function genuineAt(dir: string, sha: string, scope: string[], id: string) {
+  const { stand, clock } = setup({ root: dir });
+  const env = { ...stand.issueEnvelope({ action: "hash-files", branch: "t", scope, base_sha: sha, task_id: id }), required_evidence: ["source_digests"] };
+  const r = await runKrattStage(env, dir, clock);
+  assert.ok(r.ok, r.ok ? "" : r.reason);
+  return { env, receipt: (r as unknown as { receipt: ActionReceipt }).receipt };
+}
+const tctx = (root: string) => ({ root, repository: REPO, rerun: new Map() });
+
+test("RÄSTIK workspace attack (stale SHA): a genuine receipt bound to base_sha is no longer VERIFIED once the branch moved on (new commit), reason stale-base-sha", async () => {
+  const { dir, sha } = tempRepo(FILES);
+  const { env, receipt } = await genuineAt(dir, sha, ["a.txt"], "ws-stale");
+  assert.equal((await toeparaVerify(env, receipt, null, tctx(dir))).verdict.verdict, "VERIFIED", "control");
+  writeFileSync(join(dir, "z.txt"), "later\n");
+  gitIn(dir, "add", "-A");
+  gitIn(dir, "-c", "commit.gpgsign=false", "commit", "-q", "-m", "later");
+  const t = await toeparaVerify(env, receipt, null, tctx(dir));
+  assert.notEqual(t.verdict.verdict, "VERIFIED");
+  assert.ok(t.verdict.reasons.includes("stale-base-sha"), t.verdict.reasons.join(","));
+  assert.equal(t.bundle, null);
+});
+
+test("RÄSTIK workspace attack (dirty tree, TOCTOU): editing a scoped file in the working tree AFTER KRATT hashed it is REJECTED (working-tree-differs-from-base-sha, no bundle), reverting restores VERIFIED; an UNTRACKED scope file is never VERIFIED", async () => {
+  const { dir, sha } = tempRepo(FILES);
+  const { env, receipt } = await genuineAt(dir, sha, ["a.txt", "b/c.txt"], "ws-toctou");
+  const clean = await toeparaVerify(env, receipt, null, tctx(dir));
+  assert.equal(clean.verdict.verdict, "VERIFIED");
+  writeFileSync(join(dir, "a.txt"), "alpha-EDITED-AFTER-KRATT\n"); // swap between KRATT's read and TÖEPÄRA's check
+  const dirty = await toeparaVerify(env, receipt, null, tctx(dir));
+  assert.equal(dirty.verdict.verdict, "REJECTED");
+  assert.ok(dirty.verdict.reasons.includes("working-tree-differs-from-base-sha"), dirty.verdict.reasons.join(","));
+  assert.equal(dirty.bundle, null);
+  writeFileSync(join(dir, "a.txt"), "alpha\n"); // swapped back: nothing was committed, the check is per call
+  const restored = await toeparaVerify(env, receipt, null, tctx(dir));
+  assert.equal(restored.verdict.verdict, "VERIFIED", restored.verdict.reasons.join(","));
+  assert.deepEqual(restored.bundle?.source_digests, clean.bundle?.source_digests);
+  // scope file that exists only in the working tree (never committed)
+  writeFileSync(join(dir, "new-untracked.txt"), "x\n");
+  const { stand, clock } = setup({ root: dir });
+  const env2 = { ...stand.issueEnvelope({ action: "hash-files", branch: "t", scope: ["new-untracked.txt"], base_sha: sha, task_id: "ws-untracked" }), required_evidence: ["source_digests"] };
+  const r2 = await runKrattStage(env2, dir, clock);
+  if (r2.ok) assert.notEqual((await toeparaVerify(env2, (r2 as unknown as { receipt: ActionReceipt }).receipt, null, tctx(dir))).verdict.verdict, "VERIFIED", "KRATT hashed a file git does not have at base_sha");
+});
+
+test("RÄSTIK config collision (direct rules): an empty test script is test-script-missing by itself; a test file is registered through a registered file's side-effect import (transitively) and only then", () => {
+  const mk = (test: string, files: string[], imports: Record<string, string[]>): ConfigDeclarations => ({
+    package_json: JSON.stringify({ scripts: { test } }),
+    workflows: [],
+    test_files: files,
+    test_imports: imports,
+  });
+  assert.deepEqual(configCollisionViolations(mk("", [], {})), ["test-script-missing"], "empty script, nothing else to blame");
+  assert.deepEqual(configCollisionViolations(mk("   ", [], {})), ["test-script-missing"]);
+  assert.deepEqual(configCollisionViolations(mk("node --test factory/tests/a.test.ts", ["factory/tests/a.test.ts", "factory/tests/b.test.ts", "factory/tests/c.test.ts"], { "factory/tests/a.test.ts": ["factory/tests/b.test.ts"], "factory/tests/b.test.ts": ["factory/tests/c.test.ts"], "factory/tests/c.test.ts": [] })), [], "a -> b -> c");
+  assert.deepEqual(configCollisionViolations(mk("node --test factory/tests/a.test.ts", ["factory/tests/a.test.ts", "factory/tests/b.test.ts"], { "factory/tests/a.test.ts": [], "factory/tests/b.test.ts": [] })), ["unregistered-test:factory/tests/b.test.ts"]);
+});
