@@ -3,13 +3,15 @@ import type { ReplayStore } from "./replay-store.ts";
 import { bundleSubject, rastikSubject, signSubject, type ArtifactSignatures, type SignatureReport, type SigningPolicy } from "./signing.ts";
 import type { KrattAction } from "../kratt/task.ts";
 import { ATTACK_AGENT, ATTACK_CLASSES, CAPABILITIES, HANDLER_KEYS, type AttackClass } from "./capabilities.ts";
-import { cerberusDecide, denyWithoutReceipt } from "./cerberus-gate.ts";
+import { cerberusDecide, denyWithoutReceipt, type GateOutput } from "./cerberus-gate.ts";
+import { decideIdempotent, type DecisionLedger } from "./replay-ledger.ts";
 import { DispatchError, Dispatcher, type TransitionRecord } from "./dispatcher.ts";
 import { headSha } from "./git.ts";
 import { envelopeToKrattTask, runKrattStage } from "./kratt-stage.ts";
 import {
   PROTOCOL_VERSION,
   digestOf,
+  validateCerberusDecision,
   validateEnvelope,
   type ActionReceipt,
   type CerberusDecision,
@@ -19,9 +21,9 @@ import {
   type EvidenceBundle,
 } from "./protocol/types.ts";
 import { assembleRun, configureParentLookup, realAttackTarget, runAttackClass, runProbes, type AttackTarget } from "./rastik-attacks.ts";
-import type { AttackRecord, ProbeSummary, RastikRun } from "./rastik-types.ts";
+import { rastikEvidenceDigest, type AttackRecord, type ProbeSummary, type RastikRun } from "./rastik-types.ts";
 import { buildInitialRegistry, type Registry } from "./registry.ts";
-import { toeparaVerify } from "./toepara.ts";
+import { bundleDigest, toeparaVerify } from "./toepara.ts";
 
 /**
  * ARCHIDECT closed loop (first milestone):
@@ -46,6 +48,13 @@ export interface LoopDeps {
   dispatcher: Dispatcher;
   /** Replay store: in-memory `ReplayGuard` or the persistent `FileReplayGuard`. */
   guard: ReplayStore;
+  /**
+   * Optional persistent decision ledger (FACTORY_REPLAY_DIR). When set, the CERBERUS decision goes through `decideIdempotent`:
+   * the request is evaluated once per ledger and the decision is stored. A request whose decision is already stored (or whose
+   * ledger is unavailable) cannot be turned back into a full closed-loop receipt - the CERBERUS pipeline receipt is not stored -
+   * so the loop answers with a DENY refusal that names the stored decision; it never re-admits and never fabricates a receipt.
+   */
+  ledger?: DecisionLedger;
   /** Evidence authentication. Absent => no signing (artifacts UNSIGNED, nothing required). */
   signing?: SigningPolicy;
   clock: () => string;
@@ -241,7 +250,7 @@ export async function runClosedLoop(raw: unknown, deps: LoopDeps): Promise<Close
   // ---- CERBERUS --------------------------------------------------------------------------
   const cEnv = child(env, { suffix: "cerberus", agent_id: "CITADEL-111", objective: `CERBERUS admission decision for ${env.task_id}`, allowed: ["cerberus:decide"], required: ["source_digests"] });
   d.enqueue(cEnv);
-  const cout = await d.run<{ ok: boolean; evidence: string | null; gate: Awaited<ReturnType<typeof cerberusDecide>> }>(
+  const cout = await d.run<{ ok: boolean; evidence: string | null; gate: GateOutput | null; note?: string }>(
     cEnv.task_id,
     async () => {
       // Signing happens at each producer's identity (RÄSTIK signs its report, TÖEPÄRA its bundle); CERBERUS only verifies.
@@ -251,13 +260,23 @@ export async function runClosedLoop(raw: unknown, deps: LoopDeps): Promise<Close
             rastik: rastik ? await signSubject(deps.signing.provider, "rastik-report", rastikSubject(rastik)) : null,
           }
         : undefined;
-      const gate = await cerberusDecide({ envelope: env, receipt, rastik, toepara: tout.result, signatures }, { ...tctx, guard: deps.guard, signing: deps.signing });
+      const input = { envelope: env, receipt, rastik, toepara: tout.result, signatures };
+      const ctx = { ...tctx, guard: deps.guard, signing: deps.signing };
+      if (deps.ledger) {
+        const idem = await decideIdempotent(input, ctx, deps.ledger);
+        // `gate` is set only when this call evaluated the request; the stored decision is authoritative (it may be stricter than the gate's).
+        if (idem.gate === null) return { ok: true, evidence: `cerberus-decision:${idem.decision.decision}:${idem.decision.decision_digest}`, gate: null, note: `${idem.idempotent_replay ? "idempotent-replay-stored-decision" : "ledger-fail-closed"}:${idem.decision.decision}:${idem.decision.decision_digest}` };
+        const gate: GateOutput = { ...idem.gate, decision: idem.decision };
+        return { ok: true, evidence: `cerberus-decision:${gate.decision.decision}:${gate.decision.decision_digest}`, gate };
+      }
+      const gate = await cerberusDecide(input, ctx);
       return { ok: true, evidence: `cerberus-decision:${gate.decision.decision}:${gate.decision.decision_digest}`, gate };
     },
     { capability: "cerberus:decide" },
   );
   stages.push(stageOf(d, "CERBERUS", cEnv, "cerberus:decide", true, null));
   if (!cout) return refusal(env.task_id, "cerberus-failed", stages, env);
+  if (cout.gate === null) return refusal(env.task_id, (cout.note ?? "ledger-no-gate-output").slice(0, 200), stages, env);
 
   // ---- confirmed findings go back to FORGE (queued, NOT executed) ------------------------
   const followups: string[] = [];
@@ -330,14 +349,90 @@ export class GoliathStandIn {
   }
 }
 
-/** Independent re-check of a stored final receipt's internal consistency (digest + embedded objects). Pure. */
+/**
+ * Independent re-check of a stored final receipt's internal consistency. Pure and total: it never throws, whatever the
+ * (possibly hand-edited) receipt looks like - a missing or malformed part is a violation, not a TypeError.
+ *
+ * Recomputed from the embedded objects (nothing is taken from a stored digest field without recomputing it):
+ * the final digest, the CERBERUS decision digest + schema, the Cerberus pipeline receipt digest, the TÖEPÄRA bundle
+ * digest, the RÄSTIK report digest, and the cross-links between them (decision <-> cerberus receipt, decision <->
+ * TÖEPÄRA verdict, bundle <-> action receipt, bundle <-> RÄSTIK report, RÄSTIK report <-> action receipt).
+ * Limit: nothing is signed here; a party who can rewrite the WHOLE receipt consistently can still forge it.
+ */
 export function selfCheckFinalReceipt(r: ClosedLoopReceipt): string[] {
   const v: string[] = [];
-  const { final_digest, ...body } = r;
-  if (digestOf(body) !== final_digest) v.push("final_digest-mismatch");
-  if (!verifyReceipt(r.cerberus.cerberus_receipt)) v.push("cerberus-receipt-digest-invalid");
-  if (r.caller.real_goliath !== false) v.push("caller-claims-real-goliath");
-  if (r.final_decision !== r.cerberus.decision.decision) v.push("final-decision-differs-from-cerberus");
-  if (r.final_decision === "ADMIT" && (r.toepara?.verdict.verdict !== "VERIFIED" || r.action_receipt?.verification_state !== "UNVERIFIED")) v.push("admit-without-independent-verification");
+  const guard = (name: string, f: () => void): void => {
+    try {
+      f();
+    } catch {
+      v.push(`selfcheck-unreadable:${name}`);
+    }
+  };
+  if (typeof r !== "object" || r === null) return ["receipt-not-an-object"];
+  guard("final_digest", () => {
+    const { final_digest, ...body } = r;
+    if (digestOf(body) !== final_digest) v.push("final_digest-mismatch");
+  });
+  guard("caller", () => {
+    if (r.caller?.real_goliath !== false) v.push("caller-claims-real-goliath");
+  });
+
+  // ---- CERBERUS decision + pipeline receipt (may be absent in a damaged receipt: violation, never a throw)
+  let decision: CerberusDecision | null = null;
+  guard("cerberus", () => {
+    const c = r.cerberus as { decision?: unknown; cerberus_receipt?: unknown } | null | undefined;
+    if (typeof c !== "object" || c === null) {
+      v.push("cerberus-missing");
+      return;
+    }
+    if (c.decision === undefined || c.decision === null) v.push("cerberus-decision-missing");
+    else {
+      const d = validateCerberusDecision(c.decision);
+      if (!d.ok) v.push(`cerberus-decision-invalid:${d.reason}`);
+      else {
+        decision = d.value;
+        const { decision_digest, ...body } = d.value;
+        if (digestOf(body) !== decision_digest) v.push("cerberus-decision-digest-mismatch");
+      }
+    }
+    if (c.cerberus_receipt === undefined || c.cerberus_receipt === null) v.push("cerberus-receipt-missing");
+    else {
+      if (!verifyReceipt(c.cerberus_receipt as RecoveryReceipt)) v.push("cerberus-receipt-digest-invalid");
+      else if (decision !== null && decision.cerberus_receipt_digest !== (c.cerberus_receipt as RecoveryReceipt).receiptDigest) v.push("decision-cerberus-receipt-link-mismatch");
+    }
+  });
+  guard("final_decision", () => {
+    if (decision === null) v.push("final-decision-unverifiable");
+    else if (r.final_decision !== (decision as CerberusDecision).decision) v.push("final-decision-differs-from-cerberus");
+    if (decision !== null && (decision as CerberusDecision).task_id !== r.task_id && r.task_id !== null) v.push("decision-task-differs-from-receipt");
+  });
+
+  // ---- TÖEPÄRA verdict + bundle
+  guard("toepara", () => {
+    const t = r.toepara;
+    if (t === null || t === undefined) return;
+    const bundle = t.bundle;
+    if (bundle !== null && bundle !== undefined) {
+      const { bundle_digest, ...body } = bundle;
+      if (bundleDigest(body) !== bundle_digest) v.push("bundle-digest-mismatch");
+      if (t.verdict?.verdict === "VERIFIED" && t.verdict.evidence_digest !== bundle_digest) v.push("toepara-verdict-bundle-link-mismatch");
+      if (r.action_receipt && bundle.action_receipt_digest !== digestOf(r.action_receipt)) v.push("bundle-action-receipt-link-mismatch");
+      if (r.rastik && bundle.rastik_evidence_digest !== digestOf(null) && bundle.rastik_evidence_digest !== r.rastik.evidence_digest) v.push("bundle-rastik-link-mismatch");
+    } else if (t.verdict?.verdict === "VERIFIED") v.push("toepara-verified-without-bundle");
+    if (decision !== null && t.verdict && t.verdict.evidence_digest !== (decision as CerberusDecision).toepara_evidence_digest) v.push("decision-toepara-link-mismatch");
+  });
+
+  // ---- RÄSTIK report
+  guard("rastik", () => {
+    const k = r.rastik;
+    if (k === null || k === undefined) return;
+    const { evidence_digest, ...body } = k;
+    if (rastikEvidenceDigest(body) !== evidence_digest) v.push("rastik-digest-mismatch");
+    if (r.action_receipt && k.target_receipt_digest !== digestOf(r.action_receipt)) v.push("rastik-target-receipt-mismatch");
+  });
+
+  guard("admit", () => {
+    if (r.final_decision === "ADMIT" && (r.toepara?.verdict.verdict !== "VERIFIED" || r.action_receipt?.verification_state !== "UNVERIFIED")) v.push("admit-without-independent-verification");
+  });
   return v;
 }

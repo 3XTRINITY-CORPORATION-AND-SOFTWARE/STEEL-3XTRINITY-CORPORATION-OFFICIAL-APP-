@@ -166,7 +166,7 @@ export const SPECS = {
     }),
     evidence: json,
     verification_state: oneOf(...VERIFICATION_STATES),
-    timestamp: str({ re: ISO_UTC }),
+    timestamp: str({ re: ISO_UTC, isoRoundTrip: true }),
     protocol_version: version,
   }),
   EvidenceBundle: obj({

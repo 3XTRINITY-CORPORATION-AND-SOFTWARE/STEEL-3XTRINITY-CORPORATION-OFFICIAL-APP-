@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { ReplayGuard } from "../kratt/evidence.ts";
 import { CAPABILITIES } from "./capabilities.ts";
 import { repoSlug } from "./git.ts";
-import { FileReplayGuard } from "./replay-store.ts";
+import { replayStoresFromEnv } from "./replay-ledger.ts";
 import { GoliathStandIn, makeDispatcher, selfCheckFinalReceipt, type ClosedLoopReceipt } from "./loop.ts";
 import { resolve } from "node:path";
 import { buildJsonSchema } from "./protocol/types.ts";
@@ -13,7 +13,8 @@ import { buildInitialRegistry, countRegistry, validateRegistryShape, validateIni
  * npm run factory -- validate  validate the committed registry (shape + counts); exit 1 on any violation
  * npm run factory -- status    print honest counts
  * npm run factory -- run-loop   execute the real closed loops at the current HEAD and append their receipts
- *                               FACTORY_REPLAY_DIR=<dir> makes the replay guard persistent (file-backed, cross-process)
+ *                               FACTORY_REPLAY_DIR=<dir> makes the replay guard AND the CERBERUS decision ledger persistent
+ *                               (file-backed, local POSIX filesystem only, cross-process; records are hashed, not signed)
  *                               (registry, queue + transition log, receipts are rewritten; HEAD must have a clean scope)
  */
 const root = resolve(import.meta.dirname);
@@ -70,7 +71,8 @@ if (cmd === "init") {
   const receiptsDoc = JSON.parse(readFileSync(file("factory-receipts.json"), "utf8"));
   const d = makeDispatcher(clock, reg);
   d.restore(queueDoc.tasks, queueDoc.transitions);
-  const stand = new GoliathStandIn({ root: repoRoot, repository, dispatcher: d, guard: process.env.FACTORY_REPLAY_DIR ? new FileReplayGuard(resolve(process.env.FACTORY_REPLAY_DIR)) : new ReplayGuard(), clock });
+  const stores = replayStoresFromEnv();
+  const stand = new GoliathStandIn({ root: repoRoot, repository, dispatcher: d, guard: stores ? stores.guard : new ReplayGuard(), ...(stores ? { ledger: stores.ledger } : {}), clock });
   const branch = process.env.FACTORY_BRANCH ?? "factory/closed-loop-v1";
   const envs = [
     stand.issueEnvelope({ action: "hash-files", branch, scope: ["cerberus/core/decide.ts", "cerberus/core/normalize.ts", "cerberus/policy/policy.ts", "cerberus/artifact-trust/artifact-trust.ts"] }),

@@ -55,7 +55,7 @@ const RAW: Mutant[] = [
   m("T24", T, "TÖEPÄRA: INSUFFICIENT_EVIDENCE no longer blocks VERIFIED", `if (reject.length > 0 || insufficient.length > 0 || kev === null)`, `if (reject.length > 0 || kev === null)`),
 
   // ---- CERBERUS gate ---------------------------------------------------------------------------
-  m("G01", G, "CERBERUS: replay guard result ignored (bundle may be presented again)", `if (!ctx.guard.consume(freshBundle.bundle_digest)) return reject("replayed-bundle");`, `void ctx.guard.consume(freshBundle.bundle_digest);`),
+  m("G01", G, "CERBERUS: replay guard result ignored (bundle may be presented again)", `if (!ctx.guard.consume(replayKey(freshBundle))) return reject("replayed-bundle");`, `void ctx.guard.consume(replayKey(freshBundle));`),
   m("G02", G, "CERBERUS: byte-equality of presented bundle with recomputed bundle disabled", `if (canonicalize(freshBundle) !== a.content) return reject("bundle-differs-from-recomputed");`, ``),
   m("G03", G, "CERBERUS: presented bundle_digest vs recomputed bundle_digest comparison disabled", `if (b.value.bundle_digest !== freshBundle?.bundle_digest) return reject("bundle-digest-differs-from-recomputed");`, ``),
   m("G04", G, "CERBERUS: recomputed TÖEPÄRA verdict must be VERIFIED: check reduced to 'bundle exists'", `fresh.verdict.verdict !== "VERIFIED" || freshBundle === null`, `freshBundle === null`),
@@ -71,9 +71,9 @@ const RAW: Mutant[] = [
 
   // ---- closed loop / final receipt -------------------------------------------------------------
   m("L01", L, "loop: final_digest recomputation disabled in selfCheckFinalReceipt", `if (digestOf(body) !== final_digest) v.push("final_digest-mismatch");`, ``),
-  m("L02", L, "loop: cerberus receipt digest verification disabled in selfCheckFinalReceipt", `if (!verifyReceipt(r.cerberus.cerberus_receipt)) v.push("cerberus-receipt-digest-invalid");`, ``),
-  m("L03", L, "loop: caller.real_goliath claim check disabled", `if (r.caller.real_goliath !== false) v.push("caller-claims-real-goliath");`, ``),
-  m("L04", L, "loop: final_decision == CERBERUS decision check disabled", `if (r.final_decision !== r.cerberus.decision.decision) v.push("final-decision-differs-from-cerberus");`, ``),
+  m("L02", L, "loop: cerberus receipt digest verification disabled in selfCheckFinalReceipt", `if (!verifyReceipt(c.cerberus_receipt as RecoveryReceipt)) v.push("cerberus-receipt-digest-invalid");`, `if (false) v.push("cerberus-receipt-digest-invalid");`),
+  m("L03", L, "loop: caller.real_goliath claim check disabled", `if (r.caller?.real_goliath !== false) v.push("caller-claims-real-goliath");`, ``),
+  m("L04", L, "loop: final_decision == CERBERUS decision check disabled", `else if (r.final_decision !== (decision as CerberusDecision).decision) v.push("final-decision-differs-from-cerberus");`, ``),
   m("L05", L, "loop: ADMIT without UNVERIFIED producer receipt no longer flagged", `r.toepara?.verdict.verdict !== "VERIFIED" || r.action_receipt?.verification_state !== "UNVERIFIED"`, `r.toepara?.verdict.verdict !== "VERIFIED"`),
   m("L06", L, "loop: ADMIT without VERIFIED TÖEPÄRA verdict no longer flagged", `r.toepara?.verdict.verdict !== "VERIFIED" || r.action_receipt?.verification_state`, `r.action_receipt?.verification_state`),
   m("L07", L, "loop: stale base_sha preflight disabled", `if (head === null || head !== env.base_sha) return { ok: false, evidence: null, note: "stale-base-sha" };`, ``),
