@@ -1,5 +1,6 @@
 import { verifyReceipt, type RecoveryReceipt } from "../cerberus/core/decide.ts";
-import { ReplayGuard } from "../kratt/evidence.ts";
+import type { ReplayStore } from "./replay-store.ts";
+import { bundleSubject, rastikSubject, signSubject, type ArtifactSignatures, type SignatureReport, type SigningPolicy } from "./signing.ts";
 import type { KrattAction } from "../kratt/task.ts";
 import { ATTACK_AGENT, ATTACK_CLASSES, CAPABILITIES, HANDLER_KEYS, type AttackClass } from "./capabilities.ts";
 import { cerberusDecide, denyWithoutReceipt } from "./cerberus-gate.ts";
@@ -43,7 +44,10 @@ export interface LoopDeps {
   /** Host-configured repository this installation verifies for ("owner/repo"). */
   repository: string;
   dispatcher: Dispatcher;
-  guard: ReplayGuard;
+  /** Replay store: in-memory `ReplayGuard` or the persistent `FileReplayGuard`. */
+  guard: ReplayStore;
+  /** Evidence authentication. Absent => no signing (artifacts UNSIGNED, nothing required). */
+  signing?: SigningPolicy;
   clock: () => string;
   /** The component RÄSTIK attacks. Default: the real TÖEPÄRA + Cerberus path. Injectable for mutation tests. */
   attackTarget?: AttackTarget;
@@ -77,6 +81,8 @@ export interface ClosedLoopReceipt {
   cerberus: { decision: CerberusDecision; cerberus_receipt: RecoveryReceipt };
   final_decision: CerberusDecision["decision"];
   forge_followups: string[];
+  /** Present only when a signing policy was configured. */
+  signing?: SignatureReport;
   final_digest: string;
 }
 
@@ -238,7 +244,14 @@ export async function runClosedLoop(raw: unknown, deps: LoopDeps): Promise<Close
   const cout = await d.run<{ ok: boolean; evidence: string | null; gate: Awaited<ReturnType<typeof cerberusDecide>> }>(
     cEnv.task_id,
     async () => {
-      const gate = await cerberusDecide({ envelope: env, receipt, rastik, toepara: tout.result }, { ...tctx, guard: deps.guard });
+      // Signing happens at each producer's identity (RÄSTIK signs its report, TÖEPÄRA its bundle); CERBERUS only verifies.
+      const signatures: ArtifactSignatures | undefined = deps.signing
+        ? {
+            bundle: tout.result.bundle ? await signSubject(deps.signing.provider, "evidence-bundle", bundleSubject(tout.result.bundle)) : null,
+            rastik: rastik ? await signSubject(deps.signing.provider, "rastik-report", rastikSubject(rastik)) : null,
+          }
+        : undefined;
+      const gate = await cerberusDecide({ envelope: env, receipt, rastik, toepara: tout.result, signatures }, { ...tctx, guard: deps.guard, signing: deps.signing });
       return { ok: true, evidence: `cerberus-decision:${gate.decision.decision}:${gate.decision.decision_digest}`, gate };
     },
     { capability: "cerberus:decide" },
@@ -282,6 +295,7 @@ export async function runClosedLoop(raw: unknown, deps: LoopDeps): Promise<Close
     cerberus: { decision: cout.gate.decision, cerberus_receipt: cout.gate.cerberus_receipt },
     final_decision: cout.gate.decision.decision,
     forge_followups: followups,
+    ...(deps.signing ? { signing: cout.gate.signature_status } : {}),
   });
 }
 
