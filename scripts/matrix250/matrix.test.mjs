@@ -27,7 +27,8 @@ describe("250x matrix harness", () => {
   });
 });
 
-import { parseTap, testCheck, registryChecks, allChecks, validateMatrix, STATES } from "./matrix.mjs";
+import { parseTap, testCheck, registryChecks, allChecks, validateMatrix, STATES, toResults, validateResults, toFactoryMatrix, FACTORY_SLOTS } from "./matrix.mjs";
+import { readFileSync } from "node:fs";
 import { TEST_REGISTRY } from "./test-registry.mjs";
 
 const fakeRunner = (results, error) => () => (error ? { error } : { results: parseTap(results) });
@@ -93,8 +94,11 @@ describe("matrix integrity validation", () => {
     assert.match(validateMatrix(e).join("|"), /BLOCKED cannot carry PASS evidence/);
   });
   it("NOT_IMPLEMENTED cannot carry PASS evidence", () => {
-    const i = firstOf("NOT_IMPLEMENTED");
-    const m = clone(); m[i].evidence = "check:123";
+    // The real matrix may have no NOT_IMPLEMENTED slot left, so build one from a matrix with no checks.
+    const m = runMatrix({});
+    const i = 0;
+    assert.equal(m[i].status, "NOT_IMPLEMENTED");
+    m[i].evidence = "check:123";
     assert.match(validateMatrix(m).join("|"), /NOT_IMPLEMENTED cannot carry evidence/);
   });
 });
@@ -141,7 +145,7 @@ describe("test-backed slots", () => {
     assert.equal(slots[8].status, "FAIL");
     assert.equal(summarize(slots).PASS, 0);
   });
-  it("registry is well-formed: unique in-range slots, no overlap with static checks, KRATT/TOEPARA slots only backed by kratt/ or rastik/ tests", () => {
+  it("registry is well-formed: unique in-range slots, no overlap with static checks, KRATT/TOEPARA slots only backed by kratt/, rastik/ or factory/ tests", () => {
     const nums = TEST_REGISTRY.map((r) => r[0]);
     assert.equal(new Set(nums).size, nums.length);
     for (const n of nums) assert.ok(Number.isInteger(n) && n >= 1 && n <= 250);
@@ -149,8 +153,8 @@ describe("test-backed slots", () => {
     assert.equal(new Set(names).size, names.length, "one test must not back two slots");
     assert.doesNotThrow(() => allChecks());
     assert.throws(() => registryChecks([[1, "f", "a"], [1, "f", "b"]]), /duplicate registry slot/);
-    // KRATT/TOEPARA slots may only be backed by tests of code that exists for them (kratt/, rastik/).
-    for (const [n, f] of TEST_REGISTRY) assert.ok(n < 101 || n > 150 || /^(kratt|rastik)\/tests\//.test(f), `slot ${n} (${f}) is in KRATT/TOEPARA but not backed by kratt/rastik tests`);
+    // KRATT/TOEPARA slots may only be backed by tests of code that exists for them (kratt/, rastik/, factory/).
+    for (const [n, f] of TEST_REGISTRY) assert.ok(n < 101 || n > 150 || /^(kratt|rastik|factory)\/tests\//.test(f), `slot ${n} (${f}) is in KRATT/TOEPARA but not backed by kratt/rastik/factory tests`);
     // never back a slot with the matrix's own test file (would recurse)
     for (const [, f] of TEST_REGISTRY) assert.ok(!f.includes("matrix250"));
   });
@@ -160,5 +164,71 @@ describe("test-backed slots", () => {
       const s = real[n - 1];
       assert.equal(s.status, "PASS", `${s.id} ${file} :: ${name} => ${s.actual}`);
     }
+  });
+});
+
+describe("matrix results (machine-readable) and factory connection", () => {
+  const slots = runMatrix();
+  const fresh = toResults(slots);
+
+  it("fresh results are well-formed: total 250, pass+fail+blocked+not_implemented = 250, executed = pass+fail", () => {
+    assert.deepEqual(validateResults(fresh), []);
+    assert.equal(fresh.total, 250);
+    assert.equal(fresh.executed, fresh.pass + fresh.fail);
+  });
+  it("the committed factory/matrix-results.json equals a fresh run (no stale or hand-edited counts)", () => {
+    const committed = JSON.parse(readFileSync("factory/matrix-results.json", "utf8"));
+    assert.deepEqual(validateResults(committed), []);
+    assert.deepEqual(committed, fresh);
+  });
+  it("validateResults rejects malformed or inconsistent results", () => {
+    const bad = [
+      { ...fresh, total: 249 },
+      { ...fresh, pass: fresh.pass + 1 },
+      { ...fresh, executed: fresh.executed - 1 },
+      { ...fresh, extra: 1 },
+      { ...fresh, fail: -1 },
+      { ...fresh, pass: "250" },
+      null,
+      [],
+    ];
+    for (const b of bad) assert.notDeepEqual(validateResults(b), [], JSON.stringify(b));
+    const missing = { ...fresh };
+    delete missing.total;
+    assert.notDeepEqual(validateResults(missing), []);
+  });
+  it("each guard fires on its own: total must be 250; the four states must sum to total; executed must be pass+fail", () => {
+    const onlyTotal = { ...fresh, total: 251, not_implemented: fresh.not_implemented + 1 };
+    assert.deepEqual(validateResults(onlyTotal), ["total must be 250, got 251"]);
+    const onlySum = { ...fresh, pass: fresh.pass + 1, executed: fresh.executed + 1 };
+    assert.deepEqual(validateResults(onlySum), ["pass+fail+blocked+not_implemented !== total"]);
+    const onlyExecuted = { ...fresh, executed: fresh.executed + 1 };
+    assert.deepEqual(validateResults(onlyExecuted), ["executed must equal pass+fail"]);
+  });
+  it("NOT_IMPLEMENTED stays NOT_IMPLEMENTED: with no check registered the factory slots are not PASS and are not executed", () => {
+    const r = toResults(runMatrix({}));
+    assert.deepEqual(r, { total: 250, executed: 0, pass: 0, fail: 0, blocked: 0, not_implemented: 250 });
+  });
+  it("a failing factory check turns that slot FAIL, never PASS", () => {
+    const checks = { 145: { input: "x", expected: "y", run: () => { throw new Error("factory test failed"); } } };
+    const r = runMatrix(checks);
+    assert.equal(r[144].status, "FAIL");
+    assert.deepEqual(toResults(r), { total: 250, executed: 1, pass: 0, fail: 1, blocked: 0, not_implemented: 249 });
+  });
+  it("slots 050 and 145-150 carry a written per-slot expectation and a real test reference as evidence", () => {
+    for (const n of FACTORY_SLOTS) {
+      const s = slots[n - 1];
+      assert.equal(s.status, "PASS", `slot ${s.id}`);
+      assert.match(s.evidence, /^test:.+::.+/);
+      assert.notEqual(s.expected, "named test case runs and reports ok (not skipped, not todo)", `slot ${s.id} still has the generic expectation`);
+    }
+    for (const n of FACTORY_SLOTS.filter((x) => x >= 145)) assert.match(slots[n - 1].evidence, /^test:factory\/tests\//);
+  });
+  it("the committed factory/factory-matrix.json agrees with a fresh run and lists the real closed loops", () => {
+    const committed = JSON.parse(readFileSync("factory/factory-matrix.json", "utf8"));
+    const receipts = JSON.parse(readFileSync("factory/factory-receipts.json", "utf8"));
+    assert.deepEqual(committed, toFactoryMatrix(slots, receipts));
+    assert.equal(committed.closed_loops.length, receipts.closed_loops.length);
+    assert.deepEqual(committed.summary, fresh);
   });
 });
