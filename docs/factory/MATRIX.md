@@ -41,7 +41,8 @@ Evidence is `spec:<slot>:<target>[#<fn>]:<16-hex digest of the actual result>`: 
 If a slot's own spec fails, the slot is FAIL, even if its legacy named test passes. Failing never turns into a PASS elsewhere.
 
 ### CONFIG_PINNED
-Slots 1, 2, 3, 4, 10, 50, 51 are inherently configuration pins: the artefact itself (devcontainer, `package.json` scripts, lockfile, CI workflow, `.nvmrc`, plus slot 10 declared `config: true`) is what is asserted. They are specified and pass with evidence, but they test that a file says the right thing, not that code behaves. They are reported as CONFIG_PINNED and subtracted from DOMAIN_VERIFIED.
+Slots 3, 4 and 10 are inherently configuration pins: the artefact itself (lockfile, CI workflow step order, plus slot 10 declared `config: true`) is what is asserted. They are specified and pass with evidence, but they test that a file says the right thing, not that code behaves. They are reported as CONFIG_PINNED and subtracted from DOMAIN_VERIFIED.
+Slots 1, 2, 50 and 51 used to be config pins too; they now drive the repo's real enforcing gates over the real config plus a negative control, so they execute domain code: slot 1 `runtimeDriftViolations(readRuntimeDeclarations("."))` (devcontainer drift), slot 2 `jsonDuplicateKeys` + `TEST_RUNNER_CMD` (package.json), slot 50 `verifyRuntime` in `scripts/runtime-verify.mjs` (.nvmrc drift), slot 51 `configCollisionViolations(readConfigDeclarations("."))` (continue-on-error / `|| true` on the CI test step).
 
 ### Regression guards (not slots)
 `factory/matrix/guards/{security-trust,kratt,pwa-asset,build-runtime}.mjs` export `GUARDS` with ids 1001-1012. They run through the same runner and uniqueness rules but are never slots and never inflate a metric; all must pass and none may duplicate a slot's assertion. Covered: JWKS key type (crv Ed25519), JWT algorithm pin, issuer check, blank/padded `sub` (1001-1004); KRATT total byte budget and manifest duplicate/self-listing guard (1005-1006); brand-check size limit and `isInstallQuery` (1007-1008); preview SIGKILL escalation, `parsePgid(0)` and spawn-error exit 127 (1009, 1010, 1012); 1011 pins a known gap (below).
@@ -60,7 +61,7 @@ observed call or does not match, if a constant-after-call probe is accepted, and
 **What `--mutate` shows:** only that the harness' comparison is real (a wrong expected value cannot pass). It does **not** show that specs discriminate between correct and defective code; that is what the mutation table below measures.
 `validateSpecs` / `combineEntries` (in `factory/matrix/spec-lib.mjs`) are also tested with synthetic copy-paste duplicates, comment-only variations and shared-path groups.
 
-Not caught by design: two probes that differ only in literals but drive the same code path are reported as SHARED_PATH (34 slots in 13 groups today), not rejected, up to 8 slots per path. Identical paths with different inputs are legitimate (different boundary values), so the metric makes the overlap visible instead of guessing intent.
+Not caught by design: two probes that differ only in literals but drive the same code path are reported as SHARED_PATH (30 slots in 11 groups today; see the distinctness review in `docs/factory/MATRIX-DISTINCTNESS.md`), not rejected, up to 8 slots per path. Identical paths with different inputs are legitimate (different boundary values), so the metric makes the overlap visible instead of guessing intent.
 
 ## Spec files (by group)
 `config-build.mjs` (1-4, 50, 51: node pin / scripts / CI wiring), `build-runtime.mjs` (5-49: `with-app-env`, migration plan, atomic write, preview), `security-trust.mjs` (52-100:

@@ -225,8 +225,8 @@ describe("matrix results (machine-readable) and factory connection", () => {
       const s = slots[n - 1];
       assert.equal(s.status, "PASS", `slot ${s.id}`);
       assert.equal(s.specified, true, `slot ${s.id} specified`);
-      assert.equal(s.domain_verified, n !== 50, `slot ${s.id} domain_verified (slot 050 pins .nvmrc/ci.yml: CONFIG_PINNED instead)`);
-      assert.equal(s.config_pinned, n === 50, `slot ${s.id} config_pinned`);
+      assert.equal(s.domain_verified, true, `slot ${s.id} domain_verified (slot 050 drives scripts/runtime-verify.mjs over the real pins)`);
+      assert.equal(s.config_pinned, false, `slot ${s.id} config_pinned`);
       assert.match(s.evidence, /^spec:\d{3}:.+:[0-9a-f]{16}$/);
       assert.notEqual(s.expected, "named test case runs and reports ok (not skipped, not todo)", `slot ${s.id} still has the generic expectation`);
       assert.match(s.named_test, /^test:.+::.+/);
@@ -308,7 +308,7 @@ describe("strict metrics: SPECIFIED_SLOTS and DOMAIN_VERIFIED", () => {
   });
   it("the real matrix: CONFIG_PINNED slots are exactly the data/config specs, none of them DOMAIN_VERIFIED", () => {
     const cfg = slots.filter((x) => x.config_pinned).map((x) => +x.id);
-    assert.deepEqual(cfg, [1, 2, 3, 4, 10, 50, 51]);
+    assert.deepEqual(cfg, [3, 4, 10]);
     for (const x of slots.filter((y) => y.config_pinned)) assert.equal(x.domain_verified, false, x.id);
     assert.equal(fresh.domain_verified + fresh.config_pinned, fresh.specified_slots);
   });

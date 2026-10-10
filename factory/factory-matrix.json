@@ -1,7 +1,7 @@
 {
   "matrix_version": 4,
   "note": "PASS means every check registered for the slot ran and succeeded; for a slot without its own spec that is only 'one named, already-existing test passed'. SPECIFIED_SLOTS counts slots with their own unique assertion spec (factory/matrix/specs); DOMAIN_VERIFIED counts those whose assertion ran against real domain code, depended on it, and matched with evidence; CONFIG_PINNED counts specified slots that pin configuration instead; SHARED_PATH counts slots executing the same code path as another slot. Counts come from scripts/matrix250/matrix.mjs, never from documentation.",
-  "headline": "executed 250/250; PASS 250/250 (of which 0 rest only on a generic named-test mapping); SPECIFIED_SLOTS 250/250; DOMAIN_VERIFIED 243/250; CONFIG_PINNED 7/250; SHARED_PATH 34/250 slots; GUARD_PROBES 12/12",
+  "headline": "executed 250/250; PASS 250/250 (of which 0 rest only on a generic named-test mapping); SPECIFIED_SLOTS 250/250; DOMAIN_VERIFIED 247/250; CONFIG_PINNED 3/250; SHARED_PATH 30/250 slots; GUARD_PROBES 12/12",
   "summary": {
     "total": 250,
     "executed": 250,
@@ -10,9 +10,9 @@
     "blocked": 0,
     "not_implemented": 0,
     "specified_slots": 250,
-    "domain_verified": 243,
-    "config_pinned": 7,
-    "shared_path_slots": 34,
+    "domain_verified": 247,
+    "config_pinned": 3,
+    "shared_path_slots": 30,
     "guard_probes": 12,
     "guard_probes_passed": 12,
     "named_test_only_pass": 0
@@ -23,16 +23,16 @@
       "slots": 50,
       "pass": 50,
       "specified": 50,
-      "domain_verified": 44,
-      "config_pinned": 6
+      "domain_verified": 47,
+      "config_pinned": 3
     },
     {
       "group": "SECURITY/TRUST",
       "slots": 50,
       "pass": 50,
       "specified": 50,
-      "domain_verified": 49,
-      "config_pinned": 1
+      "domain_verified": 50,
+      "config_pinned": 0
     },
     {
       "group": "KRATT/TOEPARA",
@@ -61,13 +61,9 @@
   ],
   "unspecified_slots": [],
   "config_pinned_slots": [
-    "001",
-    "002",
     "003",
     "004",
-    "010",
-    "050",
-    "051"
+    "010"
   ],
   "shared_path_groups": [
     [
@@ -87,14 +83,6 @@
     [
       "029",
       "030"
-    ],
-    [
-      "035",
-      "036"
-    ],
-    [
-      "052",
-      "053"
     ],
     [
       "055",
@@ -210,10 +198,10 @@
       "id": "050",
       "status": "PASS",
       "specified": true,
-      "domain_verified": false,
-      "config_pinned": true,
-      "expected": "the .nvmrc Node major equals the first node-version in ci.yml (the runtime pin cannot drift from CI)",
-      "evidence": "spec:050:.nvmrc:e017635b7c3c306b",
+      "domain_verified": true,
+      "config_pinned": false,
+      "expected": "the runtime verifier reports RUNTIME_OK for this repo's real .nvmrc/engines/CI/devcontainer pins, and RUNTIME_DRIFT naming exactly .nvmrc when only .nvmrc is moved to Node 20",
+      "evidence": "spec:050:scripts/runtime-verify.mjs:87b4434ed60b586c",
       "named_test": "test:scripts/node-pin.test.mjs::CI setup-node uses the .nvmrc major"
     },
     {
