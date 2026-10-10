@@ -10,33 +10,115 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ClientFleetRouteImport } from './routes/client/fleet'
+import { Route as ClientModulationRouteImport } from './routes/client/modulation'
+import { Route as ClientOrchestratorRouteImport } from './routes/client/orchestrator'
+import { Route as ClientWorkbenchRouteImport } from './routes/client/workbench'
+import { Route as ModulesModuleRouteImport } from './routes/modules/$module'
+import { Route as WorkspaceModuleRouteImport } from './routes/workspace/$module'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ClientFleetRoute = ClientFleetRouteImport.update({
+  id: '/client/fleet',
+  path: '/client/fleet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientModulationRoute = ClientModulationRouteImport.update({
+  id: '/client/modulation',
+  path: '/client/modulation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientOrchestratorRoute = ClientOrchestratorRouteImport.update({
+  id: '/client/orchestrator',
+  path: '/client/orchestrator',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientWorkbenchRoute = ClientWorkbenchRouteImport.update({
+  id: '/client/workbench',
+  path: '/client/workbench',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ModulesModuleRoute = ModulesModuleRouteImport.update({
+  id: '/modules/$module',
+  path: '/modules/$module',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkspaceModuleRoute = WorkspaceModuleRouteImport.update({
+  id: '/workspace/$module',
+  path: '/workspace/$module',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/client/fleet': typeof ClientFleetRoute
+  '/client/modulation': typeof ClientModulationRoute
+  '/client/orchestrator': typeof ClientOrchestratorRoute
+  '/client/workbench': typeof ClientWorkbenchRoute
+  '/modules/$module': typeof ModulesModuleRoute
+  '/workspace/$module': typeof WorkspaceModuleRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/client/fleet': typeof ClientFleetRoute
+  '/client/modulation': typeof ClientModulationRoute
+  '/client/orchestrator': typeof ClientOrchestratorRoute
+  '/client/workbench': typeof ClientWorkbenchRoute
+  '/modules/$module': typeof ModulesModuleRoute
+  '/workspace/$module': typeof WorkspaceModuleRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/client/fleet': typeof ClientFleetRoute
+  '/client/modulation': typeof ClientModulationRoute
+  '/client/orchestrator': typeof ClientOrchestratorRoute
+  '/client/workbench': typeof ClientWorkbenchRoute
+  '/modules/$module': typeof ModulesModuleRoute
+  '/workspace/$module': typeof WorkspaceModuleRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/client/fleet'
+    | '/client/modulation'
+    | '/client/orchestrator'
+    | '/client/workbench'
+    | '/modules/$module'
+    | '/workspace/$module'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/client/fleet'
+    | '/client/modulation'
+    | '/client/orchestrator'
+    | '/client/workbench'
+    | '/modules/$module'
+    | '/workspace/$module'
+  id:
+    | '__root__'
+    | '/'
+    | '/client/fleet'
+    | '/client/modulation'
+    | '/client/orchestrator'
+    | '/client/workbench'
+    | '/modules/$module'
+    | '/workspace/$module'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ClientFleetRoute: typeof ClientFleetRoute
+  ClientModulationRoute: typeof ClientModulationRoute
+  ClientOrchestratorRoute: typeof ClientOrchestratorRoute
+  ClientWorkbenchRoute: typeof ClientWorkbenchRoute
+  ModulesModuleRoute: typeof ModulesModuleRoute
+  WorkspaceModuleRoute: typeof WorkspaceModuleRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +130,59 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/client/fleet': {
+      id: '/client/fleet'
+      path: '/client/fleet'
+      fullPath: '/client/fleet'
+      preLoaderRoute: typeof ClientFleetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/client/modulation': {
+      id: '/client/modulation'
+      path: '/client/modulation'
+      fullPath: '/client/modulation'
+      preLoaderRoute: typeof ClientModulationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/client/orchestrator': {
+      id: '/client/orchestrator'
+      path: '/client/orchestrator'
+      fullPath: '/client/orchestrator'
+      preLoaderRoute: typeof ClientOrchestratorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/client/workbench': {
+      id: '/client/workbench'
+      path: '/client/workbench'
+      fullPath: '/client/workbench'
+      preLoaderRoute: typeof ClientWorkbenchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/modules/$module': {
+      id: '/modules/$module'
+      path: '/modules/$module'
+      fullPath: '/modules/$module'
+      preLoaderRoute: typeof ModulesModuleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/workspace/$module': {
+      id: '/workspace/$module'
+      path: '/workspace/$module'
+      fullPath: '/workspace/$module'
+      preLoaderRoute: typeof WorkspaceModuleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ClientFleetRoute: ClientFleetRoute,
+  ClientModulationRoute: ClientModulationRoute,
+  ClientOrchestratorRoute: ClientOrchestratorRoute,
+  ClientWorkbenchRoute: ClientWorkbenchRoute,
+  ModulesModuleRoute: ModulesModuleRoute,
+  WorkspaceModuleRoute: WorkspaceModuleRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
