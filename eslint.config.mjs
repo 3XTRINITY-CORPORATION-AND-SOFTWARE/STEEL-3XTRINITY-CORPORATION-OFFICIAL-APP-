@@ -14,13 +14,14 @@ export default tseslint.config(
       ".vercel/**",
       ".nitro/**",
       "node_modules/**",
+      "coverage/**",
       "src/routeTree.gen.ts",
     ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["**/*.{ts,tsx,js,jsx,mjs,cjs}"],
+    files: ["**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}"],
     languageOptions: {
       ecmaVersion: 2022,
       globals: { ...globals.browser, ...globals.node },

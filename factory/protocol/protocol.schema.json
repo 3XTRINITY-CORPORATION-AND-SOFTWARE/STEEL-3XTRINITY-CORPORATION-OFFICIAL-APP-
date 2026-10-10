@@ -1,0 +1,588 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:3xtrinity:factory-protocol:v1",
+  "title": "3XTRINITY factory protocol v1 (generated from factory/protocol/types.ts; do not edit by hand)",
+  "$defs": {
+    "TaskEnvelope": {
+      "type": "object",
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "factory": {
+          "enum": [
+            "FORGE",
+            "SERPENT",
+            "CITADEL"
+          ]
+        },
+        "agent_id": {
+          "type": "string",
+          "pattern": "^(FORGE|SERPENT|CITADEL)-\\d{3}$"
+        },
+        "objective": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]{1,100}\\/[A-Za-z0-9_.-]{1,100}$"
+        },
+        "branch": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$"
+        },
+        "base_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "scope": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*(\\/[A-Za-z0-9_][A-Za-z0-9._-]*)*$"
+          },
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true
+        },
+        "allowed_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9:_-]{0,63}$"
+          },
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true
+        },
+        "forbidden_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9:_-]{0,63}$"
+          },
+          "minItems": 0,
+          "maxItems": 32,
+          "uniqueItems": true
+        },
+        "required_evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9:_-]{0,63}$"
+          },
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true
+        },
+        "resource_budget": {
+          "type": "object",
+          "properties": {
+            "max_wall_ms": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 600000
+            },
+            "max_output_bytes": {
+              "type": "integer",
+              "minimum": 1024,
+              "maximum": 1048576
+            },
+            "max_files": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            }
+          },
+          "required": [
+            "max_wall_ms",
+            "max_output_bytes",
+            "max_files"
+          ],
+          "additionalProperties": false
+        },
+        "protocol_version": {
+          "const": 1
+        }
+      },
+      "required": [
+        "task_id",
+        "factory",
+        "agent_id",
+        "objective",
+        "repository",
+        "branch",
+        "base_sha",
+        "scope",
+        "allowed_actions",
+        "forbidden_actions",
+        "required_evidence",
+        "resource_budget",
+        "protocol_version"
+      ],
+      "additionalProperties": false
+    },
+    "ActionReceipt": {
+      "type": "object",
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "agent_id": {
+          "type": "string",
+          "pattern": "^(FORGE|SERPENT|CITADEL)-\\d{3}$"
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]{1,100}\\/[A-Za-z0-9_.-]{1,100}$"
+        },
+        "base_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "action": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9:_-]{0,63}$"
+        },
+        "scope": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*(\\/[A-Za-z0-9_][A-Za-z0-9._-]*)*$"
+          },
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true
+        },
+        "result": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "exit_code": {
+              "type": "integer",
+              "minimum": -1,
+              "maximum": 255
+            },
+            "checks": {
+              "type": "object",
+              "properties": {
+                "pass": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000
+                },
+                "fail": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000
+                }
+              },
+              "required": [
+                "pass",
+                "fail"
+              ],
+              "additionalProperties": false
+            },
+            "failure": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+                }
+              ]
+            }
+          },
+          "required": [
+            "ok",
+            "exit_code",
+            "checks",
+            "failure"
+          ],
+          "additionalProperties": false
+        },
+        "evidence": {
+          "type": "object"
+        },
+        "verification_state": {
+          "enum": [
+            "UNVERIFIED",
+            "VERIFIED",
+            "REJECTED",
+            "INSUFFICIENT_EVIDENCE"
+          ]
+        },
+        "timestamp": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?Z$"
+        },
+        "protocol_version": {
+          "const": 1
+        }
+      },
+      "required": [
+        "task_id",
+        "agent_id",
+        "repository",
+        "base_sha",
+        "action",
+        "scope",
+        "result",
+        "evidence",
+        "verification_state",
+        "timestamp",
+        "protocol_version"
+      ],
+      "additionalProperties": false
+    },
+    "EvidenceBundle": {
+      "type": "object",
+      "properties": {
+        "protocol_version": {
+          "const": 1
+        },
+        "task_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]{1,100}\\/[A-Za-z0-9_.-]{1,100}$"
+        },
+        "base_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "action": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9:_-]{0,63}$"
+        },
+        "source_digests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*(\\/[A-Za-z0-9_][A-Za-z0-9._-]*)*$"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8388608
+              }
+            },
+            "required": [
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0,
+          "maxItems": 64
+        },
+        "diff_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "action_receipt_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "kratt_evidence_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "rastik_evidence_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "rastik_finding_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+          },
+          "minItems": 0,
+          "maxItems": 256,
+          "uniqueItems": true
+        },
+        "test_evidence": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "pass": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000
+                },
+                "fail": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000
+                },
+                "reexecuted": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "pass",
+                "fail",
+                "reexecuted"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "bundle_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "task_id",
+        "repository",
+        "base_sha",
+        "action",
+        "source_digests",
+        "diff_digest",
+        "action_receipt_digest",
+        "kratt_evidence_digest",
+        "rastik_evidence_digest",
+        "rastik_finding_ids",
+        "test_evidence",
+        "bundle_digest"
+      ],
+      "additionalProperties": false
+    },
+    "RastikFinding": {
+      "type": "object",
+      "properties": {
+        "finding_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+        },
+        "hypothesis": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+        },
+        "reproduction": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+        },
+        "severity": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "status": {
+          "enum": [
+            "CONFIRMED",
+            "UNCONFIRMED"
+          ]
+        },
+        "evidence": {
+          "type": "object"
+        },
+        "regression_test": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000,
+          "pattern": "^[^\\u0000-\\u0008\\u000b-\\u001f\\u007f]*$"
+        },
+        "proposed_smallest_fix": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+        }
+      },
+      "required": [
+        "finding_id",
+        "target",
+        "hypothesis",
+        "reproduction",
+        "severity",
+        "status",
+        "evidence",
+        "regression_test",
+        "proposed_smallest_fix"
+      ],
+      "additionalProperties": false
+    },
+    "ToeparaVerdict": {
+      "type": "object",
+      "properties": {
+        "protocol_version": {
+          "const": 1
+        },
+        "task_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "verdict": {
+          "enum": [
+            "VERIFIED",
+            "REJECTED",
+            "INSUFFICIENT_EVIDENCE"
+          ]
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+          },
+          "minItems": 0,
+          "maxItems": 64
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9:_-]{0,63}$"
+              },
+              "ok": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name",
+              "ok"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0,
+          "maxItems": 64
+        },
+        "evidence_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "task_id",
+        "verdict",
+        "reasons",
+        "checks",
+        "evidence_digest"
+      ],
+      "additionalProperties": false
+    },
+    "CerberusDecision": {
+      "type": "object",
+      "properties": {
+        "protocol_version": {
+          "const": 1
+        },
+        "task_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "decision": {
+          "enum": [
+            "ADMIT",
+            "DENY",
+            "QUARANTINE"
+          ]
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+          },
+          "minItems": 0,
+          "maxItems": 64
+        },
+        "toepara_evidence_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "cerberus_receipt_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "unresolved_high_findings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+          },
+          "minItems": 0,
+          "maxItems": 256,
+          "uniqueItems": true
+        },
+        "decision_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "task_id",
+        "decision",
+        "reasons",
+        "toepara_evidence_digest",
+        "cerberus_receipt_digest",
+        "unresolved_high_findings",
+        "decision_digest"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
