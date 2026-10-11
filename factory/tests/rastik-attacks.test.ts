@@ -540,3 +540,48 @@ test("RÄSTIK config collision (direct rules): an empty test script is test-scri
   assert.deepEqual(configCollisionViolations(mk("node --test factory/tests/a.test.ts", ["factory/tests/a.test.ts", "factory/tests/b.test.ts", "factory/tests/c.test.ts"], { "factory/tests/a.test.ts": ["factory/tests/b.test.ts"], "factory/tests/b.test.ts": ["factory/tests/c.test.ts"], "factory/tests/c.test.ts": [] })), [], "a -> b -> c");
   assert.deepEqual(configCollisionViolations(mk("node --test factory/tests/a.test.ts", ["factory/tests/a.test.ts", "factory/tests/b.test.ts"], { "factory/tests/a.test.ts": [], "factory/tests/b.test.ts": [] })), ["unregistered-test:factory/tests/b.test.ts"]);
 });
+
+import { ASYNC_GATE_TIMEOUT_MS, asyncGateCaseCount, cerberusAsyncTarget, factoryResolveTarget, runAsyncTrustGateAttacks, type AsyncGateTarget } from "../rastik-attacks.ts";
+
+const REQUIRED_ASYNC_GATE_CASES = ["hang-forever", "sync-throw", "async-reject", "slow-authorized-after-deadline", "malformed-object-verdict", "malformed-null", "malformed-padded"];
+
+for (const [name, target] of [["cerberus core decideWithAdaptersAsync", cerberusAsyncTarget], ["factory resolveTrustGate", factoryResolveTarget]] as const) {
+  test(`RÄSTIK async Trust Gate (${name}): hang / throw / reject / slow-AUTHORIZED-after-deadline / malformed all FAIL_CLOSED within the deadline; the prompt AUTHORIZED control PROCEEDs`, async () => {
+    const r = await runAsyncTrustGateAttacks(target, { targetName: name });
+    assert.equal(r.control_proceeds, true, "control must PROCEED, otherwise the battery is vacuous");
+    assert.equal(r.records.length, asyncGateCaseCount());
+    for (const id of REQUIRED_ASYNC_GATE_CASES) assert.ok(r.records.some((x) => x.case_id === id), `case ${id} present`);
+    assert.deepEqual(r.findings.map((f) => f.finding_id), []);
+    for (const x of r.records) {
+      assert.equal(x.outcome, "REPELLED", x.case_id);
+      assert.notEqual(x.decision, "PROCEED", x.case_id);
+      assert.ok(x.elapsed_ms < 900, `${x.case_id} decided in ${x.elapsed_ms} ms (deadline ${ASYNC_GATE_TIMEOUT_MS})`);
+    }
+  });
+}
+
+test("RÄSTIK async Trust Gate non-vacuity: a gate wrapper with NO deadline is caught (slow AUTHORIZED => CONFIRMED PROCEED, hang => HUNG); a lenient malformed check is caught; a broken control reports nothing", async () => {
+  const noDeadline: AsyncGateTarget = async (g) => ((await g.verdict({} as never, new AbortController().signal)) === "AUTHORIZED" ? "PROCEED" : "FAIL_CLOSED");
+  const slow = await runAsyncTrustGateAttacks(noDeadline, { only: "slow-authorized-after-deadline" });
+  assert.equal(slow.control_proceeds, true);
+  assert.equal(slow.records[0]?.outcome, "SUCCEEDED");
+  assert.equal(slow.findings[0]?.status, "CONFIRMED");
+  assert.equal(slow.findings[0]?.severity, "critical");
+  const sv = validateRastikFinding(slow.findings[0]);
+  assert.ok(sv.ok, sv.ok ? "" : sv.reason);
+  const hang = await runAsyncTrustGateAttacks(noDeadline, { only: "hang-forever" });
+  assert.equal(hang.records[0]?.outcome, "HUNG");
+  assert.equal(hang.findings.length, 1);
+  // a target with a correct deadline but a LENIENT verdict check (unwraps / trims / upper-cases the answer)
+  const lenient: AsyncGateTarget = (g, ms) => cerberusAsyncTarget({ name: "lenient", verdict: async (e, s) => {
+    const v = await g.verdict(e, s);
+    return String(Array.isArray(v) ? v[0] : (v as { verdict?: unknown } | null)?.verdict ?? v).trim().toUpperCase();
+  } }, ms);
+  const malformed = await runAsyncTrustGateAttacks(lenient);
+  assert.deepEqual(malformed.findings.map((f) => f.finding_id).sort(), ["RASTIK-ASYNC-GATE-malformed-array", "RASTIK-ASYNC-GATE-malformed-boxed-string", "RASTIK-ASYNC-GATE-malformed-lowercase", "RASTIK-ASYNC-GATE-malformed-object-verdict", "RASTIK-ASYNC-GATE-malformed-padded"]);
+  const throwsOut: AsyncGateTarget = async (g) => String(await g.verdict({} as never, new AbortController().signal)) === "AUTHORIZED" ? "PROCEED" : "FAIL_CLOSED";
+  assert.ok((await runAsyncTrustGateAttacks(throwsOut, { only: "sync-throw" })).findings.length === 1, "a target that lets the gate's throw escape is reported");
+  const broken = await runAsyncTrustGateAttacks(async () => "FAIL_CLOSED");
+  assert.equal(broken.control_proceeds, false);
+  assert.deepEqual([broken.records.length, broken.findings.length], [0, 0]);
+});
