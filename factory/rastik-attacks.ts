@@ -1304,6 +1304,7 @@ const ASYNC_GATE_CASES: AsyncGateCase[] = [
   { id: "malformed-wrong-vocabulary", hypothesis: "an \"ADMITTED\" / \"PROCEED\" response (another stage's word) yields PROCEED", gate: () => gate("vocab", async () => "PROCEED") },
   { id: "malformed-null", hypothesis: "a null response yields PROCEED", gate: () => gate("null", async () => null) },
   { id: "malformed-undefined", hypothesis: "an empty (undefined) response yields PROCEED", gate: () => gate("undef", async () => undefined) },
+  { id: "echo-caller-claimed-verdict", hypothesis: "a rubber-stamp gate that echoes the caller-typed trustGate field (\"AUTHORIZED\") yields PROCEED", gate: () => ({ name: "echo", verdict: (e) => (e as { trustGate?: unknown }).trustGate }) },
   { id: "hostile-thenable-getter", hypothesis: "a response whose `then` getter throws yields PROCEED or throws", gate: () => gate("thenable", () => Object.defineProperty({}, "then", { get() { throw new Error("x"); } })) },
 ];
 

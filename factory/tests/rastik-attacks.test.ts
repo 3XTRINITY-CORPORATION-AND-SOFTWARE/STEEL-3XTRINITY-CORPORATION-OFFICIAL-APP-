@@ -541,6 +541,8 @@ test("RÄSTIK config collision (direct rules): an empty test script is test-scri
   assert.deepEqual(configCollisionViolations(mk("node --test factory/tests/a.test.ts", ["factory/tests/a.test.ts", "factory/tests/b.test.ts"], { "factory/tests/a.test.ts": [], "factory/tests/b.test.ts": [] })), ["unregistered-test:factory/tests/b.test.ts"]);
 });
 
+import { decideWithAdaptersAsync, stubAdapter } from "../../cerberus/integrations/verdict-adapters.ts";
+import { sha256Hex } from "../../cerberus/artifact-trust/artifact-trust.ts";
 import { ASYNC_GATE_TIMEOUT_MS, asyncGateCaseCount, cerberusAsyncTarget, factoryResolveTarget, runAsyncTrustGateAttacks, type AsyncGateTarget } from "../rastik-attacks.ts";
 
 const REQUIRED_ASYNC_GATE_CASES = ["hang-forever", "sync-throw", "async-reject", "slow-authorized-after-deadline", "malformed-object-verdict", "malformed-null", "malformed-padded"];
@@ -584,4 +586,30 @@ test("RÄSTIK async Trust Gate non-vacuity: a gate wrapper with NO deadline is c
   const broken = await runAsyncTrustGateAttacks(async () => "FAIL_CLOSED");
   assert.equal(broken.control_proceeds, false);
   assert.deepEqual([broken.records.length, broken.findings.length], [0, 0]);
+});
+
+test("cerberus async adapter seam (direct): invalid timeouts deny without calling the gate, a missing gate denies, a timed-out gate is aborted, no deadline timer outlives the call", async () => {
+  const content = "seam";
+  const input = { action: "detect", toepara: "ADMITTED", trustGate: "AUTHORIZED", artifact: { name: "s.json", content, sha256: sha256Hex(content) } };
+  const toepara = stubAdapter("toepara", "ADMITTED");
+  let calls = 0;
+  const counting = { name: "count", verdict: () => { calls += 1; return "AUTHORIZED"; } };
+  for (const t of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 60_001, "50" as unknown as number]) {
+    const r = await decideWithAdaptersAsync(input, { toepara, trustGate: counting }, { timeoutMs: t });
+    assert.equal(r.receipt.decision, "FAIL_CLOSED", `timeoutMs=${String(t)}`);
+    assert.deepEqual(r.outcomes, { toepara: "invalid-timeout", trustGate: "invalid-timeout" });
+  }
+  assert.equal(calls, 0, "no adapter is consulted under an invalid timeout");
+  assert.equal((await decideWithAdaptersAsync(input, { toepara, trustGate: counting }, { timeoutMs: 60_000 })).receipt.decision, "PROCEED", "the upper bound itself is valid");
+  const missing = await decideWithAdaptersAsync(input, { toepara } as never);
+  assert.equal(missing.receipt.decision, "FAIL_CLOSED");
+  assert.equal(missing.outcomes.trustGate, "missing");
+  let seen: AbortSignal | null = null;
+  const hung = await decideWithAdaptersAsync(input, { toepara, trustGate: { name: "hang", verdict: (_e: unknown, s: AbortSignal) => { seen = s; return new Promise(() => {}); } } }, { timeoutMs: 20 });
+  assert.equal(hung.outcomes.trustGate, "timeout");
+  assert.equal((seen as AbortSignal | null)?.aborted, true, "the gate is told to stop at the deadline");
+  const timers = (): number => process.getActiveResourcesInfo().filter((x) => x === "Timeout").length;
+  const before = timers();
+  for (let i = 0; i < 5; i++) await decideWithAdaptersAsync(input, { toepara, trustGate: counting }); // default 2000 ms deadline, prompt answer
+  assert.equal(timers(), before, "every deadline timer is cleared once the gate answers");
 });
