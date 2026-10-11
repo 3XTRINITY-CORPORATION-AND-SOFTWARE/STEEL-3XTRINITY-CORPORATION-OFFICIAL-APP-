@@ -543,7 +543,7 @@ test("RÄSTIK config collision (direct rules): an empty test script is test-scri
 
 import { decideWithAdaptersAsync, stubAdapter } from "../../cerberus/integrations/verdict-adapters.ts";
 import { sha256Hex } from "../../cerberus/artifact-trust/artifact-trust.ts";
-import { ASYNC_GATE_TIMEOUT_MS, asyncGateCaseCount, cerberusAsyncTarget, factoryResolveTarget, runAsyncTrustGateAttacks, type AsyncGateTarget } from "../rastik-attacks.ts";
+import { ASYNC_GATE_TIMEOUT_MS, asyncGateCaseCount, cerberusAsyncTarget, factoryResolveTarget, runAsyncTrustGateAttacks, type AsyncGateTarget } from "../rastik-async-gate.ts";
 
 const REQUIRED_ASYNC_GATE_CASES = ["hang-forever", "sync-throw", "async-reject", "slow-authorized-after-deadline", "malformed-object-verdict", "malformed-null", "malformed-padded"];
 

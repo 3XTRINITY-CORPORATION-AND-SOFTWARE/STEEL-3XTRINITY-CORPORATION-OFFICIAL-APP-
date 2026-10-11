@@ -192,3 +192,9 @@ Attacks that were REPELLED (no defect): oversized payloads, wrong types, all pro
 This PR depends on PR #58 (`fix/main-package-test-dup`): it is based on that branch because (a) the new config-collision test asserts that the real package.json has no duplicate keys and registers every test file, which is red on main f429a20 by design, and (b) the only package.json change is appending two test paths to the single `test` script: `factory/tests/mutation-kills.test.ts factory/tests/mutation.test.ts`. Merge #58 first; after that this PR's diff against main is just this work.
 
 The full mutation run (`factory/mutation/run.ts`) is a CLI because it takes minutes; a CI step `node --experimental-strip-types factory/mutation/run.ts` (exit 1 on any unjustified survivor) is recommended in `ci.yml` (not edited here).
+
+## Async adapter seam (F-P1-TG-002), targeted run
+
+`node --experimental-strip-types factory/mutation/run.ts --only AT01,…,AT12 --concurrency 4`: **12/12 killed**, survived 0, invalid 0, timeout 0. Baseline: green (285 tests). The full catalog was not re-run for this change, so the score above is the last full run. Mutants AT01–AT12 (`cerberus/integrations/verdict-adapters.ts`) are killed by the RÄSTIK async Trust Gate battery (`factory/rastik-async-gate.ts`) and the seam test in `factory/tests/rastik-attacks.test.ts`. The harness only runs `factory/tests`, so a mutant cannot be killed by `cerberus/tests` alone.
+
+`run.ts` now copies every top-level entry from `git ls-files`. With the old fixed list (no `scripts/`, `src/`, …) the baseline on main was RED, with 3 failing tests for reasons that had nothing to do with any mutant.
