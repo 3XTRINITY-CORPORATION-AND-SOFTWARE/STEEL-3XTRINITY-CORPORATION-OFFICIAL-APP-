@@ -207,3 +207,232 @@ test("CLOSED LOOP + signing: producers sign (RÄSTIK report, TÖEPÄRA bundle) a
   assert.equal(rc.final_decision, "ADMIT");
   assert.equal("signing" in rc, false);
 });
+
+// =====================================================================================================
+// P2 evidence authentication: ActionReceipt + CERBERUS decision-receipt signing (interface + test key only)
+// =====================================================================================================
+import { generateKeyPairSync } from "node:crypto";
+import { mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import {
+  SIGNING_KEY_UNAVAILABLE,
+  actionReceiptSubject,
+  decisionReceiptSignatureStatus,
+  ed25519Verifier,
+  receiptSigningRequired,
+  requireReceiptSigner,
+  resolveSigningConfig,
+  signActionReceipt,
+  signDecisionReceipt,
+  type ReceiptSigningPolicy,
+} from "../signing.ts";
+import { buildDecisionReceipt, digestJson, type DecisionRequest } from "../../cerberus/receipts/decision-receipt.ts";
+import type { ActionReceipt } from "../protocol/types.ts";
+
+const keyDir = () => mkdtempSync(join(tmpdir(), "sig-cfg-"));
+const required = (p: SigningProvider): ReceiptSigningPolicy => ({ verifier: p, key_configured: true, signer: p });
+const tctx = (policy?: ReceiptSigningPolicy) => ({ root: ROOT, repository: REPO, rerun: new Map(), ...(policy ? { receiptSigning: policy } : {}) });
+
+test("RECEIPT SIGNING config: no key provisioned => SIGNING_KEY_UNAVAILABLE, nothing generated, signing refuses with that code, policy not required by default", async () => {
+  const c = resolveSigningConfig({});
+  assert.equal(c.status, SIGNING_KEY_UNAVAILABLE);
+  assert.equal(c.policy.key_configured, false);
+  assert.equal(receiptSigningRequired(c.policy), false, "default: require only when a key is configured");
+  assert.equal(receiptSigningRequired({ ...c.policy, require: true }), true, "explicit require overrides");
+  assert.throws(() => requireReceiptSigner(c.policy), (e: Error & { code?: string }) => e.code === SIGNING_KEY_UNAVAILABLE);
+  const { receipt } = await genuine();
+  await assert.rejects(signActionReceipt(undefined, receipt), (e: Error & { code?: string }) => e.code === SIGNING_KEY_UNAVAILABLE);
+  await assert.rejects(signActionReceipt(noSigningProvider, receipt), (e: Error & { code?: string }) => e.code === SIGNING_KEY_UNAVAILABLE, "a signer that cannot sign is the same as no key");
+  assert.equal(receiptSigningRequired(undefined), false);
+});
+
+test("RECEIPT SIGNING config: a provisioned Ed25519 PUBLIC key file => CONFIGURED (verify-only, required by default, no signer); private-key material, symlinks, missing files, bad key ids and non-Ed25519 keys fail closed", async () => {
+  const p = ephemeralEd25519("ed25519");
+  const dir = keyDir();
+  const pub = join(dir, "receipt-verify.pem");
+  writeFileSync(pub, p.publicKeyPem());
+  const ok = resolveSigningConfig({ FACTORY_SIGNING_PUBLIC_KEY_FILE: pub, FACTORY_SIGNING_KEY_ID: p.key_id });
+  assert.equal(ok.status, "CONFIGURED", ok.reason);
+  assert.equal(ok.policy.key_configured, true);
+  assert.equal(receiptSigningRequired(ok.policy), true);
+  assert.equal(receiptSigningRequired({ ...ok.policy, require: false }), false, "documented opt-out");
+  assert.equal(ok.policy.signer, undefined, "no production signer: key custody is a human gate");
+  assert.throws(() => requireReceiptSigner(ok.policy), (e: Error & { code?: string }) => e.code === SIGNING_KEY_UNAVAILABLE);
+  // the configured verifier accepts a real Ed25519 signature by the matching key
+  const { receipt } = await genuine();
+  const sig = await signActionReceipt(p, receipt);
+  assert.equal(await signatureStatus(ok.policy.verifier, "action-receipt", actionReceiptSubject(receipt), sig), "SIGNED");
+
+  const priv = join(dir, "priv.pem");
+  writeFileSync(priv, "-----BEGIN " + "PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIA==\n-----END " + "PRIVATE KEY-----\n");
+  const link = join(dir, "link.pem");
+  symlinkSync(pub, link);
+  const rsa = join(dir, "rsa.pem");
+  writeFileSync(rsa, generateKeyPairSync("rsa", { modulusLength: 1024 }).publicKey.export({ type: "spki", format: "pem" }).toString());
+  const garbage = join(dir, "garbage.pem");
+  writeFileSync(garbage, "not a key");
+  for (const [name, env] of [
+    ["private key material", { FACTORY_SIGNING_PUBLIC_KEY_FILE: priv, FACTORY_SIGNING_KEY_ID: "k1" }],
+    ["symlink", { FACTORY_SIGNING_PUBLIC_KEY_FILE: link, FACTORY_SIGNING_KEY_ID: "k1" }],
+    ["missing file", { FACTORY_SIGNING_PUBLIC_KEY_FILE: join(dir, "nope.pem"), FACTORY_SIGNING_KEY_ID: "k1" }],
+    ["directory", { FACTORY_SIGNING_PUBLIC_KEY_FILE: dir, FACTORY_SIGNING_KEY_ID: "k1" }],
+    ["rsa key", { FACTORY_SIGNING_PUBLIC_KEY_FILE: rsa, FACTORY_SIGNING_KEY_ID: "k1" }],
+    ["garbage", { FACTORY_SIGNING_PUBLIC_KEY_FILE: garbage, FACTORY_SIGNING_KEY_ID: "k1" }],
+    ["no key id", { FACTORY_SIGNING_PUBLIC_KEY_FILE: pub }],
+    ["bad key id", { FACTORY_SIGNING_PUBLIC_KEY_FILE: pub, FACTORY_SIGNING_KEY_ID: "../k 1" }],
+    ["key id without file", { FACTORY_SIGNING_KEY_ID: "k1" }],
+  ] as const) {
+    const c = resolveSigningConfig(env);
+    assert.equal(c.status, SIGNING_KEY_UNAVAILABLE, name);
+    assert.equal(c.policy.key_configured, false, name);
+    assert.equal(await signatureStatus(c.policy.verifier, "action-receipt", actionReceiptSubject(receipt), sig), "VERIFICATION_FAILED", `${name}: nothing verifies`);
+  }
+});
+
+test("RECEIPT SIGNING ed25519Verifier (node:crypto): SIGNED only for the matching key id, alg, provider name and exact payload; malformed values never verify", async () => {
+  const p = ephemeralEd25519("ed25519");
+  const v = ed25519Verifier(p.publicKeyPem(), p.key_id, "ed25519");
+  const payload = signingPayload("action-receipt", D);
+  const s = (await p.sign(payload))!;
+  assert.equal(await v.verify(payload, s), true);
+  assert.equal(await v.verify(signingPayload("action-receipt", E), s), false, "other payload");
+  assert.equal(await v.verify(payload, { ...s, key_id: "other" }), false, "other key id");
+  assert.equal(await v.verify(payload, { ...s, alg: "rsa" }), false, "other alg");
+  for (const value of ["", "!!!!", "A".repeat(4000), Buffer.alloc(63).toString("base64"), Buffer.alloc(64).toString("base64")]) assert.equal(await v.verify(payload, { ...s, value }), false, value.slice(0, 10));
+  const evil = ephemeralEd25519("ed25519");
+  assert.equal(await v.verify(payload, { ...(await evil.sign(payload))!, key_id: p.key_id }), false, "another key claiming the configured key id");
+  assert.equal(await v.sign(payload), null, "a verifier never signs");
+  assert.throws(() => ed25519Verifier("not a key", "k1"), (e: Error & { code?: string }) => e.code === SIGNING_KEY_UNAVAILABLE);
+  assert.throws(() => ed25519Verifier(p.publicKeyPem(), "bad id!"), (e: Error & { code?: string }) => e.code === SIGNING_KEY_UNAVAILABLE);
+});
+
+test("TÖEPÄRA receipt signature: valid => VERIFIED; missing (required) => INSUFFICIENT_EVIDENCE; tampered / re-timestamped / foreign key / other purpose / garbage => REJECTED", async () => {
+  const { env, receipt } = await genuine();
+  const p = ephemeralEd25519();
+  const pol = required(p);
+  const sig = await signActionReceipt(p, receipt);
+  const ok = await toeparaVerify(env, receipt, null, tctx(pol), sig);
+  assert.equal(ok.verdict.verdict, "VERIFIED", ok.verdict.reasons.join(","));
+  assert.ok(ok.verdict.checks.some((c) => c.name === "receipt-signature" && c.ok));
+
+  const missing = await toeparaVerify(env, receipt, null, tctx(pol));
+  assert.equal(missing.verdict.verdict, "INSUFFICIENT_EVIDENCE");
+  assert.deepEqual(missing.verdict.reasons, ["receipt-signature-missing"]);
+  assert.equal(missing.bundle, null);
+  assert.equal((await toeparaVerify(env, receipt, null, tctx(pol), null)).verdict.verdict, "INSUFFICIENT_EVIDENCE", "explicit null is missing too");
+
+  const restamped = { ...receipt, timestamp: "2031-01-01T00:00:00Z" } as ActionReceipt;
+  const evil = ephemeralEd25519(p.name);
+  const cases: [string, ActionReceipt, unknown][] = [
+    ["payload re-timestamped after signing (replay)", restamped, sig],
+    ["key substitution: attacker key, attacker key id", receipt, await signActionReceipt(evil, receipt)],
+    ["key substitution: attacker key claiming the trusted key id", receipt, { ...(await signActionReceipt(evil, receipt)), key_id: p.key_id }],
+    ["signature for another purpose over the same digest", receipt, await signSubject(p, "evidence-bundle", actionReceiptSubject(receipt))],
+    ["signature over another subject", receipt, await signSubject(p, "action-receipt", D)],
+    ["garbage signature object", receipt, { value: "x" }],
+    ["signature string", receipt, "sig"],
+  ];
+  for (const [name, r, s] of cases) {
+    const t = await toeparaVerify(env, r, null, tctx(pol), s);
+    assert.equal(t.verdict.verdict, "REJECTED", name);
+    assert.ok(t.verdict.reasons.includes("receipt-signature-invalid"), `${name}: ${t.verdict.reasons.join(",")}`);
+    assert.equal(t.bundle, null, name);
+  }
+  // control for the replay case: unsigned and unrequired, the re-timestamped receipt IS verified (so the signature is what stops it)
+  assert.equal((await toeparaVerify(env, restamped, null, tctx())).verdict.verdict, "VERIFIED");
+  // a signature is checked whenever presented: present + no verification key => REJECTED, never ignored
+  const noKey = await toeparaVerify(env, receipt, null, tctx(), sig);
+  assert.equal(noKey.verdict.verdict, "REJECTED");
+  assert.ok(noKey.verdict.reasons.includes("receipt-signature-invalid"));
+  // required without a key (require:true, verifier none) => never VERIFIED, signed or not
+  for (const s of [undefined, sig]) assert.notEqual((await toeparaVerify(env, receipt, null, tctx({ verifier: noSigningProvider, key_configured: false, require: true }), s)).verdict.verdict, "VERIFIED");
+  // default (no key configured): unchanged behaviour, unsigned receipt still VERIFIED
+  assert.equal((await toeparaVerify(env, receipt, null, tctx({ verifier: noSigningProvider, key_configured: false }))).verdict.verdict, "VERIFIED");
+});
+
+test("CERBERUS receipt signing: required => an unsigned receipt is never ADMITted (DENY, signature:action-receipt:UNSIGNED); signed => ADMIT with honest status; re-timestamped signed replay => DENY", async () => {
+  const { env, receipt } = await genuine();
+  const p = ephemeralEd25519();
+  const pol = required(p);
+  const ctx = tctx(pol);
+  const toepara = await toeparaVerify(env, receipt, null, tctx());
+  const unsigned = await cerberusDecide({ envelope: env, receipt, rastik: null, toepara }, { ...ctx, guard: new ReplayGuard() });
+  assert.equal(unsigned.decision.decision, "DENY");
+  assert.ok(unsigned.adapter_reasons.includes("signature:action-receipt:UNSIGNED"), unsigned.adapter_reasons.join(","));
+  assert.equal(unsigned.signature_status.receipt, "UNSIGNED");
+
+  const sig = await signActionReceipt(p, receipt);
+  const t2 = await toeparaVerify(env, receipt, null, ctx, sig);
+  const signed = await cerberusDecide({ envelope: env, receipt, rastik: null, toepara: t2, signatures: { receipt: sig } }, { ...ctx, guard: new ReplayGuard() });
+  assert.equal(signed.decision.decision, "ADMIT", signed.decision.reasons.join(","));
+  assert.equal(signed.signature_status.receipt, "SIGNED");
+
+  const restamped = { ...receipt, timestamp: "2031-01-01T00:00:00Z" };
+  const replay = await cerberusDecide({ envelope: env, receipt: restamped, rastik: null, toepara: t2, signatures: { receipt: sig } }, { ...ctx, guard: new ReplayGuard() });
+  assert.equal(replay.decision.decision, "DENY");
+  assert.equal(replay.signature_status.receipt, "VERIFICATION_FAILED");
+  assert.ok(replay.adapter_reasons.includes("signature:action-receipt:VERIFICATION_FAILED"));
+
+  // default (no key configured, nothing required): unsigned => ADMIT, status reported honestly as UNSIGNED
+  const dflt = await cerberusDecide({ envelope: env, receipt, rastik: null, toepara }, { ...tctx(), guard: new ReplayGuard() });
+  assert.equal(dflt.decision.decision, "ADMIT");
+  assert.equal(dflt.signature_status.receipt, "UNSIGNED");
+});
+
+const decisionReq = (over: Partial<DecisionRequest> = {}): DecisionRequest => {
+  const ref = (s: string) => ({ state: "PRESENT" as const, digest: digestJson(s) });
+  return {
+    task_id: "t-1",
+    proposed: "DENY",
+    reasons: ["policy-action-denied"],
+    evidence: { envelope: ref("e"), action_receipt: ref("a"), toepara_evidence: ref("t"), evidence_bundle: ref("b"), rastik_report: { state: "NOT_APPLICABLE" }, cerberus_receipt: ref("c") },
+    toepara_verdict: "VERIFIED",
+    cerberus_decision: "PROCEED",
+    stages: { input: "PASS", policy: "PASS", toepara: "PASS", trustGate: "PASS", artifactTrust: "PASS" },
+    ...over,
+  } as DecisionRequest;
+};
+
+test("DECISION RECEIPT signing: SIGNED for the exact recomputed receipt; flipped decision (re-sealed digest), stripped, foreign key, invalid receipt => never SIGNED; no signer => SIGNING_KEY_UNAVAILABLE", async () => {
+  const p = ephemeralEd25519();
+  const d = buildDecisionReceipt(decisionReq());
+  assert.equal(d.decision, "DENY");
+  const sig = await signDecisionReceipt(p, d);
+  assert.equal(await decisionReceiptSignatureStatus(p, d, sig), "SIGNED");
+  assert.equal(await decisionReceiptSignatureStatus(p, d, null), "UNSIGNED");
+  assert.equal(await decisionReceiptSignatureStatus(p, d, undefined), "UNSIGNED");
+  // edited after signing and re-sealed so the receipt is internally consistent again
+  const { receipt_digest: _r, ...body } = d;
+  void _r;
+  const edited = { ...body, reasons: [...body.reasons, "extra"] };
+  const resealed = { ...edited, receipt_digest: digestJson(edited) };
+  assert.equal(await decisionReceiptSignatureStatus(p, resealed, sig), "VERIFICATION_FAILED");
+  // flipped decision with stale digest => receipt invalid => VERIFICATION_FAILED
+  assert.equal(await decisionReceiptSignatureStatus(p, { ...d, decision: "ADMIT" }, sig), "VERIFICATION_FAILED");
+  const evil = ephemeralEd25519(p.name);
+  assert.equal(await decisionReceiptSignatureStatus(p, d, await signDecisionReceipt(evil, d)), "VERIFICATION_FAILED");
+  assert.equal(await decisionReceiptSignatureStatus(p, d, await signSubject(p, "action-receipt", d.receipt_digest)), "VERIFICATION_FAILED", "purpose confusion");
+  assert.equal(await decisionReceiptSignatureStatus(p, { not: "a receipt" }, sig), "VERIFICATION_FAILED");
+  await assert.rejects(signDecisionReceipt(noSigningProvider, d), (e: Error & { code?: string }) => e.code === SIGNING_KEY_UNAVAILABLE);
+  await assert.rejects(signDecisionReceipt(p, { ...d, decision: "ADMIT" }), /decision-receipt-invalid/);
+});
+
+test("CLOSED LOOP + receipt signing: KRATT-stage signs, TÖEPÄRA and CERBERUS verify => ADMIT/SIGNED; key configured but no signer => refused SIGNING_KEY_UNAVAILABLE (never ADMIT)", async () => {
+  const p = ephemeralEd25519();
+  const a = setup({ receiptSigning: required(p) });
+  const ra = await a.stand.submit(a.stand.issueEnvelope({ action: "hash-files", scope: [...SCOPE], branch: "t", task_id: "rsig-ok" }));
+  assert.equal(ra.final_decision, "ADMIT", ra.cerberus.decision.reasons.join(","));
+  assert.equal(ra.cerberus.signature_status.receipt, "SIGNED");
+
+  const cfg = (() => {
+    const dir = keyDir();
+    const f = join(dir, "k.pem");
+    writeFileSync(f, p.publicKeyPem());
+    return resolveSigningConfig({ FACTORY_SIGNING_PUBLIC_KEY_FILE: f, FACTORY_SIGNING_KEY_ID: p.key_id, FACTORY_SIGNING_PROVIDER: p.name });
+  })();
+  assert.equal(cfg.status, "CONFIGURED");
+  const b = setup({ receiptSigning: cfg.policy });
+  const rb = await b.stand.submit(b.stand.issueEnvelope({ action: "hash-files", scope: [...SCOPE], branch: "t", task_id: "rsig-nosigner" }));
+  assert.equal(rb.final_decision, "DENY");
+  assert.ok(rb.cerberus.decision.reasons.includes(SIGNING_KEY_UNAVAILABLE), rb.cerberus.decision.reasons.join(","));
+});
