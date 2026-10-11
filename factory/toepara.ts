@@ -1,8 +1,9 @@
 import { canonicalize } from "../cerberus/core/decide.ts";
-import { executeTask } from "../kratt/actions.ts";
+import { executeTask, inAllowedScope } from "../kratt/actions.ts";
 import { parseEvidence, type ToeparaEvidence } from "../kratt/evidence.ts";
 import { taskDigest } from "../kratt/task.ts";
-import { blobDigest, blobState, commitExists, diffDigest, headSha, isShallow } from "./git.ts";
+import { blobDigest, blobState, changedPathsVsFirstParent, commitExists, diffDigest, headSha, isShallow, runtimeSourceAt, sha256Buf } from "./git.ts";
+import { render as renderRuntime, verifyRuntime } from "../scripts/runtime-verify.mjs";
 import { envelopeToKrattTask } from "./kratt-stage.ts";
 import {
   PROTOCOL_VERSION,
@@ -191,7 +192,20 @@ async function verifyInner(envelopeRaw: unknown, receiptRaw: unknown, rastik: Ra
     const names = kev.artifacts.map((a) => a.name);
     const scopeSet = new Set(env.scope);
     if (r.action === "validate-manifest") note("artifacts-cover-scope", names.includes(env.scope[0] ?? ""), "artifacts-do-not-include-manifest");
-    else note("artifacts-equal-scope", names.length === scopeSet.size && names.every((n) => scopeSet.has(n)), "artifacts-differ-from-scope");
+    else if (r.action === "diff-scope-check") {
+      // artifacts are the in-scope files the commit changed; TÖEPÄRA recomputes that set itself (ls-tree, not git diff)
+      const changed = changedPathsVsFirstParent(ctx.root, r.base_sha);
+      if (note("diff-scope-recomputable", changed !== null, "diff-scope-not-recomputable:no-parent-or-unreadable", "insufficient") && changed) {
+        const inScope = changed.filter((c) => inAllowedScope(c.path, env.scope));
+        const outside = changed.filter((c) => !inAllowedScope(c.path, env.scope));
+        const expectNames = inScope.filter((c) => !c.deleted).map((c) => c.path);
+        note("diff-scope-artifacts-recomputed", names.length === expectNames.length && expectNames.every((n) => names.includes(n)), "diff-scope-artifacts-differ-from-recomputed-change");
+        const expectOk = changed.length >= 1 && outside.length === 0 && expectNames.length >= 1;
+        note("diff-scope-counts-recomputed", kev.checks.pass === inScope.length && kev.checks.fail === (expectOk ? 0 : Math.max(outside.length, 1)), "diff-scope-counts-differ-from-recomputed-change");
+        note("diff-scope-outcome-recomputed", (kev.failure === null) === expectOk, "diff-scope-outcome-contradicts-recomputation");
+        note("diff-scope-nonempty", changed.length >= 1, "diff-scope-change-is-empty");
+      }
+    } else note("artifacts-equal-scope", names.length === scopeSet.size && names.every((n) => scopeSet.has(n)), "artifacts-differ-from-scope");
     let allMatch = true;
     for (const a of kev.artifacts) {
       const d = blobDigest(ctx.root, r.base_sha, a.name);
@@ -212,6 +226,18 @@ async function verifyInner(envelopeRaw: unknown, receiptRaw: unknown, rastik: Ra
     checks.push({ name: "source-digests-recomputed-from-git", ok: allMatch });
     // hash-files: KRATT's claimed check count must equal the number of files TÖEPÄRA itself found in git (regression: R-IND-1, an inflated count used to pass)
     if (r.action === "hash-files" && !blobsUnavailable) note("hash-files-check-count-recomputed", kev.checks.pass === scopeSet.size && kev.checks.fail === 0 && r.result.checks.pass === scopeSet.size, "check-count-differs-from-recomputed-files");
+  }
+  // verify-runtime: TÖEPÄRA re-runs the same verifier rules on the git objects of base_sha (not the working tree KRATT
+  // read), so the report KRATT printed must be exactly what the committed declarations produce on this interpreter.
+  if (kev && r.action === "verify-runtime" && !baseUnavailable) {
+    const source = runtimeSourceAt(ctx.root, r.base_sha);
+    if (note("runtime-sources-readable-at-base-sha", source !== null, "runtime-sources-unreadable-at-base-sha", "insufficient") && source) {
+      const again = verifyRuntime({ source, localVersion: process.versions.node });
+      const text = renderRuntime(again);
+      note("runtime-report-recomputed-from-git", sha256Buf(text) === kev.stdoutSha256 && Buffer.byteLength(text) === kev.outputBytes, "runtime-report-differs-from-recomputed");
+      note("runtime-counts-recomputed", kev.checks.pass === again.sources.length - again.drift.length && kev.checks.fail === again.drift.length, "runtime-counts-differ-from-recomputed");
+      note("runtime-no-drift-recomputed", again.drift.length === 0 || kev.failure !== null, "runtime-drift-hidden-by-receipt");
+    }
   }
   const scopeDiff = exists && !blobsUnavailable ? diffDigest(ctx.root, r.base_sha, env.scope) : null;
   if (!baseUnavailable && !blobsUnavailable) note("diff-computable", scopeDiff !== null, "diff-not-computable");

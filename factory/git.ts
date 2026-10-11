@@ -73,3 +73,73 @@ export function repoSlug(root: string): string | null {
   const m = o.match(/github\.com[:/]([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/);
   return m ? `${m[1]}/${m[2]}` : null;
 }
+
+/**
+ * TÖEPÄRA's own, independent view of the change introduced by `sha` against its first parent: both trees are listed
+ * with `ls-tree -r` and compared entry by entry in JS (path -> mode/type/object). This deliberately does NOT use
+ * `git diff`, which is what KRATT's diff-scope-check runs, so a defect in one implementation is not copied into the
+ * check of the other. Returns the changed paths with a deleted flag, or null (no parent, unreadable, too large).
+ */
+export function changedPathsVsFirstParent(root: string, sha: string): { path: string; deleted: boolean }[] | null {
+  if (!SHA1.test(sha)) return null;
+  const parent = git(root, ["rev-parse", "--verify", "--quiet", `${sha}^1^{commit}`])?.toString("utf8").trim() ?? "";
+  if (!SHA1.test(parent)) return null;
+  const tree = (c: string): Map<string, string> | null => {
+    const o = git(root, ["ls-tree", "-r", "-z", "--full-tree", c]);
+    if (o === null) return null;
+    const m = new Map<string, string>();
+    for (const rec of o.toString("utf8").split("\0")) {
+      if (rec === "") continue;
+      const tab = rec.indexOf("\t");
+      if (tab < 0) return null;
+      m.set(rec.slice(tab + 1), rec.slice(0, tab)); // "<mode> <type> <object>"
+    }
+    return m;
+  };
+  const before = tree(parent);
+  const after = tree(sha);
+  if (before === null || after === null) return null;
+  const out: { path: string; deleted: boolean }[] = [];
+  for (const [p, v] of after) if (before.get(p) !== v) out.push({ path: p, deleted: false });
+  for (const p of before.keys()) if (!after.has(p)) out.push({ path: p, deleted: true });
+  return out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+}
+
+/** The only files the runtime verifier may read through `runtimeSourceAt` (host-fixed, never task-supplied). */
+const RUNTIME_SOURCE = /^(\.nvmrc|package\.json|\.github\/workflows\/[^/]+|\.devcontainer\/[^/]+|docker\/[^/]+|Dockerfile[^/]*|[^/]+\.Dockerfile)$/;
+
+/**
+ * A read-only view of commit `sha` for scripts/runtime-verify.mjs (`verifyRuntime({ source })`): the same rules run on
+ * git objects instead of the working tree. Only RUNTIME_SOURCE paths can be read; anything else "does not exist".
+ * Returns null when the tree cannot be listed.
+ */
+export function runtimeSourceAt(root: string, sha: string): { isFile(rel: string): boolean; isDir(rel: string): boolean; list(rel: string): string[]; read(rel: string): string } | null {
+  if (!SHA1.test(sha)) return null;
+  const o = git(root, ["ls-tree", "-r", "-z", "--full-tree", sha]);
+  if (o === null) return null;
+  const files = new Set<string>();
+  for (const rec of o.toString("utf8").split("\0")) {
+    const tab = rec.indexOf("\t");
+    if (tab < 0) continue;
+    const [, type] = rec.slice(0, tab).split(" ");
+    const p = rec.slice(tab + 1);
+    if (type === "blob" && RUNTIME_SOURCE.test(p)) files.add(p);
+  }
+  const dirs = new Set<string>([""]);
+  for (const f of files) {
+    const parts = f.split("/");
+    for (let i = 1; i < parts.length; i++) dirs.add(parts.slice(0, i).join("/"));
+  }
+  return {
+    isFile: (rel) => files.has(rel),
+    isDir: (rel) => dirs.has(rel),
+    list: (rel) =>
+      [...new Set([...files, ...dirs].filter((p) => p !== "" && p !== rel && (rel === "" ? !p.includes("/") : p.startsWith(`${rel}/`) && !p.slice(rel.length + 1).includes("/"))).map((p) => p.split("/").pop() as string))].sort(),
+    read: (rel) => {
+      if (!files.has(rel)) throw new Error("not a runtime source");
+      const b = git(root, ["cat-file", "blob", `${sha}:${rel}`]);
+      if (b === null) throw new Error("blob unreadable");
+      return b.toString("utf8");
+    },
+  };
+}

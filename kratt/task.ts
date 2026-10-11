@@ -6,7 +6,7 @@ import { relPathFailure } from "./paths.ts";
  * KRATT task schema. Closed: exact key set per action, own data properties only,
  * no defaults (every bound must be stated), integers only. Anything else => reject.
  */
-export const KRATT_ACTIONS = ["hash-files", "validate-manifest", "run-test"] as const;
+export const KRATT_ACTIONS = ["hash-files", "validate-manifest", "run-test", "verify-runtime", "diff-scope-check"] as const;
 export type KrattAction = (typeof KRATT_ACTIONS)[number];
 
 export const LIMITS = {
@@ -15,17 +15,24 @@ export const LIMITS = {
   maxTimeoutMs: 60_000,
   minOutputBytes: 1024,
   maxOutputBytes: 1_048_576,
+  /** diff-scope-check: allowed path prefixes per task. */
+  maxAllowed: 64,
 } as const;
 
 export type KrattTask =
   | { taskId: string; action: "hash-files"; files: string[] }
   | { taskId: string; action: "validate-manifest"; manifest: string }
-  | { taskId: string; action: "run-test"; testFile: string; timeoutMs: number; maxOutputBytes: number };
+  | { taskId: string; action: "run-test"; testFile: string; timeoutMs: number; maxOutputBytes: number }
+  /** Runs the repo's runtime verifier (scripts/runtime-verify.mjs) in-process. Takes NO paths: its sources are fixed by the verifier. */
+  | { taskId: string; action: "verify-runtime" }
+  /** The change introduced by `commit` (vs. its first parent) may only touch paths equal to / under an `allowed` prefix. */
+  | { taskId: string; action: "diff-scope-check"; commit: string; allowed: string[] };
 
 export type TaskResult = { ok: true; task: Readonly<KrattTask> } | { ok: false; reason: string };
 
 const TASK_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const TEST_FILE = /\.test\.(ts|mjs)$/;
+const COMMIT = /^[0-9a-f]{40}$/;
 
 class Invalid extends Error {}
 const fail = (reason: string): never => {
@@ -104,6 +111,28 @@ export function validateTask(input: unknown): TaskResult {
           timeoutMs: boundedInt(own(input, "timeoutMs"), LIMITS.minTimeoutMs, LIMITS.maxTimeoutMs, "timeoutMs"),
           maxOutputBytes: boundedInt(own(input, "maxOutputBytes"), LIMITS.minOutputBytes, LIMITS.maxOutputBytes, "maxOutputBytes"),
         };
+        break;
+      }
+      case "verify-runtime": {
+        exactKeys(input, ["taskId", "action"]);
+        task = { taskId: taskId as string, action: "verify-runtime" };
+        break;
+      }
+      case "diff-scope-check": {
+        exactKeys(input, ["taskId", "action", "commit", "allowed"]);
+        const commit = own(input, "commit");
+        if (typeof commit !== "string" || !COMMIT.test(commit)) fail("commit-invalid");
+        const allowed = own(input, "allowed");
+        if (!Array.isArray(allowed)) return fail("allowed-not-array");
+        if (allowed.length < 1 || allowed.length > LIMITS.maxAllowed) fail("allowed-count-invalid");
+        const out: string[] = [];
+        for (let i = 0; i < allowed.length; i++) {
+          const d = Object.getOwnPropertyDescriptor(allowed, String(i));
+          if (d === undefined || !("value" in d)) return fail("allowed-element-invalid");
+          out.push(relPath(d.value));
+        }
+        if (new Set(out).size !== out.length) fail("allowed-duplicate");
+        task = { taskId: taskId as string, action: "diff-scope-check", commit: commit as string, allowed: out };
         break;
       }
     }

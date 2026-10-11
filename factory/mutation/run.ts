@@ -40,6 +40,7 @@ const copyPaths = [
 const only = opt("--only")?.split(",").filter(Boolean);
 const report = await runMutation({
   sourceRoot: root,
+  copyPaths: ["cerberus", "kratt", "rastik", "factory", "package.json", "scripts/runtime-verify.mjs", "scripts/runtime-verify.d.mts", ".nvmrc", ".devcontainer", ".github"],
   copyPaths,
   testFiles,
   mutants: MUTANTS,

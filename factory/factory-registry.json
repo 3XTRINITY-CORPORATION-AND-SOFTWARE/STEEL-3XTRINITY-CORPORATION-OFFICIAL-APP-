@@ -316,7 +316,9 @@
       "capabilities": [
         "kratt:hash-files",
         "kratt:validate-manifest",
-        "kratt:run-test"
+        "kratt:run-test",
+        "kratt:verify-runtime",
+        "kratt:diff-scope-check"
       ],
       "current_task": null,
       "completed_tasks": 2,

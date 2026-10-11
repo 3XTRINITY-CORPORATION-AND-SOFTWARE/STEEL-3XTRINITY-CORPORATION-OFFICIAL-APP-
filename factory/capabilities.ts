@@ -35,7 +35,7 @@ export const ATTACK_AGENT: Readonly<Record<AttackClass, string>> = {
 };
 
 export const LOOP_CAPABILITIES: CapabilityMap = {
-  "FORGE-026": ["kratt:hash-files", "kratt:validate-manifest", "kratt:run-test"], // KRATT Engineer
+  "FORGE-026": ["kratt:hash-files", "kratt:validate-manifest", "kratt:run-test", "kratt:verify-runtime", "kratt:diff-scope-check"], // KRATT Engineer
   "SERPENT-051": ["rastik:run-probes"], // RÄSTIK Commander
   "SERPENT-052": ["rastik:attack:invalid-input"],
   "SERPENT-053": ["rastik:attack:boundary"],

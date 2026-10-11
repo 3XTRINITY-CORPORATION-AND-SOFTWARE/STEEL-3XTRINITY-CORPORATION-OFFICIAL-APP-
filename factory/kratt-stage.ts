@@ -36,6 +36,15 @@ export function envelopeToKrattTask(e: TaskEnvelope): Mapped {
         maxOutputBytes: e.resource_budget.max_output_bytes,
       };
       break;
+    case "verify-runtime":
+      // the verifier's sources are fixed by the verifier itself; the envelope scope names its anchor file only
+      if (e.scope.length !== 1 || e.scope[0] !== "package.json") return { ok: false, reason: "verify-runtime-scope-must-be-package-json" };
+      raw = { taskId: e.task_id, action };
+      break;
+    case "diff-scope-check":
+      // the change under check is the one introduced by base_sha itself; scope = the allowed path prefixes (the lease)
+      raw = { taskId: e.task_id, action, commit: e.base_sha, allowed: [...e.scope] };
+      break;
   }
   const v = validateTask(raw);
   return v.ok ? { ok: true, task: v.task, action } : { ok: false, reason: `kratt-task-invalid:${v.reason}` };

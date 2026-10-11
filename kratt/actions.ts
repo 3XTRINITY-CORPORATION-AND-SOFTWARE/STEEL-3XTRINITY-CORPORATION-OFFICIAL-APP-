@@ -1,17 +1,20 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants, fstatSync, mkdirSync, mkdtempSync, openSync, closeSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { relPathFailure, resolveRegularFile } from "./paths.ts";
 import type { KrattTask } from "./task.ts";
+import { render as renderRuntime, verifyRuntime } from "../scripts/runtime-verify.mjs";
 
 /**
- * Bounded execution of the three allow-listed KRATT actions. No action accepts a
- * command, an environment, a URL or an output path from the task. The only subprocess
- * is `node --test <one allow-listed test file>` with a fixed argv, shell:false, an empty
- * environment, a hard timeout and an output cap, under Node's permission model
- * (no writes, no child processes, reads limited to the repo root).
+ * Bounded execution of the allow-listed KRATT actions. No action accepts a
+ * command, an environment, a URL or an output path from the task. The only subprocesses
+ * are `node --test <one allow-listed test file>` (fixed argv, shell:false, an empty
+ * environment, a hard timeout and an output cap, under Node's permission model: no writes,
+ * no child processes, reads limited to the repo root) and, for diff-scope-check, read-only
+ * `git` with a fixed argv (shell:false, minimal env, no lazy fetch, timeout, output cap).
+ * verify-runtime runs scripts/runtime-verify.mjs in-process (reads only; no spawn, no network).
  *
  * LIMITATION: Node 22's permission model does NOT restrict network access. "No network"
  * is therefore enforced only by (a) the allow-listed test directories and (b) code review
@@ -390,6 +393,103 @@ async function runTest(
   };
 }
 
+// ---- verify-runtime ------------------------------------------------------------------------------
+
+/** In-process run of the repo's runtime verifier (the exact function `npm run runtime:verify` runs). Reads only. */
+function verifyRuntimeAction(realRoot: string): ActionResult {
+  const command = ["in-process:verify-runtime", "scripts/runtime-verify.mjs#verifyRuntime"];
+  const pkg = hashFile(realRoot, "package.json", { left: MAX_TOTAL_HASH_BYTES });
+  if (typeof pkg === "string") return failResult(command, `anchor-${pkg}:package.json`);
+  const report = verifyRuntime({ root: realRoot });
+  const text = renderRuntime(report);
+  const drift = report.drift.map((d) => d.source);
+  return {
+    command,
+    exitCode: drift.length === 0 ? 0 : 1,
+    timedOut: false,
+    truncated: false,
+    outputBytes: Buffer.byteLength(text),
+    stdoutSha256: sha(text),
+    stderrSha256: EMPTY,
+    artifacts: [pkg],
+    checks: { pass: report.sources.length - drift.length, fail: drift.length },
+    failure: drift.length === 0 ? null : `runtime-drift:${drift.join(",")}`.replace(/[\u0000-\u001f\u007f]/g, "?").slice(0, 300), // eslint-disable-line no-control-regex
+  };
+}
+
+// ---- diff-scope-check ----------------------------------------------------------------------------
+
+export const MAX_DIFF_ARTIFACTS = 128;
+const MAX_GIT_OUTPUT = 4 * 1024 * 1024;
+
+/** Read-only git with a fixed argv. Never a shell, never the caller's environment, never a lazy network fetch. */
+function gitRead(realRoot: string, args: string[], maxBuffer = MAX_GIT_OUTPUT): Buffer | null {
+  const r = spawnSync("git", ["-c", "core.fsmonitor=false", ...args], {
+    cwd: realRoot,
+    shell: false,
+    maxBuffer,
+    timeout: 30_000,
+    env: { PATH: process.env.PATH ?? "", LC_ALL: "C", GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0", GIT_NO_LAZY_FETCH: "1", GIT_CONFIG_NOSYSTEM: "1", HOME: realRoot },
+  });
+  return r.error || r.status !== 0 ? null : r.stdout;
+}
+
+const printable = (p: string) => p.replace(/[\u0000-\u001f\u007f]/g, "?"); // eslint-disable-line no-control-regex
+export const inAllowedScope = (path: string, allowed: readonly string[]): boolean =>
+  relPathFailure(path) === null && allowed.some((a) => path === a || path.startsWith(`${a}/`));
+
+/**
+ * The change introduced by `commit` against its FIRST parent (for a merge commit: everything the merge brought in)
+ * may only touch paths equal to, or under, one of the `allowed` prefixes. Renames count as delete + add (both sides
+ * must be in scope); dot-paths (.github, .env ...) are never in scope. Reads git objects only, never the working tree.
+ * checks.pass = changed paths in scope, checks.fail = changed paths out of scope; artifacts = in-scope paths that still
+ * exist in `commit`, hashed from the commit's blobs.
+ */
+function diffScopeCheck(realRoot: string, t: Extract<KrattTask, { action: "diff-scope-check" }>): ActionResult {
+  const argv = ["diff", "--no-ext-diff", "--no-textconv", "--no-renames", "--name-status", "-z", `${t.commit}^1`, t.commit];
+  const command = ["git", ...argv];
+  if (gitRead(realRoot, ["cat-file", "-e", `${t.commit}^{commit}`]) === null) return failResult(command, "commit-not-found");
+  if (gitRead(realRoot, ["rev-parse", "--verify", "--quiet", `${t.commit}^1^{commit}`]) === null) return failResult(command, "commit-has-no-parent");
+  const out = gitRead(realRoot, argv);
+  if (out === null) return failResult(command, "git-diff-failed");
+  const fields = out.toString("utf8").split("\0");
+  if (fields[fields.length - 1] === "") fields.pop();
+  if (fields.length % 2 !== 0) return failResult(command, "git-diff-unparseable");
+  const inScope: { path: string; deleted: boolean }[] = [];
+  const outside: string[] = [];
+  for (let i = 0; i < fields.length; i += 2) {
+    const status = fields[i] as string;
+    const path = fields[i + 1] as string;
+    if (!/^[ACDMTUX]$/.test(status)) return failResult(command, "git-diff-unparseable");
+    if (inAllowedScope(path, t.allowed)) inScope.push({ path, deleted: status === "D" });
+    else outside.push(path);
+  }
+  const base = { command, timedOut: false, truncated: false, outputBytes: out.length, stdoutSha256: sha(out), stderrSha256: EMPTY };
+  const existing = inScope.filter((x) => !x.deleted);
+  if (existing.length > MAX_DIFF_ARTIFACTS) return { ...failResult(command, "too-many-changed-files"), ...base, exitCode: 1, checks: { pass: inScope.length, fail: Math.max(outside.length, 1) } };
+  const artifacts: Artifact[] = [];
+  let left = MAX_TOTAL_HASH_BYTES;
+  for (const x of existing) {
+    const blob = gitRead(realRoot, ["cat-file", "blob", `${t.commit}:${x.path}`], MAX_FILE_BYTES + 1);
+    if (blob === null || blob.length > MAX_FILE_BYTES) return { ...failResult(command, `blob-unreadable:${printable(x.path)}`.slice(0, 300), artifacts), ...base, exitCode: 1 };
+    if (blob.length > left) return { ...failResult(command, "total-size-budget-exceeded", artifacts), ...base, exitCode: 1 };
+    left -= blob.length;
+    artifacts.push({ name: x.path, sha256: sha(blob), bytes: blob.length });
+  }
+  outside.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  let failure: string | null = null;
+  if (fields.length === 0) failure = "no-changes";
+  else if (outside.length > 0) failure = `out-of-scope:${outside.length}:${printable(outside[0] as string)}`.slice(0, 300);
+  else if (artifacts.length === 0) failure = "only-deletions-no-artifact";
+  return {
+    ...base,
+    exitCode: failure === null ? 0 : 1,
+    artifacts: sortArtifacts(artifacts),
+    checks: { pass: inScope.length, fail: failure === null ? 0 : Math.max(outside.length, 1) },
+    failure,
+  };
+}
+
 /** Never throws; any unexpected error becomes a failed (=> REJECTED) result. */
 export async function executeTask(root: string, task: KrattTask, opts: ActionOptions = {}): Promise<ActionResult> {
   try {
@@ -401,6 +501,10 @@ export async function executeTask(root: string, task: KrattTask, opts: ActionOpt
         return validateManifest(realRoot, task.manifest);
       case "run-test":
         return await runTest(realRoot, task, opts);
+      case "verify-runtime":
+        return verifyRuntimeAction(realRoot);
+      case "diff-scope-check":
+        return diffScopeCheck(realRoot, task);
     }
   } catch {
     return failResult([`in-process:${task.action}`], "internal-error");
