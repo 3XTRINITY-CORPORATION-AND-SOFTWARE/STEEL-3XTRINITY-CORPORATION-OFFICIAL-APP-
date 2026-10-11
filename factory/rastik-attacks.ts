@@ -9,6 +9,8 @@ import { blobDigest, commitExists } from "./git.ts";
 import { digestOf, type ActionReceipt, type RastikFinding, type Severity, type TaskEnvelope } from "./protocol/types.ts";
 import { rastikEvidenceDigest, type AttackRecord, type ProbeSummary, type RastikRun } from "./rastik-types.ts";
 import { toeparaVerify, type ToeparaCtx } from "./toepara.ts";
+import { decisionReceiptSignatureStatus, signActionReceipt, signDecisionReceipt, signSubject, type ReceiptSigner, type ReceiptSigningPolicy, type ReceiptVerifier, type Signature } from "./signing.ts";
+import { digestJson } from "../cerberus/receipts/decision-receipt.ts";
 import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { join, sep } from "node:path";
@@ -1272,4 +1274,163 @@ export function runConfigCollisionAttacks(
     });
   }
   return { control_clean, control_violations, records, findings };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Receipt-signature attacks (P2 evidence authentication). Hypothesis per case: "this signature /
+// receipt combination is VERIFIED (action receipt) or SIGNED (decision receipt)". A genuine signed
+// control must pass first, otherwise "all repelled" proves nothing. The target is injectable.
+// ---------------------------------------------------------------------------------------------
+export type SignedReceiptTarget = (receipt: unknown, signature: unknown) => Promise<{ verdict: string; reasons: string[] }>;
+
+/** The real TÖEPÄRA recomputation with the given receipt-signing policy. */
+export function realSignedReceiptTarget(envelope: TaskEnvelope, base: ToeparaCtx, policy: ReceiptSigningPolicy): SignedReceiptTarget {
+  return async (receipt, signature) => {
+    const t = await toeparaVerify(envelope, receipt, null, { ...base, rerun: base.rerun ?? new Map(), receiptSigning: policy }, signature);
+    return { verdict: t.verdict.verdict, reasons: t.verdict.reasons };
+  };
+}
+
+interface SigCtx {
+  receipt: ActionReceipt;
+  sig: Signature;
+  signer: ReceiptSigner;
+  attacker: ReceiptSigner;
+}
+interface SigCase {
+  id: string;
+  hypothesis: string;
+  build: (c: SigCtx) => Promise<{ receipt: unknown; signature: unknown }>;
+}
+const restamp = (r: ActionReceipt): ActionReceipt => ({ ...r, timestamp: r.timestamp.startsWith("2031") ? "2032-02-02T00:00:00Z" : "2031-01-01T00:00:00Z" });
+const resealEvidence = (r: ActionReceipt): ActionReceipt => {
+  const c = structuredClone(r) as ActionReceipt & { evidence: Record<string, unknown> };
+  const ev = c.evidence as { artifacts?: { sha256: string }[]; evidenceDigest?: string };
+  if (Array.isArray(ev.artifacts) && ev.artifacts[0]) ev.artifacts[0].sha256 = flip(ev.artifacts[0].sha256);
+  const { evidenceDigest: _d, ...body } = ev;
+  void _d;
+  ev.evidenceDigest = digestOf(body);
+  return c;
+};
+const SIG_FIX = "TÖEPÄRA verifies the detached action-receipt signature over digestOf(validated receipt) with the configured verifier; missing => INSUFFICIENT_EVIDENCE when required, anything else => REJECTED.";
+
+const SIG_CASES: SigCase[] = [
+  { id: "signature-stripped", hypothesis: "a signed receipt presented WITHOUT its signature is verified", build: async (c) => ({ receipt: c.receipt, signature: null }) },
+  { id: "signature-stripped-and-retimestamped", hypothesis: "a re-timestamped copy presented without a signature is verified", build: async (c) => ({ receipt: restamp(c.receipt), signature: undefined }) },
+  { id: "key-substitution-attacker-key", hypothesis: "a signature by an attacker key (its own key id) is verified", build: async (c) => ({ receipt: c.receipt, signature: await signActionReceipt(c.attacker, c.receipt) }) },
+  { id: "key-substitution-claims-trusted-key-id", hypothesis: "an attacker-key signature relabelled with the trusted key id is verified", build: async (c) => ({ receipt: c.receipt, signature: { ...(await signActionReceipt(c.attacker, c.receipt)), key_id: c.sig.key_id } }) },
+  { id: "key-substitution-claims-trusted-provider", hypothesis: "an attacker-key signature relabelled with the trusted provider name and key id is verified", build: async (c) => ({ receipt: c.receipt, signature: { ...(await signActionReceipt(c.attacker, c.receipt)), key_id: c.sig.key_id, provider: c.sig.provider } }) },
+  { id: "payload-tamper-after-signing", hypothesis: "a receipt whose evidence was altered (and re-sealed) after signing still verifies with the original signature", build: async (c) => ({ receipt: resealEvidence(c.receipt), signature: c.sig }) },
+  { id: "payload-tamper-scope-after-signing", hypothesis: "a receipt whose agent_id was changed after signing still verifies", build: async (c) => ({ receipt: { ...c.receipt, agent_id: "FORGE-027" }, signature: c.sig }) },
+  { id: "replay-signed-receipt-new-timestamp", hypothesis: "a signed receipt replayed with a new timestamp (signature kept) is verified", build: async (c) => ({ receipt: restamp(c.receipt), signature: c.sig }) },
+  { id: "signature-from-other-receipt", hypothesis: "a genuine signature over ANOTHER receipt (same task, other timestamp) is accepted", build: async (c) => ({ receipt: c.receipt, signature: await signActionReceipt(c.signer, restamp(c.receipt)) }) },
+  { id: "purpose-confusion-evidence-bundle", hypothesis: "a trusted-key signature over the same digest for purpose evidence-bundle is accepted as a receipt signature", build: async (c) => ({ receipt: c.receipt, signature: await signSubject(c.signer, "evidence-bundle", c.sig.subject_digest) }) },
+  { id: "purpose-relabelled", hypothesis: "a trusted-key decision-receipt signature relabelled as action-receipt is accepted", build: async (c) => ({ receipt: c.receipt, signature: { ...(await signSubject(c.signer, "decision-receipt", c.sig.subject_digest)), purpose: "action-receipt" } }) },
+  { id: "signature-value-bit-flipped", hypothesis: "a signature with one flipped byte verifies", build: async (c) => ({ receipt: c.receipt, signature: { ...c.sig, value: Buffer.from(Buffer.from(c.sig.value, "base64").map((b, i) => (i === 0 ? b ^ 1 : b))).toString("base64") } }) },
+  { id: "signature-value-truncated", hypothesis: "a truncated signature verifies", build: async (c) => ({ receipt: c.receipt, signature: { ...c.sig, value: c.sig.value.slice(0, 20) } }) },
+  { id: "signature-extra-field", hypothesis: "a signature object with an extra 'verified: true' field is accepted", build: async (c) => ({ receipt: c.receipt, signature: { ...c.sig, verified: true } }) },
+];
+
+export function signatureCaseCount(): number {
+  return SIG_CASES.length;
+}
+
+export interface SignatureAttackRecord {
+  attack_id: string;
+  case_id: string;
+  hypothesis: string;
+  outcome: "REPELLED" | "SUCCEEDED";
+  reproduced: boolean | null;
+  detail: string;
+}
+
+export async function runReceiptSignatureAttacks(
+  receipt: ActionReceipt,
+  signer: ReceiptSigner,
+  attacker: ReceiptSigner,
+  target: SignedReceiptTarget,
+  o: { only?: string } = {},
+): Promise<{ control_verified: boolean; records: SignatureAttackRecord[]; findings: RastikFinding[] }> {
+  const records: SignatureAttackRecord[] = [];
+  const findings: RastikFinding[] = [];
+  const safe = async (r: unknown, s: unknown) => {
+    try {
+      return await target(r, s);
+    } catch {
+      return { verdict: "THREW", reasons: ["target-threw"] }; // fail-closed: a throwing verifier is not a bypass
+    }
+  };
+  const sig = await signActionReceipt(signer, receipt);
+  const control_verified = (await safe(receipt, sig)).verdict === "VERIFIED";
+  if (!control_verified) return { control_verified, records, findings };
+  const c: SigCtx = { receipt, sig, signer, attacker };
+  for (const k of SIG_CASES) {
+    if (o.only !== undefined && k.id !== o.only) continue;
+    const attack_id = `receipt-signature/${k.id}`;
+    const first = await k.build(c);
+    const r1 = await safe(first.receipt, first.signature);
+    if (r1.verdict !== "VERIFIED") {
+      records.push({ attack_id, case_id: k.id, hypothesis: k.hypothesis, outcome: "REPELLED", reproduced: null, detail: `${r1.verdict}:${r1.reasons.join(",")}`.slice(0, 500) });
+      continue;
+    }
+    const again = await k.build(c);
+    const reproduced = (await safe(again.receipt, again.signature)).verdict === "VERIFIED";
+    records.push({ attack_id, case_id: k.id, hypothesis: k.hypothesis, outcome: "SUCCEEDED", reproduced, detail: "VERIFIED" });
+    findings.push({
+      finding_id: `RASTIK-SIG-${k.id}`,
+      target: "TÖEPÄRA action-receipt signature verification (factory/toepara.ts, factory/signing.ts)",
+      hypothesis: k.hypothesis,
+      reproduction: `Sign the genuine receipt (digest ${digestOf(receipt)}) with the trusted signer, apply case "${k.id}" (factory/rastik-attacks.ts SIG_CASES), verify with the receipt-signing policy: VERIFIED${reproduced ? " on two independent runs" : " once, not on the re-run"}.`,
+      severity: "critical",
+      status: reproduced ? "CONFIRMED" : "UNCONFIRMED",
+      evidence: { attack_id, receipt_digest: digestOf(receipt), verified_on_rerun: reproduced },
+      regression_test: [
+        `test(${JSON.stringify(`RASTIK receipt-signature/${k.id} must be repelled`)}, async () => {`,
+        `  // hypothesis: ${k.hypothesis}`,
+        `  const r = await runReceiptSignatureAttacks(receipt, signer, attacker, realSignedReceiptTarget(env, ctx, policy), { only: ${JSON.stringify(k.id)} });`,
+        `  assert.equal(r.control_verified, true);`,
+        `  assert.deepEqual(r.findings.map((f) => f.finding_id), []);`,
+        `});`,
+      ].join("\n"),
+      proposed_smallest_fix: SIG_FIX,
+    });
+  }
+  return { control_verified, records, findings };
+}
+
+/** Decision-receipt signature attacks: hypothesis "the forged combination reports SIGNED". */
+export async function runDecisionReceiptSignatureAttacks(
+  receipt: unknown,
+  signer: ReceiptSigner,
+  attacker: ReceiptSigner,
+  verifier: ReceiptVerifier,
+): Promise<{ control_signed: boolean; records: SignatureAttackRecord[] }> {
+  const records: SignatureAttackRecord[] = [];
+  const sig = await signDecisionReceipt(signer, receipt);
+  const status = async (d: unknown, s: unknown) => {
+    try {
+      return await decisionReceiptSignatureStatus(verifier, d, s);
+    } catch {
+      return "THREW";
+    }
+  };
+  const control_signed = (await status(receipt, sig)) === "SIGNED";
+  if (!control_signed) return { control_signed, records };
+  const r = receipt as Record<string, unknown> & { reasons: string[]; receipt_digest: string };
+  const { receipt_digest: _x, ...body } = r;
+  void _x;
+  const reseal = (b: Record<string, unknown>) => ({ ...b, receipt_digest: digestJson(b) });
+  const cases: [string, string, () => Promise<[unknown, unknown]>][] = [
+    ["decision-signature-stripped", "a decision receipt without its signature reports SIGNED", async () => [receipt, null]],
+    ["decision-tampered-resealed", "a decision receipt whose reasons were edited and digest re-sealed still verifies with the original signature", async () => [reseal({ ...body, reasons: [...r.reasons, "edited"] }), sig]],
+    ["decision-flipped-stale-digest", "a decision flipped after signing (digest stale) reports SIGNED", async () => [{ ...r, decision: r.decision === "DENY" ? "ADMIT" : "DENY" }, sig]],
+    ["decision-key-substitution", "an attacker-key signature (trusted key id claimed) reports SIGNED", async () => [receipt, { ...(await signDecisionReceipt(attacker, receipt)), key_id: sig.key_id, provider: sig.provider }]],
+    ["decision-purpose-confusion", "a trusted-key action-receipt signature over the same digest reports SIGNED", async () => [receipt, await signSubject(signer, "action-receipt", r.receipt_digest)]],
+  ];
+  for (const [id, hypothesis, build] of cases) {
+    const [d, s] = await build();
+    const st = await status(d, s);
+    records.push({ attack_id: `decision-receipt-signature/${id}`, case_id: id, hypothesis, outcome: st === "SIGNED" ? "SUCCEEDED" : "REPELLED", reproduced: null, detail: st });
+  }
+  return { control_signed, records };
 }
