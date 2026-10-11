@@ -49,12 +49,12 @@ const hang = () => new Promise(() => {});
 /** @type {import("../types.d.ts").Spec[]} */
 export const SPECS = [
   // ---- check-auth-invariant (52-62)
-  { slot: 52, target: CAI, expected: { exactFalseIsOff: false, trueIsOn: true, booleanFalseIsNotTheOffString: true, paddedIsOn: true },
-    run: (m) => ({ exactFalseIsOff: m.authEnabledFromEnvValue("false"), trueIsOn: m.authEnabledFromEnvValue("true"), booleanFalseIsNotTheOffString: m.authEnabledFromEnvValue(false), paddedIsOn: m.authEnabledFromEnvValue(" false") }),
-    claim: "only the exact string 'false' turns sign-in off: 'true', a boolean false and a space-padded ' false' all leave it on" },
-  { slot: 53, target: CAI, expected: { unset: true, empty: true, zero: true, upper: true, no: true },
-    run: (m) => ({ unset: m.authEnabledFromEnvValue(undefined), empty: m.authEnabledFromEnvValue(""), zero: m.authEnabledFromEnvValue("0"), upper: m.authEnabledFromEnvValue("FALSE"), no: m.authEnabledFromEnvValue("no") }),
-    claim: "every value other than exactly 'false' (unset, empty, 0, FALSE, no) leaves sign-in ON - the fail-safe direction" },
+  { slot: 52, target: CAI, expected: { exactFalseIsOff: false, trueIsOn: true, booleanFalseIsNotTheOffString: true, paddedIsOn: true, unset: true, empty: true, zero: true, upper: true, no: true },
+    run: (m) => ({ exactFalseIsOff: m.authEnabledFromEnvValue("false"), trueIsOn: m.authEnabledFromEnvValue("true"), booleanFalseIsNotTheOffString: m.authEnabledFromEnvValue(false), paddedIsOn: m.authEnabledFromEnvValue(" false"), unset: m.authEnabledFromEnvValue(undefined), empty: m.authEnabledFromEnvValue(""), zero: m.authEnabledFromEnvValue("0"), upper: m.authEnabledFromEnvValue("FALSE"), no: m.authEnabledFromEnvValue("no") }),
+    claim: "only the exact string 'false' turns sign-in off: 'true', boolean false, ' false', unset, empty, 0, FALSE and no all leave it on (fail-safe direction)" },
+  { slot: 53, target: CAI, expected: { jsonNull: null, jsonNumber: null, jsonString: null },
+    run: async (m) => { const body = (/** @type {string} */ t) => m.probeDevAuthEnabled("http://127.0.0.1:8080", async () => ({ ok: true, text: async () => t })); return { jsonNull: await body("null"), jsonNumber: await body("42"), jsonString: await body('"false"') }; },
+    claim: "a 2xx /__app-env body that parses but is not a JSON object (null, a number, a bare \"false\" string) probes as unobservable (null), never as a sign-in value" },
   { slot: 54, target: CAI, fn: "compareAuthInvariant", input: [{ devAuthEnabled: true, buildAuthEnabled: true }], expected: { status: "ok", message: "[auth-invariant] dev and build agree: sign-in on" },
     claim: "agreeing flags report ok with the 'sign-in on' message" },
   { slot: 55, target: CAI, expected: { status: "diverged", head: "[auth-invariant] dev server has sign-in on but the next build has it off." },

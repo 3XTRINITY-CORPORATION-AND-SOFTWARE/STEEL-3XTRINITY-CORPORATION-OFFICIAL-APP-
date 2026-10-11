@@ -140,9 +140,9 @@ describe("the real specs (factory/matrix/specs)", () => {
     assert.ok(run.entries.every((e) => e.result.calls >= 1));
     assert.equal(run.specified.size, 250);
   });
-  it("DOMAIN_VERIFIED and CONFIG_PINNED are split honestly: 7 config-only slots are pinned, the other 243 execute real domain code", () => {
-    assert.deepEqual([...run.configPinned].sort((a, b) => a - b), [1, 2, 3, 4, 10, 50, 51]);
-    assert.equal(run.domainVerified.size, 243);
+  it("DOMAIN_VERIFIED and CONFIG_PINNED are split honestly: 3 config-only slots are pinned, the other 247 execute real domain code", () => {
+    assert.deepEqual([...run.configPinned].sort((a, b) => a - b), [3, 4, 10]);
+    assert.equal(run.domainVerified.size, 247);
     for (const n of run.configPinned) assert.ok(!run.domainVerified.has(n), `slot ${n} is config-only and must not be DOMAIN_VERIFIED`);
     assert.equal(run.domainVerified.size + run.configPinned.size, run.specified.size);
   });
