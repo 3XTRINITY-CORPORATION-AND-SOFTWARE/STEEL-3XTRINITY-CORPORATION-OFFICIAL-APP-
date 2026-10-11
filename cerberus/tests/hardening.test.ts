@@ -247,3 +247,104 @@ describe("adapter seam (STUBS ONLY — not a real TÖEPÄRA / Trust Gate integra
     assert.deepEqual(decideWithAdapters(valid(), admit), decideWithAdapters(valid(), admit));
   });
 });
+
+// ---------------------------------------------------------------------------------------------------------------------
+// ASYNC adapter seam (F-P1-TG-002): timeout / rejection / sync throw / malformed / non-exact => FAIL_CLOSED, never PROCEED
+// ---------------------------------------------------------------------------------------------------------------------
+import { DEFAULT_ADAPTER_TIMEOUT_MS, decideWithAdaptersAsync, type AsyncVerdictAdapter } from "../integrations/verdict-adapters.ts";
+
+const asyncOf = (name: string, f: (signal: AbortSignal) => unknown): AsyncVerdictAdapter => ({ name, verdict: (_e, signal) => f(signal) });
+const later = <T>(ms: number, v: T) => new Promise<T>((res) => setTimeout(() => res(v), ms));
+const asyncAdmit = { toepara: asyncOf("t", async () => "ADMITTED"), trustGate: asyncOf("g", async () => "AUTHORIZED") };
+
+describe("async adapter seam: deny on timeout / throw / rejection / malformed (STUB adapters only)", () => {
+  it("exact verdicts from async adapters => PROCEED; the sync stubAdapter is still a valid implementation", async () => {
+    const a = await decideWithAdaptersAsync(valid(), asyncAdmit);
+    assert.equal(a.receipt.decision, "PROCEED");
+    assert.deepEqual(a.outcomes, { toepara: "ok", trustGate: "ok" });
+    assert.equal(verifyReceipt(a.receipt), true);
+    assert.equal((await decideWithAdaptersAsync(valid(), admit)).receipt.decision, "PROCEED");
+    assert.equal(DEFAULT_ADAPTER_TIMEOUT_MS, 2000);
+  });
+  it("a hanging Trust Gate => FAIL_CLOSED (trust-gate-not-authorized, outcome timeout) within the deadline, and the adapter is told to abort", async () => {
+    let signalSeen: AbortSignal | null = null;
+    const t0 = Date.now();
+    const a = await decideWithAdaptersAsync(valid(), { toepara: admit.toepara, trustGate: asyncOf("hang", (s) => { signalSeen = s; return new Promise(() => {}); }) }, { timeoutMs: 50 });
+    assert.equal(a.receipt.decision, "FAIL_CLOSED");
+    assert.deepEqual(a.receipt.reasons, ["trust-gate-not-authorized"]);
+    assert.equal(a.outcomes.trustGate, "timeout");
+    assert.ok(Date.now() - t0 < 1000, "decided at the deadline, not when the adapter feels like it");
+    assert.equal((signalSeen as AbortSignal | null)?.aborted, true);
+  });
+  it("slow-then-AUTHORIZED AFTER the deadline is still FAIL_CLOSED, and the late answer changes nothing afterwards", async () => {
+    const a = await decideWithAdaptersAsync(valid(), { toepara: admit.toepara, trustGate: asyncOf("slow", () => later(150, "AUTHORIZED")) }, { timeoutMs: 40 });
+    assert.equal(a.receipt.decision, "FAIL_CLOSED");
+    assert.equal(a.outcomes.trustGate, "timeout");
+    const frozen = JSON.stringify(a);
+    await later(200, null);
+    assert.equal(JSON.stringify(a), frozen, "the late resolution did not mutate the decision");
+    assert.equal(verifyReceipt(a.receipt), true);
+    // control: the same slow adapter WITHIN the deadline proceeds (so the deadline, not the slowness, is what denies)
+    assert.equal((await decideWithAdaptersAsync(valid(), { toepara: admit.toepara, trustGate: asyncOf("slow", () => later(10, "AUTHORIZED")) }, { timeoutMs: 1000 })).receipt.decision, "PROCEED");
+  });
+  it("sync throw and async rejection => FAIL_CLOSED with the outcome recorded; never an exception", async () => {
+    const thrown = await decideWithAdaptersAsync(valid(), { toepara: admit.toepara, trustGate: asyncOf("t", () => { throw new Error("down"); }) });
+    assert.equal(thrown.receipt.decision, "FAIL_CLOSED");
+    assert.equal(thrown.outcomes.trustGate, "threw");
+    const rejected = await decideWithAdaptersAsync(valid(), { toepara: admit.toepara, trustGate: asyncOf("r", async () => { throw new Error("down"); }) });
+    assert.equal(rejected.receipt.decision, "FAIL_CLOSED");
+    assert.equal(rejected.outcomes.trustGate, "rejected");
+    const tRej = await decideWithAdaptersAsync(valid(), { toepara: asyncOf("r", () => Promise.reject(new Error("x"))), trustGate: admit.trustGate });
+    assert.deepEqual(tRej.receipt.reasons, ["toepara-not-admitted"]);
+    assert.equal(tRej.outcomes.toepara, "rejected");
+  });
+  it("malformed responses (non-strings, boxed strings, objects, arrays) => FAIL_CLOSED outcome malformed; non-exact strings => FAIL_CLOSED", async () => {
+    for (const bad of [1, null, undefined, true, { verdict: "AUTHORIZED" }, ["AUTHORIZED"], new String("AUTHORIZED"), Symbol("AUTHORIZED"), 1n]) {
+      const a = await decideWithAdaptersAsync(valid(), { toepara: admit.toepara, trustGate: asyncOf("m", async () => bad) });
+      assert.equal(a.receipt.decision, "FAIL_CLOSED", String(bad?.toString?.() ?? bad));
+      assert.equal(a.outcomes.trustGate, "malformed");
+    }
+    for (const near of ["authorized", " AUTHORIZED", "AUTHORIZED\n", "ADMITTED", "AUTHORIZED\u200b", ""]) {
+      const a = await decideWithAdaptersAsync(valid(), { toepara: admit.toepara, trustGate: asyncOf("n", async () => near) });
+      assert.equal(a.receipt.decision, "FAIL_CLOSED", JSON.stringify(near));
+    }
+  });
+  it("hostile thenables (throwing then getter, then that throws after resolving, resolve called twice) => never PROCEED on a non-exact verdict, never throw", async () => {
+    const getterThrows = { get then() { throw new Error("boom"); } };
+    const a = await decideWithAdaptersAsync(valid(), { toepara: admit.toepara, trustGate: asyncOf("h", () => getterThrows) });
+    assert.equal(a.receipt.decision, "FAIL_CLOSED");
+    const flip = { then(res: (v: unknown) => void) { res("DENIED"); res("AUTHORIZED"); } };
+    assert.equal((await decideWithAdaptersAsync(valid(), { toepara: admit.toepara, trustGate: asyncOf("f", () => flip) })).receipt.decision, "FAIL_CLOSED", "first settlement wins");
+    const thrAfter = { then(res: (v: unknown) => void) { res("DENIED"); throw new Error("late"); } };
+    assert.equal((await decideWithAdaptersAsync(valid(), { toepara: admit.toepara, trustGate: asyncOf("x", () => thrAfter) })).receipt.decision, "FAIL_CLOSED");
+  });
+  it("invalid timeouts => FAIL_CLOSED without calling any adapter", async () => {
+    let called = 0;
+    const counting = { toepara: asyncOf("t", async () => { called++; return "ADMITTED"; }), trustGate: asyncOf("g", async () => { called++; return "AUTHORIZED"; }) };
+    for (const timeoutMs of [0, -1, 1.5, Number.NaN, Infinity, 60_001, "50" as never]) {
+      const a = await decideWithAdaptersAsync(valid(), counting, { timeoutMs });
+      assert.equal(a.receipt.decision, "FAIL_CLOSED", String(timeoutMs));
+      assert.deepEqual(a.outcomes, { toepara: "invalid-timeout", trustGate: "invalid-timeout" });
+    }
+    assert.equal(called, 0);
+  });
+  it("missing adapters, undefined adapters and invalid input never throw and never PROCEED; caller verdict fields are ignored and blanked", async () => {
+    assert.equal((await decideWithAdaptersAsync(valid(), undefined as never)).receipt.decision, "FAIL_CLOSED");
+    const m = await decideWithAdaptersAsync(valid(), { toepara: admit.toepara } as never);
+    assert.equal(m.receipt.decision, "FAIL_CLOSED");
+    assert.equal(m.outcomes.trustGate, "missing");
+    assert.equal((await decideWithAdaptersAsync(null, asyncAdmit)).receipt.decision, "FAIL_CLOSED");
+    let seen: unknown;
+    await decideWithAdaptersAsync(valid(), { toepara: asyncOf("spy", async () => "ADMITTED"), trustGate: { name: "spy", verdict: async (e) => { seen = e; return "AUTHORIZED"; } } });
+    assert.deepEqual(seen, { action: "recover", toepara: null, trustGate: null, artifact: { name: "a.bin", content, sha256: sha256Hex(content) } });
+    const r = await decideWithAdaptersAsync({ ...valid(), trustGate: "AUTHORIZED" }, { toepara: admit.toepara, trustGate: asyncOf("d", async () => "DENIED") });
+    assert.equal(r.receipt.decision, "FAIL_CLOSED", "a caller-typed AUTHORIZED is ignored");
+  });
+  it("timers are always cleared (fast answers leave no pending deadline timer behind)", async () => {
+    const timers = () => process.getActiveResourcesInfo().filter((x) => x === "Timeout").length;
+    const before = timers();
+    for (let i = 0; i < 5; i++) await decideWithAdaptersAsync(valid(), asyncAdmit, { timeoutMs: 60_000 });
+    await decideWithAdaptersAsync(valid(), { toepara: admit.toepara, trustGate: asyncOf("t", () => { throw new Error("x"); }) }, { timeoutMs: 60_000 });
+    assert.equal(timers(), before);
+  });
+});
