@@ -18,6 +18,7 @@ import {
 } from "./protocol/types.ts";
 import { rastikEvidenceDigest, type RastikRun } from "./rastik-types.ts";
 import { producerMayRunAction } from "./trust-gate.ts";
+import { actionReceiptSubject, noSigningProvider, receiptSigningRequired, signatureStatus, type ReceiptSigningPolicy } from "./signing.ts";
 
 /**
  * TÖEPÄRA stage: independent evidence verification (the brief's "KRATT output alone can
@@ -43,6 +44,12 @@ export interface ToeparaCtx {
   repository: string;
   /** Cache of TÖEPÄRA's own re-executions, keyed by KRATT task digest. */
   rerun?: Map<string, Awaited<ReturnType<typeof executeTask>>>;
+  /**
+   * Receipt authentication policy. A presented receipt signature is ALWAYS verified (invalid => REJECTED, even with no
+   * policy: an unverifiable signature is never ignored). A missing signature is INSUFFICIENT_EVIDENCE when
+   * `receiptSigningRequired(policy)` (default: exactly when a verification key is configured); otherwise unchanged.
+   */
+  receiptSigning?: ReceiptSigningPolicy;
 }
 
 export interface ToeparaResult {
@@ -63,9 +70,11 @@ export async function toeparaVerify(
   receiptRaw: unknown,
   rastik: RastikRun | null,
   ctx: ToeparaCtx,
+  /** Detached signature over the action receipt (purpose "action-receipt"); undefined/null = not presented. */
+  receiptSignature?: unknown,
 ): Promise<ToeparaResult> {
   try {
-    return await verifyInner(envelopeRaw, receiptRaw, rastik, ctx);
+    return await verifyInner(envelopeRaw, receiptRaw, rastik, ctx, receiptSignature);
   } catch {
     return rejected("unknown", ["toepara-internal-error"], [], safeDigest({ internal: "error" }), "REJECTED");
   }
@@ -94,7 +103,7 @@ function rejected(taskId: string, reasons: string[], checks: Check[], evidenceDi
   };
 }
 
-async function verifyInner(envelopeRaw: unknown, receiptRaw: unknown, rastik: RastikRun | null, ctx: ToeparaCtx): Promise<ToeparaResult> {
+async function verifyInner(envelopeRaw: unknown, receiptRaw: unknown, rastik: RastikRun | null, ctx: ToeparaCtx, receiptSignature: unknown): Promise<ToeparaResult> {
   const checks: Check[] = [];
   const reject: string[] = [];
   const insufficient: string[] = [];
@@ -125,6 +134,14 @@ async function verifyInner(envelopeRaw: unknown, receiptRaw: unknown, rastik: Ra
     return rejected(env.task_id, ["evidence-missing:empty"], [{ name: "evidence-present", ok: false }], safeDigest({ task: env.task_id, evidence: "empty" }), "INSUFFICIENT_EVIDENCE");
   checks.push({ name: "receipt-schema", ok: true });
   const receiptDigest = digestOf(r);
+
+  // --- receipt authentication (detached signature over the validated receipt) --------------------
+  const sigPresented = receiptSignature !== undefined && receiptSignature !== null;
+  if (sigPresented || receiptSigningRequired(ctx.receiptSigning)) {
+    const st = await signatureStatus(ctx.receiptSigning?.verifier ?? noSigningProvider, "action-receipt", actionReceiptSubject(r), receiptSignature);
+    if (st === "UNSIGNED") note("receipt-signature", false, "receipt-signature-missing", "insufficient");
+    else note("receipt-signature", st === "SIGNED", "receipt-signature-invalid");
+  }
 
   // --- identity / authority --------------------------------------------------------------
   note("identity-task", r.task_id === env.task_id, "receipt-task-id-mismatch");

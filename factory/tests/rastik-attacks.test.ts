@@ -540,3 +540,83 @@ test("RÄSTIK config collision (direct rules): an empty test script is test-scri
   assert.deepEqual(configCollisionViolations(mk("node --test factory/tests/a.test.ts", ["factory/tests/a.test.ts", "factory/tests/b.test.ts", "factory/tests/c.test.ts"], { "factory/tests/a.test.ts": ["factory/tests/b.test.ts"], "factory/tests/b.test.ts": ["factory/tests/c.test.ts"], "factory/tests/c.test.ts": [] })), [], "a -> b -> c");
   assert.deepEqual(configCollisionViolations(mk("node --test factory/tests/a.test.ts", ["factory/tests/a.test.ts", "factory/tests/b.test.ts"], { "factory/tests/a.test.ts": [], "factory/tests/b.test.ts": [] })), ["unregistered-test:factory/tests/b.test.ts"]);
 });
+
+// ---------------------------------------------------------------------------------------------
+// P2: receipt-signature attacks (signature stripping, key substitution, tamper after signing, re-timestamped replay)
+// ---------------------------------------------------------------------------------------------
+import { realSignedReceiptTarget, runDecisionReceiptSignatureAttacks, runReceiptSignatureAttacks, signatureCaseCount, type SignedReceiptTarget } from "../rastik-attacks.ts";
+import { toeparaVerify as toeparaVerifySig } from "../toepara.ts";
+import { ephemeralEd25519 } from "./ephemeral-provider.ts";
+import { buildDecisionReceipt, digestJson as digestJsonSig } from "../../cerberus/receipts/decision-receipt.ts";
+
+const sigCtx = () => ({ root: ROOT, repository: REPO, rerun: new Map() });
+
+test("RÄSTIK receipt signatures: with the real TÖEPÄRA + a required Ed25519 policy every case (14) is REPELLED for the signature reason; control signed receipt VERIFIED", async () => {
+  const { env, receipt } = await genuine();
+  const signer = ephemeralEd25519();
+  const attacker = ephemeralEd25519(signer.name);
+  const policy = { verifier: signer, key_configured: true };
+  const r = await runReceiptSignatureAttacks(receipt, signer, attacker, realSignedReceiptTarget(env, sigCtx(), policy));
+  assert.equal(r.control_verified, true);
+  assert.equal(r.records.length, signatureCaseCount());
+  assert.equal(signatureCaseCount(), 14);
+  assert.deepEqual(r.records.filter((x) => x.outcome !== "REPELLED").map((x) => x.case_id), []);
+  assert.deepEqual(r.findings, []);
+  const detail = (id: string) => r.records.find((x) => x.case_id === id)?.detail ?? "";
+  assert.match(detail("signature-stripped"), /^INSUFFICIENT_EVIDENCE:receipt-signature-missing$/);
+  assert.match(detail("signature-stripped-and-retimestamped"), /^INSUFFICIENT_EVIDENCE:receipt-signature-missing$/);
+  for (const x of r.records.filter((y) => !y.case_id.startsWith("signature-stripped"))) assert.match(x.detail, /^REJECTED:.*receipt-signature-invalid/, x.case_id);
+});
+
+test("RÄSTIK receipt signatures: not vacuous - a target that ignores signatures and a presence/key-id-only checker are attacked successfully (CONFIRMED, schema-valid findings)", async () => {
+  const { env, receipt } = await genuine();
+  const signer = ephemeralEd25519();
+  const attacker = ephemeralEd25519(signer.name);
+  const ignoring: SignedReceiptTarget = async (rc) => {
+    const t = await toeparaVerifySig(env, rc, null, sigCtx());
+    return { verdict: t.verdict.verdict, reasons: t.verdict.reasons };
+  };
+  const a = await runReceiptSignatureAttacks(receipt, signer, attacker, ignoring);
+  const won = a.findings.map((f) => f.finding_id);
+  for (const id of ["signature-stripped", "signature-stripped-and-retimestamped", "key-substitution-attacker-key", "key-substitution-claims-trusted-key-id", "replay-signed-receipt-new-timestamp", "signature-from-other-receipt", "purpose-confusion-evidence-bundle", "signature-value-bit-flipped"]) assert.ok(won.includes(`RASTIK-SIG-${id}`), id);
+  for (const f of a.findings) {
+    assert.equal(f.status, "CONFIRMED");
+    assert.ok(validateRastikFinding(f).ok, f.finding_id);
+  }
+  const presenceOnly: SignedReceiptTarget = async (rc, s) => {
+    const sig = s as { key_id?: unknown } | null | undefined;
+    if (!sig || sig.key_id !== (await signer.sign("x"))?.key_id) return { verdict: "REJECTED", reasons: ["no-sig"] };
+    return ignoring(rc, s);
+  };
+  const b = await runReceiptSignatureAttacks(receipt, signer, attacker, presenceOnly);
+  const won2 = b.findings.map((f) => f.finding_id);
+  for (const id of ["key-substitution-claims-trusted-key-id", "replay-signed-receipt-new-timestamp", "signature-value-bit-flipped"]) assert.ok(won2.includes(`RASTIK-SIG-${id}`), id);
+  assert.ok(!won2.includes("RASTIK-SIG-signature-stripped"));
+  // a throwing target is fail-closed (control not verified => nothing claimed)
+  const t = await runReceiptSignatureAttacks(receipt, signer, attacker, async () => { throw new Error("x"); });
+  assert.equal(t.control_verified, false);
+  assert.deepEqual(t.findings, []);
+});
+
+test("RÄSTIK decision-receipt signatures: stripped, tampered+resealed, flipped, key substitution, purpose confusion are all REPELLED; an accept-all verifier loses key substitution (not vacuous)", async () => {
+  const ref = (s: string) => ({ state: "PRESENT" as const, digest: digestJsonSig(s) });
+  const d = buildDecisionReceipt({
+    task_id: "t-1",
+    proposed: "DENY",
+    reasons: ["policy-action-denied"],
+    evidence: { envelope: ref("e"), action_receipt: ref("a"), toepara_evidence: ref("t"), evidence_bundle: ref("b"), rastik_report: { state: "NOT_APPLICABLE" }, cerberus_receipt: ref("c") },
+    toepara_verdict: "VERIFIED",
+    cerberus_decision: "PROCEED",
+    stages: { input: "PASS", policy: "PASS", toepara: "PASS", trustGate: "PASS", artifactTrust: "PASS" },
+  } as never);
+  const signer = ephemeralEd25519();
+  const attacker = ephemeralEd25519(signer.name);
+  const r = await runDecisionReceiptSignatureAttacks(d, signer, attacker, signer);
+  assert.equal(r.control_signed, true);
+  assert.equal(r.records.length, 5);
+  assert.deepEqual(r.records.filter((x) => x.outcome !== "REPELLED").map((x) => x.case_id), []);
+  assert.equal(r.records.find((x) => x.case_id === "decision-signature-stripped")?.detail, "UNSIGNED");
+  const lenient = { name: signer.name, verify: async () => true };
+  const w = await runDecisionReceiptSignatureAttacks(d, signer, attacker, lenient);
+  assert.deepEqual(w.records.filter((x) => x.outcome === "SUCCEEDED").map((x) => x.case_id), ["decision-key-substitution"], "binding (purpose/subject) holds even with a lenient verifier; only the key check is the verifier's");
+});

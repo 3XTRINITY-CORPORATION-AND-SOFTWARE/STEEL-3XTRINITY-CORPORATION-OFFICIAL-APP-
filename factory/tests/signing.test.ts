@@ -99,7 +99,7 @@ test("CERBERUS signing policy: not required + default provider => ADMIT with bot
   const m = await material();
   const g = await decide(m, undefined);
   assert.equal(g.decision.decision, "ADMIT");
-  assert.deepEqual(g.signature_status, { bundle: "UNSIGNED", rastik: "UNSIGNED" });
+  assert.deepEqual(g.signature_status, { bundle: "UNSIGNED", rastik: "UNSIGNED", receipt: "UNSIGNED" });
 });
 
 test("CERBERUS signing policy: required => UNSIGNED bundle or RÄSTIK report is DENIED; both properly signed => ADMIT", async () => {
@@ -124,7 +124,7 @@ test("CERBERUS signing policy: required => UNSIGNED bundle or RÄSTIK report is 
 
   const both = await decide(m, req, { bundle: bundleSig, rastik: rastikSig });
   assert.equal(both.decision.decision, "ADMIT", both.decision.reasons.join(","));
-  assert.deepEqual(both.signature_status, { bundle: "SIGNED", rastik: "SIGNED" });
+  assert.deepEqual(both.signature_status, { bundle: "SIGNED", rastik: "SIGNED", receipt: "UNSIGNED" });
 });
 
 test("CERBERUS signing policy: required + forged / swapped / foreign-key signatures => VERIFICATION_FAILED => DENY", async () => {
@@ -187,7 +187,7 @@ test("CERBERUS signing policy: when there is no RÄSTIK report the RÄSTIK signa
   const sig = await signSubject(p, "evidence-bundle", bundleSubject(toepara.bundle!));
   const g = await cerberusDecide({ envelope: env, receipt, rastik: null, toepara, signatures: { bundle: sig } }, { ...ctx, guard: new ReplayGuard(), signing: { provider: p, required: true } });
   assert.equal(g.decision.decision, "ADMIT", g.decision.reasons.join(","));
-  assert.deepEqual(g.signature_status, { bundle: "SIGNED", rastik: "NOT_APPLICABLE" });
+  assert.deepEqual(g.signature_status, { bundle: "SIGNED", rastik: "NOT_APPLICABLE", receipt: "UNSIGNED" });
 });
 
 test("CLOSED LOOP + signing: producers sign (RÄSTIK report, TÖEPÄRA bundle) and CERBERUS verifies; required+ephemeral provider => ADMIT/SIGNED, required+none => DENY, default => ADMIT/UNSIGNED and no signing field", async () => {
@@ -195,7 +195,7 @@ test("CLOSED LOOP + signing: producers sign (RÄSTIK report, TÖEPÄRA bundle) a
   const a = setup({ signing: { provider: p, required: true } });
   const ra = await a.stand.submit(a.stand.issueEnvelope({ action: "hash-files", scope: [...SCOPE], branch: "t", task_id: "sig-ok" }));
   assert.equal(ra.final_decision, "ADMIT", ra.cerberus.decision.reasons.join(","));
-  assert.deepEqual(ra.signing, { bundle: "SIGNED", rastik: "SIGNED" });
+  assert.deepEqual(ra.signing, { bundle: "SIGNED", rastik: "SIGNED", receipt: "UNSIGNED" });
 
   const b = setup({ signing: { provider: noSigningProvider, required: true } });
   const rb = await b.stand.submit(b.stand.issueEnvelope({ action: "hash-files", scope: [...SCOPE], branch: "t", task_id: "sig-none" }));
@@ -422,7 +422,7 @@ test("CLOSED LOOP + receipt signing: KRATT-stage signs, TÖEPÄRA and CERBERUS v
   const a = setup({ receiptSigning: required(p) });
   const ra = await a.stand.submit(a.stand.issueEnvelope({ action: "hash-files", scope: [...SCOPE], branch: "t", task_id: "rsig-ok" }));
   assert.equal(ra.final_decision, "ADMIT", ra.cerberus.decision.reasons.join(","));
-  assert.equal(ra.cerberus.signature_status.receipt, "SIGNED");
+  assert.equal(ra.signing?.receipt, "SIGNED");
 
   const cfg = (() => {
     const dir = keyDir();
