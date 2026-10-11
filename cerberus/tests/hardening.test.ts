@@ -335,7 +335,7 @@ describe("async adapter seam: deny on timeout / throw / rejection / malformed (S
     assert.equal(m.outcomes.trustGate, "missing");
     assert.equal((await decideWithAdaptersAsync(null, asyncAdmit)).receipt.decision, "FAIL_CLOSED");
     let seen: unknown;
-    await decideWithAdaptersAsync(valid(), { toepara: asyncOf("spy", async () => "ADMITTED"), trustGate: { name: "spy", verdict: async (e) => { seen = e; return "AUTHORIZED"; } } });
+    await decideWithAdaptersAsync(valid(), { toepara: asyncOf("spy", async () => "ADMITTED"), trustGate: { name: "spy", verdict: async (e: unknown) => { seen = e; return "AUTHORIZED"; } } });
     assert.deepEqual(seen, { action: "recover", toepara: null, trustGate: null, artifact: { name: "a.bin", content, sha256: sha256Hex(content) } });
     const r = await decideWithAdaptersAsync({ ...valid(), trustGate: "AUTHORIZED" }, { toepara: admit.toepara, trustGate: asyncOf("d", async () => "DENIED") });
     assert.equal(r.receipt.decision, "FAIL_CLOSED", "a caller-typed AUTHORIZED is ignored");
