@@ -215,6 +215,7 @@ import { generateKeyPairSync } from "node:crypto";
 import { mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import {
+  EVIDENCE_AUTHENTICATED,
   SIGNING_KEY_UNAVAILABLE,
   actionReceiptSubject,
   decisionReceiptSignatureStatus,
@@ -264,7 +265,8 @@ test("RECEIPT SIGNING config: a provisioned Ed25519 PUBLIC key file => CONFIGURE
   assert.equal(await signatureStatus(ok.policy.verifier, "action-receipt", actionReceiptSubject(receipt), sig), "SIGNED");
 
   const priv = join(dir, "priv.pem");
-  writeFileSync(priv, "-----BEGIN " + "PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIA==\n-----END " + "PRIVATE KEY-----\n");
+  // a REAL Ed25519 pkcs8 PEM generated in-process (test only): createPublicKey would happily derive a public key from it, so only the explicit refusal stops it
+  writeFileSync(priv, generateKeyPairSync("ed25519").privateKey.export({ type: "pkcs8", format: "pem" }).toString());
   const link = join(dir, "link.pem");
   symlinkSync(pub, link);
   const rsa = join(dir, "rsa.pem");
@@ -435,4 +437,11 @@ test("CLOSED LOOP + receipt signing: KRATT-stage signs, TÖEPÄRA and CERBERUS v
   const rb = await b.stand.submit(b.stand.issueEnvelope({ action: "hash-files", scope: [...SCOPE], branch: "t", task_id: "rsig-nosigner" }));
   assert.equal(rb.final_decision, "DENY");
   assert.ok(rb.cerberus.decision.reasons.includes(SIGNING_KEY_UNAVAILABLE), rb.cerberus.decision.reasons.join(","));
+});
+
+test("MATURITY: EVIDENCE_AUTHENTICATED stays 'partial' while no production signer exists in the repo (interface + ephemeral test key only)", () => {
+  assert.equal(EVIDENCE_AUTHENTICATED, "partial");
+  const src = readFileSync(join(ROOT, "factory/signing.ts"), "utf8");
+  assert.doesNotMatch(src, /generateKeyPair|createPrivateKey|createSign\(/, "production signing.ts must not create or use signing keys");
+  assert.equal(resolveSigningConfig({}).policy.signer, undefined);
 });

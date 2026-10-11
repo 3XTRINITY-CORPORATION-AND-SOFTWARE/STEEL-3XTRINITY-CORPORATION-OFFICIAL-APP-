@@ -145,6 +145,13 @@ export interface SignatureReport {
 // ---------------------------------------------------------------------------------------------------------------------
 export const SIGNING_KEY_UNAVAILABLE = "SIGNING_KEY_UNAVAILABLE";
 
+/**
+ * Honest maturity flag. "partial": the interface, the Ed25519 verifier, the fail-closed config and the policy exist and
+ * are tested with an EPHEMERAL in-process test key only. No production key or signer exists (human gate), so no
+ * production receipt is authenticated today. Flip to "full" only when a provisioned signer + key custody exist.
+ */
+export const EVIDENCE_AUTHENTICATED = "partial" as const;
+
 export class SigningKeyUnavailableError extends Error {
   readonly code = SIGNING_KEY_UNAVAILABLE;
   constructor(reason: string) {
