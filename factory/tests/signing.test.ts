@@ -270,7 +270,7 @@ test("RECEIPT SIGNING config: a provisioned Ed25519 PUBLIC key file => CONFIGURE
   const link = join(dir, "link.pem");
   symlinkSync(pub, link);
   const rsa = join(dir, "rsa.pem");
-  writeFileSync(rsa, generateKeyPairSync("rsa", { modulusLength: 1024 }).publicKey.export({ type: "spki", format: "pem" }).toString());
+  writeFileSync(rsa, generateKeyPairSync("ec", { namedCurve: "P-256" }).publicKey.export({ type: "spki", format: "pem" }).toString());
   const garbage = join(dir, "garbage.pem");
   writeFileSync(garbage, "not a key");
   for (const [name, env] of [
@@ -278,7 +278,7 @@ test("RECEIPT SIGNING config: a provisioned Ed25519 PUBLIC key file => CONFIGURE
     ["symlink", { FACTORY_SIGNING_PUBLIC_KEY_FILE: link, FACTORY_SIGNING_KEY_ID: "k1" }],
     ["missing file", { FACTORY_SIGNING_PUBLIC_KEY_FILE: join(dir, "nope.pem"), FACTORY_SIGNING_KEY_ID: "k1" }],
     ["directory", { FACTORY_SIGNING_PUBLIC_KEY_FILE: dir, FACTORY_SIGNING_KEY_ID: "k1" }],
-    ["rsa key", { FACTORY_SIGNING_PUBLIC_KEY_FILE: rsa, FACTORY_SIGNING_KEY_ID: "k1" }],
+    ["non-Ed25519 (P-256) key", { FACTORY_SIGNING_PUBLIC_KEY_FILE: rsa, FACTORY_SIGNING_KEY_ID: "k1" }],
     ["garbage", { FACTORY_SIGNING_PUBLIC_KEY_FILE: garbage, FACTORY_SIGNING_KEY_ID: "k1" }],
     ["no key id", { FACTORY_SIGNING_PUBLIC_KEY_FILE: pub }],
     ["bad key id", { FACTORY_SIGNING_PUBLIC_KEY_FILE: pub, FACTORY_SIGNING_KEY_ID: "../k 1" }],
