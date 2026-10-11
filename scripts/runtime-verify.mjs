@@ -11,8 +11,8 @@
 //   local                   = the running `node` is 22.x
 // Output: RUNTIME_OK, or RUNTIME_DRIFT followed by one MISMATCH line per offending source (exit 1).
 // Read-only: only reads files, never writes, spawns nothing, uses no network, installs nothing.
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const EXPECTED_MAJOR = 22;
@@ -72,7 +72,27 @@ export function rangePinsMajor(range, major = EXPECTED_MAJOR) {
   return { ok: missing.length === 0 && leaked.length === 0, missing, leaked };
 }
 
-const read = (root, rel) => readFileSync(join(root, rel), "utf8");
+/**
+ * Where the declarations are read from. Default: the working tree under `root`. An injected source (e.g. git objects
+ * at a commit, see factory/git.ts runtimeSourceAt) lets an independent verifier re-run the same rules on other bytes.
+ * Paths are repo-relative with "/"; anything absolute or with a ".." segment never exists.
+ */
+export function fsSource(root) {
+  // confined to `root`: no absolute paths, no "..", and the resolved real path (symlinks followed) must stay inside root
+  let base = null;
+  try { base = realpathSync(root); } catch { base = null; }
+  const inside = (rel) => {
+    if (base === null || typeof rel !== "string" || rel === "" || isAbsolute(rel) || rel.split(/[\\/]/).includes("..")) return false;
+    try { const r = realpathSync(join(base, rel)); return r === base || r.startsWith(base + sep); } catch { return false; }
+  };
+  const st = (rel) => { try { return inside(rel) ? statSync(join(base, rel)) : null; } catch { return null; } };
+  return {
+    isFile: (rel) => st(rel)?.isFile() ?? false,
+    isDir: (rel) => (rel === "" ? base !== null : st(rel)?.isDirectory() ?? false),
+    list: (rel) => (base !== null && (rel === "" || inside(rel)) ? readdirSync(join(base, rel)).sort() : []),
+    read: (rel) => { if (!inside(rel)) throw new Error("path outside root"); return readFileSync(join(base, rel), "utf8"); },
+  };
+}
 const result = (source, found, ok, reason) => ({ source, found, ok, ...(ok ? {} : { reason }) });
 
 function checkVersionText(source, text, expected) {
@@ -85,33 +105,32 @@ function missing(source, what) { return result(source, "(missing)", false, what)
 function fromLocal(localVersion, expected) {
   return checkVersionText("local node", localVersion, expected);
 }
-function fromNvmrc(root, expected) {
-  if (!existsSync(join(root, ".nvmrc"))) return missing(".nvmrc", ".nvmrc not found");
-  return checkVersionText(".nvmrc", read(root, ".nvmrc").trim(), expected);
+function fromNvmrc(src, expected) {
+  if (!src.isFile(".nvmrc")) return missing(".nvmrc", ".nvmrc not found");
+  return checkVersionText(".nvmrc", src.read(".nvmrc").trim(), expected);
 }
-function fromEngines(root, expected) {
-  const src = "package.json engines.node";
-  if (!existsSync(join(root, "package.json"))) return missing(src, "package.json not found");
+function fromEngines(src, expected) {
+  const name = "package.json engines.node";
+  if (!src.isFile("package.json")) return missing(name, "package.json not found");
   let pkg;
-  try { pkg = JSON.parse(read(root, "package.json")); } catch (e) { return result(src, "(unparseable)", false, `package.json is not valid JSON: ${e.message}`); }
+  try { pkg = JSON.parse(src.read("package.json")); } catch (e) { return result(name, "(unparseable)", false, `package.json is not valid JSON: ${e.message}`); }
   const range = pkg?.engines?.node;
-  if (typeof range !== "string") return missing(src, "engines.node is not set");
+  if (typeof range !== "string") return missing(name, "engines.node is not set");
   try {
     const r = rangePinsMajor(range, expected);
-    if (r.ok) return result(src, range, true);
+    if (r.ok) return result(name, range, true);
     const why = [r.missing.length ? `does not admit ${r.missing.join(", ")}` : null, r.leaked.length ? `also admits ${r.leaked.join(", ")}` : null].filter(Boolean).join("; ");
-    return result(src, range, false, `range must admit every ${expected}.x and nothing else: ${why}`);
-  } catch (e) { return result(src, range, false, e.message); }
+    return result(name, range, false, `range must admit every ${expected}.x and nothing else: ${why}`);
+  } catch (e) { return result(name, range, false, e.message); }
 }
 
 /** One result per `uses: actions/setup-node` step in every workflow file. */
-function fromWorkflows(root, expected) {
-  const dir = join(root, ".github/workflows");
+function fromWorkflows(src, expected) {
   const out = [];
-  const files = existsSync(dir) ? readdirSync(dir).filter((f) => /\.ya?ml$/.test(f)).sort() : [];
+  const files = src.isDir(".github/workflows") ? src.list(".github/workflows").filter((f) => /\.ya?ml$/.test(f) && src.isFile(`.github/workflows/${f}`)).sort() : [];
   for (const f of files) {
     const rel = `.github/workflows/${f}`;
-    const lines = read(root, rel).split("\n");
+    const lines = src.read(rel).split("\n");
     lines.forEach((line, i) => {
       if (/^\s*#/.test(line) || !/\buses:\s*["']?actions\/setup-node@/.test(line)) return;
       const keyCol = line.indexOf("uses:");
@@ -129,8 +148,8 @@ function fromWorkflows(root, expected) {
       if (version === null && file === null) { out.push(missing(source, "setup-node step has no node-version (it would use the runner's default Node)")); return; }
       if (file !== null && version === null) {
         const p = file.replace(/^\.\//, "");
-        if (!existsSync(join(root, p))) { out.push(result(source, `node-version-file: ${file}`, false, `${file} not found`)); return; }
-        const r = checkVersionText(source, read(root, p).trim().replace(/^(?:node|v)\s*/, ""), expected);
+        if (!src.isFile(p)) { out.push(result(source, `node-version-file: ${file}`, false, `${file} not found`)); return; }
+        const r = checkVersionText(source, src.read(p).trim().replace(/^(?:node|v)\s*/, ""), expected);
         out.push({ ...r, found: `node-version-file: ${file} -> ${r.found}` });
         return;
       }
@@ -163,11 +182,11 @@ function imageNodeTag(image) {
   const m = /(?:^|\/)(?:javascript-node|typescript-node|node):([^\s@]+)/.exec(image);
   return m ? m[1] : null;
 }
-function fromDevcontainer(root, expected) {
+function fromDevcontainer(src, expected) {
   const rel = ".devcontainer/devcontainer.json";
-  if (!existsSync(join(root, rel))) return [];
+  if (!src.isFile(rel)) return [];
   let dc;
-  try { dc = JSON.parse(stripJsonc(read(root, rel))); } catch (e) { return [result(rel, "(unparseable)", false, `not valid JSON(C): ${e.message}`)]; }
+  try { dc = JSON.parse(stripJsonc(src.read(rel))); } catch (e) { return [result(rel, "(unparseable)", false, `not valid JSON(C): ${e.message}`)]; }
   const out = [];
   for (const [key, cfg] of Object.entries(dc?.features ?? {}).sort(([a], [b]) => a.localeCompare(b))) {
     if (!/\/features\/node(?::|$)/.test(key)) continue;
@@ -184,19 +203,18 @@ function fromDevcontainer(root, expected) {
   return out;
 }
 
-function dockerfiles(root) {
+function dockerfiles(src) {
   const out = [];
   for (const d of ["", ".devcontainer", "docker"]) {
-    const dir = join(root, d);
-    if (!existsSync(dir) || !statSync(dir).isDirectory()) continue;
-    for (const f of readdirSync(dir).sort()) if (/^Dockerfile(\..+)?$|\.Dockerfile$/.test(f) && statSync(join(dir, f)).isFile()) out.push(d ? `${d}/${f}` : f);
+    if (!src.isDir(d)) continue;
+    for (const f of src.list(d)) if (/^Dockerfile(\..+)?$|\.Dockerfile$/.test(f) && src.isFile(d ? `${d}/${f}` : f)) out.push(d ? `${d}/${f}` : f);
   }
   return out;
 }
-function fromDockerfiles(root, expected) {
+function fromDockerfiles(src, expected) {
   const out = [];
-  for (const rel of dockerfiles(root)) {
-    const lines = read(root, rel).split("\n");
+  for (const rel of dockerfiles(src)) {
+    const lines = src.read(rel).split("\n");
     const args = {};
     lines.forEach((line) => { const m = /^\s*ARG\s+([A-Z0-9_]+)=["']?([^\s"']*)/.exec(line); if (m && !(m[1] in args)) args[m[1]] = m[2]; });
     lines.forEach((line, i) => {
@@ -223,14 +241,15 @@ function fromDockerfiles(root, expected) {
 }
 
 /** Pure verifier. `localVersion` is injectable so fixtures are deterministic. */
-export function verifyRuntime({ root = process.cwd(), localVersion = process.versions.node, expected = EXPECTED_MAJOR } = {}) {
+export function verifyRuntime({ root = process.cwd(), source, localVersion = process.versions.node, expected = EXPECTED_MAJOR } = {}) {
+  const src = source ?? fsSource(root);
   const sources = [
     fromLocal(localVersion, expected),
-    fromNvmrc(root, expected),
-    fromEngines(root, expected),
-    ...fromWorkflows(root, expected),
-    ...fromDevcontainer(root, expected),
-    ...fromDockerfiles(root, expected),
+    fromNvmrc(src, expected),
+    fromEngines(src, expected),
+    ...fromWorkflows(src, expected),
+    ...fromDevcontainer(src, expected),
+    ...fromDockerfiles(src, expected),
   ];
   if (!sources.some((s) => s.source.includes("setup-node"))) sources.push(missing(".github/workflows", "no actions/setup-node step found"));
   const drift = sources.filter((s) => !s.ok);

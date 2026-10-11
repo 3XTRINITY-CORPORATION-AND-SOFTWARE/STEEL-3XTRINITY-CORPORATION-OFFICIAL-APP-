@@ -37,10 +37,13 @@ test("INDEPENDENCE (source boundary): toepara.ts/git.ts never import KRATT's ver
   const src = readFileSync(join(ROOT, "factory/toepara.ts"), "utf8");
   const gsrc = readFileSync(join(ROOT, "factory/git.ts"), "utf8");
   const imports = [...src.matchAll(/from "([^"]+)"/g)].map((m) => m[1]).sort();
-  assert.deepEqual(imports, ["../cerberus/core/decide.ts", "../kratt/actions.ts", "../kratt/evidence.ts", "../kratt/task.ts", "./git.ts", "./kratt-stage.ts", "./protocol/types.ts", "./rastik-types.ts", "./trust-gate.ts"]);
+  // ../scripts/runtime-verify.mjs: only the pure rules (verifyRuntime + render), fed a git-object source (runtimeSourceAt), never fsSource
+  assert.deepEqual(imports, ["../cerberus/core/decide.ts", "../kratt/actions.ts", "../kratt/evidence.ts", "../kratt/task.ts", "../scripts/runtime-verify.mjs", "./git.ts", "./kratt-stage.ts", "./protocol/types.ts", "./rastik-types.ts", "./trust-gate.ts"]);
   // from kratt/evidence.ts only the pure strict parser (+ the type) may be used
   const evImport = src.match(/import \{([^}]*)\} from "\.\.\/kratt\/evidence\.ts"/)?.[1].split(",").map((x) => x.trim()).sort();
   assert.deepEqual(evImport, ["type ToeparaEvidence", "parseEvidence"].sort());
+  assert.deepEqual(src.match(/import \{([^}]*)\} from "\.\.\/scripts\/runtime-verify\.mjs"/)?.[1].split(",").map((x) => x.trim()).sort(), ["render as renderRuntime", "verifyRuntime"]);
+  assert.doesNotMatch(src, /fsSource|verifyRuntime\(\{[^}]*root/, "TÖEPÄRA never runs the verifier on the working tree");
   assert.doesNotMatch(src, /kratt\/run\.ts|createToeparaAdapter|evidenceToArtifact|computeVerdict|ReplayGuard|gateArtifact|stubAdapter/);
   assert.doesNotMatch(src, /\b(kev|evidence|parsed\.evidence)\.verdict\b/, "KRATT's own verdict must never be read as authority");
   assert.doesNotMatch(src, /["']ADMITTED["']|["']AUTHORIZED["']/, "no hardcoded upstream verdict strings");

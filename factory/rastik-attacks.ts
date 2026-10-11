@@ -36,6 +36,11 @@ interface Case {
    * the fix. They are NEVER skipped by weakening a gate; the verifier still evaluates them.
    */
   openDefect?: { component: string };
+  /**
+   * Action-specific challenge: only run against receipts of this KRATT action (never counted by caseCount() without an
+   * action, so the generic battery's pinned counts are unchanged).
+   */
+  action?: (typeof KRATT_ACTIONS)[number];
   /** Candidate sequence; acceptance of the LAST one is the hypothesis. */
   build: (g: ActionReceipt, e: TaskEnvelope) => { seq: unknown[]; envelope?: unknown } | null;
 }
@@ -294,9 +299,12 @@ const V2: Record<AttackClass, Case[]> = {
       hypothesis: "evidence whose first artifact is a different file with its REAL digest (not in scope; digest re-sealed) is admitted",
       fix: "Artifacts must equal the envelope scope exactly.",
       build: (g) => {
-        const d = blobDigest(parentRoot, g.base_sha, "package.json");
-        if (d === null) return null;
-        return one(g, (c) => { c.evidence.artifacts[0] = { name: "package.json", sha256: d.sha256, bytes: d.bytes }; c.evidence.artifacts.sort((x: Any, y: Any) => (x.name < y.name ? -1 : x.name > y.name ? 1 : 0)); reseal(c.evidence); });
+        // the foreign file must differ from the first artifact, else the "substitution" is a no-op (verify-runtime's only artifact IS package.json)
+        const first = (g as Any).evidence?.artifacts?.[0]?.name;
+        const foreign = ["package.json", "tsconfig.json"].find((n) => n !== first);
+        const d = foreign === undefined ? null : blobDigest(parentRoot, g.base_sha, foreign);
+        if (d === null || foreign === undefined) return null;
+        return one(g, (c) => { c.evidence.artifacts[0] = { name: foreign, sha256: d.sha256, bytes: d.bytes }; c.evidence.artifacts.sort((x: Any, y: Any) => (x.name < y.name ? -1 : x.name > y.name ? 1 : 0)); reseal(c.evidence); });
       },
     },
     {
@@ -387,6 +395,89 @@ const V2: Record<AttackClass, Case[]> = {
 };
 for (const cls of Object.keys(V2) as AttackClass[]) CASES[cls].push(...V2[cls]);
 
+// ---------------------------------------------------------------------------------------------
+// Handler challenges (verify-runtime, diff-scope-check): self-consistent forgeries of exactly the
+// claim each handler makes. Every one must be caught by TÖEPÄRA's own recomputation from git objects.
+// ---------------------------------------------------------------------------------------------
+/** A committed file inside the envelope scope that the receipt does NOT list (i.e. one the commit did not change). */
+const unchangedInScopeFile = (g: ActionReceipt): string | null => {
+  if (parentRoot === "" || !/^[0-9a-f]{40}$/.test(g.base_sha) || !Array.isArray(g.scope) || g.scope.length === 0) return null;
+  const r = spawnSync("git", ["ls-tree", "-r", "-z", "--name-only", "--full-tree", g.base_sha, "--", ...g.scope], { cwd: parentRoot, shell: false, encoding: "utf8", timeout: 30_000, maxBuffer: 4 * 1024 * 1024 });
+  if (r.status !== 0 || typeof r.stdout !== "string") return null;
+  const listed = new Set<string>(((g.evidence as Any)?.artifacts ?? []).map((a: Any) => a.name));
+  return r.stdout.split("\0").filter((p) => p !== "" && !listed.has(p) && !p.split("/").some((seg) => seg.startsWith("."))).sort()[0] ?? null;
+};
+const ACTION_CASES: Partial<Record<AttackClass, Case[]>> = {
+  "tampered-evidence": [
+    {
+      id: "verify-runtime-forged-report-digest",
+      action: "verify-runtime",
+      hypothesis: "a verify-runtime receipt whose report digest (stdoutSha256) is not the report the committed sources produce (digest re-sealed) is admitted",
+      fix: "TÖEPÄRA re-runs the verifier on git objects at base_sha and compares the rendered report digest (runtime-report-recomputed-from-git).",
+      build: (g) => one(g, (c) => { c.evidence.stdoutSha256 = flip(c.evidence.stdoutSha256); reseal(c.evidence); }),
+    },
+    {
+      id: "verify-runtime-forged-report-length",
+      action: "verify-runtime",
+      hypothesis: "a verify-runtime receipt claiming a different report length (re-sealed) is admitted",
+      fix: "Report byte length is recomputed from git objects (runtime-report-recomputed-from-git).",
+      build: (g) => one(g, (c) => { c.evidence.outputBytes += 1; reseal(c.evidence); }),
+    },
+    {
+      id: "verify-runtime-inflated-source-count",
+      action: "verify-runtime",
+      hypothesis: "a verify-runtime receipt claiming one more agreeing source than exist (self-consistent counts) is admitted",
+      fix: "Source counts are recomputed (runtime-counts-recomputed).",
+      build: (g) => one(g, (c) => { forgeChecks(c, c.result.checks.pass + 1, 0); }),
+    },
+    {
+      id: "diff-scope-unchanged-file-listed-as-change",
+      action: "diff-scope-check",
+      hypothesis: "a diff-scope-check receipt listing an in-scope file the commit did NOT change (real digest, self-consistent counts) is admitted",
+      fix: "TÖEPÄRA recomputes the changed set from both trees (diff-scope-artifacts-recomputed, diff-scope-counts-recomputed).",
+      build: (g) => {
+        const name = unchangedInScopeFile(g);
+        const d = name === null ? null : blobDigest(parentRoot, g.base_sha, name);
+        if (name === null || d === null) return null;
+        return one(g, (c) => {
+          c.evidence.artifacts.push({ name, sha256: d.sha256, bytes: d.bytes });
+          c.evidence.artifacts.sort((x: Any, y: Any) => (x.name < y.name ? -1 : x.name > y.name ? 1 : 0));
+          forgeChecks(c, c.result.checks.pass + 1, 0);
+        });
+      },
+    },
+    {
+      id: "diff-scope-inflated-in-scope-count",
+      action: "diff-scope-check",
+      hypothesis: "a diff-scope-check receipt claiming one more in-scope change than the commit has (self-consistent counts) is admitted",
+      fix: "In-scope change count is recomputed from both trees (diff-scope-counts-recomputed).",
+      build: (g) => one(g, (c) => { forgeChecks(c, c.result.checks.pass + 1, 0); }),
+    },
+    {
+      id: "diff-scope-replayed-on-narrower-lease",
+      action: "diff-scope-check",
+      hypothesis: "a genuine diff-scope-check receipt re-labelled with a narrower allowed scope (receipt and envelope agree, digests re-sealed) is admitted although the commit changed files outside it",
+      fix: "TÖEPÄRA recomputes the in/out split for the envelope's scope (diff-scope-out-of-scope-recomputed via counts/outcome) and the artifact set.",
+      build: (g, e) => {
+        const names: string[] = ((g.evidence as Any)?.artifacts ?? []).map((a: Any) => a.name);
+        if (names.length < 2) return null;
+        const keep = [names[0] as string];
+        return both(g, e, (r, env) => {
+          r.scope = keep;
+          env.scope = keep;
+          r.evidence.artifacts = r.evidence.artifacts.filter((a: Any) => a.name === keep[0]);
+          forgeChecks(r, 1, 0);
+        });
+      },
+    },
+  ],
+};
+for (const cls of Object.keys(ACTION_CASES) as AttackClass[]) CASES[cls].push(...(ACTION_CASES[cls] ?? []));
+/** Ids of the action-specific handler challenges, per KRATT action. */
+export function actionChallengeIds(action: string): string[] {
+  return ATTACK_CLASSES_LIST.flatMap((cls) => CASES[cls].filter((c) => c.action === action).map((c) => `${cls}/${c.id}`));
+}
+
 let parentCache: Map<string, string | null> = new Map();
 let parentRoot = "";
 export function configureParentLookup(root: string): void {
@@ -458,7 +549,7 @@ export async function runAttackClass(
   // Control: the unmutated receipt must be admitted, otherwise "everything was repelled" proves nothing.
   const control_admitted = await attempt([clone(good)], clone(envelope));
   if (!control_admitted) return { records, findings, control_admitted };
-  for (const c of selectCases(cls, deps)) {
+  for (const c of selectCases(cls, { ...deps, action: good?.action })) {
     const built = c.build(clone(good), clone(envelope));
     if (built === null) continue; // case not applicable (e.g. no parent commit in a shallow clone): not counted
     const env = built.envelope ?? clone(envelope);
@@ -504,7 +595,7 @@ export function realAttackTarget(base: ToeparaCtx): AttackTarget {
 export function describeCases(good: ActionReceipt, envelope: TaskEnvelope, o: { includeOpenDefects?: boolean } = {}): { attack_id: string; applicable: boolean; changed: boolean }[] {
   const out: { attack_id: string; applicable: boolean; changed: boolean }[] = [];
   for (const cls of ATTACK_CLASSES_LIST)
-    for (const c of selectCases(cls, o)) {
+    for (const c of selectCases(cls, { ...o, action: good?.action })) {
       const built = c.build(clone(good), clone(envelope));
       if (built === null) {
         out.push({ attack_id: `${cls}/${c.id}`, applicable: false, changed: false });
@@ -537,8 +628,8 @@ export function openDefectCases(): { attack_id: string; component: string }[] {
   return ATTACK_CLASSES_LIST.flatMap((cls) => CASES[cls].filter((c) => c.openDefect).map((c) => ({ attack_id: `${cls}/${c.id}`, component: c.openDefect?.component ?? "" })));
 }
 
-function selectCases(cls: AttackClass, o: { includeOpenDefects?: boolean; only?: string }): Case[] {
-  return CASES[cls].filter((c) => (o.includeOpenDefects === true || !c.openDefect) && (o.only === undefined || c.id === o.only));
+function selectCases(cls: AttackClass, o: { includeOpenDefects?: boolean; only?: string; action?: unknown }): Case[] {
+  return CASES[cls].filter((c) => (o.includeOpenDefects === true || !c.openDefect) && (o.only === undefined || c.id === o.only) && (c.action === undefined || c.action === o.action));
 }
 
 /** Existing RÄSTIK probes selected by the receipt's scope (real code, real cases). */
