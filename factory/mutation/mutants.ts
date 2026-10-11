@@ -26,8 +26,28 @@ const TG = "factory/trust-gate.ts";
 const RS = "factory/replay-store.ts";
 const SG = "factory/signing.ts";
 const GT = "factory/git.ts";
+const VA = "cerberus/integrations/verdict-adapters.ts";
 
 const RAW: Mutant[] = [
+  // ---- CERBERUS async adapter seam (F-P1-TG-002): killed by the RÄSTIK async Trust Gate battery + seam test ----------
+  m("AT01", VA, "async seam: deadline race removed (a hanging gate is awaited forever)", `return await Promise.race([settled, deadline]);`, `return await settled;`),
+  m("AT02", VA, "async seam: a timed-out gate counts as AUTHORIZED", `res({ verdict: null, outcome: "timeout" });`, `res({ verdict: "AUTHORIZED", outcome: "timeout" });`),
+  m("AT03", VA, "async seam: non-string answers coerced with String() instead of malformed", `typeof v === "string" ? { verdict: v, outcome: "ok" } : { verdict: null, outcome: "malformed" }`, `{ verdict: String(v), outcome: "ok" }`),
+  m("AT04", VA, "async seam: a rejected gate promise counts as AUTHORIZED", `({ verdict: null, outcome: "rejected" })`, `({ verdict: "AUTHORIZED", outcome: "rejected" })`),
+  m("AT05", VA, "async seam: a synchronously throwing gate counts as AUTHORIZED", `answer = adapter.verdict(evidence, controller.signal);
+    } catch {
+      return { verdict: null, outcome: "threw" };`, `answer = adapter.verdict(evidence, controller.signal);
+    } catch {
+      return { verdict: "AUTHORIZED", outcome: "threw" };`),
+  m("AT06", VA, "async seam: invalid timeout no longer rejected up front", `if (!validTimeout(timeoutMs)) {`, `if (false) {`),
+  m("AT07", VA, "async seam: timeout upper bound dropped", `t >= 1 && t <= MAX_ADAPTER_TIMEOUT_MS`, `t >= 1`),
+  m("AT08", VA, "async seam: a missing gate counts as AUTHORIZED", `typeof adapter.verdict !== "function") return { verdict: null, outcome: "missing" };`, `typeof adapter.verdict !== "function") return { verdict: "AUTHORIZED", outcome: "missing" };`),
+  m("AT09", VA, "async seam: deadline timer never cleared", `if (timer !== undefined) clearTimeout(timer);`, ``),
+  m("AT10", VA, "async seam: gate not aborted at the deadline", `controller.abort();`, ``),
+  m("AT11", VA, "async seam: caller-typed verdict fields reach the adapter (not blanked)", `Object.freeze({ ...n.value, toepara: null, trustGate: null });
+    if (!validTimeout`, `Object.freeze({ ...n.value });
+    if (!validTimeout`),
+  m("AT12", VA, "async seam: integer check on the timeout dropped", `typeof t === "number" && Number.isInteger(t) && t >= 1`, `typeof t === "number" && t >= 1`),
   // ---- TÖEPÄRA: independent verification ------------------------------------------------------
   m("T01", T, "TÖEPÄRA: receipt/envelope task_id comparison disabled", `r.task_id === env.task_id, "receipt-task-id-mismatch"`, `true, "receipt-task-id-mismatch"`),
   m("T02", T, "TÖEPÄRA: receipt/envelope agent_id comparison disabled", `r.agent_id === env.agent_id, "receipt-agent-mismatch"`, `true, "receipt-agent-mismatch"`),
