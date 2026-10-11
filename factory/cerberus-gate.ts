@@ -2,13 +2,14 @@ import { canonicalize, malformedInputReceipt, verifyReceipt, type RecoveryReceip
 import type { NormalizedInput } from "../cerberus/core/normalize.ts";
 import { sha256Hex } from "../cerberus/artifact-trust/artifact-trust.ts";
 import { decideWithAdapters, type VerdictAdapter } from "../cerberus/integrations/verdict-adapters.ts";
-import { noSigningProvider, bundleSubject, rastikSubject, signatureStatus, type ArtifactSignatures, type SignatureReport, type SigningPolicy } from "./signing.ts";
+import { actionReceiptSubject, noSigningProvider, bundleSubject, rastikSubject, receiptSigningRequired, signatureStatus, type ArtifactSignatures, type SignatureReport, type SigningPolicy } from "./signing.ts";
 import type { ReplayStore } from "./replay-store.ts";
 import { DEFAULT_TRUST_TIMEOUT_MS, policyViolations, resolveTrustGate, stubPolicyTrustGate, type AsyncTrustGate, type TrustGateRequest } from "./trust-gate.ts";
 import { toeparaVerify, type ToeparaCtx, type ToeparaResult } from "./toepara.ts";
 import {
   PROTOCOL_VERSION,
   digestOf,
+  validateActionReceipt,
   validateEnvelope,
   validateEvidenceBundle,
   type CerberusDecision,
@@ -107,7 +108,7 @@ export async function cerberusDecide(input: GateInput, ctx: CerberusCtx): Promis
   const adapterReasons: string[] = [];
   const ev = validateEnvelope(input.envelope);
   const taskId = ev.ok ? ev.value.task_id : "invalid-task-id";
-  const fresh = await toeparaVerify(input.envelope, input.receipt, input.rastik, ctx);
+  const fresh = await toeparaVerify(input.envelope, input.receipt, input.rastik, ctx, input.signatures?.receipt);
   const freshBundle = fresh.bundle;
   const content = canonicalize(input.toepara.bundle ?? { bundle: null });
   const artifact = { name: `factory-bundle-${taskId}.json`, content, sha256: sha256Hex(content) };
@@ -169,9 +170,13 @@ export async function cerberusDecide(input: GateInput, ctx: CerberusCtx): Promis
       input.rastik === null
         ? "NOT_APPLICABLE"
         : await signatureStatus(sp.provider, "rastik-report", rastikSubject(input.rastik), input.signatures?.rastik),
+    receipt: await receiptSignatureStatus(input.receipt, input.signatures?.receipt, ctx),
   };
   const signingDenied = sp.required && (signature_status.bundle !== "SIGNED" || (signature_status.rastik !== "SIGNED" && signature_status.rastik !== "NOT_APPLICABLE"));
   if (signingDenied) signingBlock = "evidence-authentication-required-not-satisfied";
+  // Receipt signing: the decision itself is enforced by the TÖEPÄRA recomputation above (missing => INSUFFICIENT_EVIDENCE,
+  // invalid => REJECTED => DENY); here the status is reported so a DENY names the signature reason.
+  if (receiptSigningRequired(ctx.receiptSigning) && signature_status.receipt !== "SIGNED") adapterReasons.push(`signature:action-receipt:${signature_status.receipt}`);
   if (sp.required) {
     if (signature_status.bundle !== "SIGNED") adapterReasons.push(`signature:evidence-bundle:${signature_status.bundle}`);
     if (signature_status.rastik !== "SIGNED" && signature_status.rastik !== "NOT_APPLICABLE") adapterReasons.push(`signature:rastik-report:${signature_status.rastik}`);
@@ -204,6 +209,13 @@ export async function cerberusDecide(input: GateInput, ctx: CerberusCtx): Promis
   };
 }
 
+async function receiptSignatureStatus(receipt: unknown, sig: unknown, ctx: CerberusCtx): Promise<SignatureReport["receipt"]> {
+  if (sig === undefined || sig === null) return "UNSIGNED";
+  const v = validateActionReceipt(receipt);
+  if (!v.ok) return "VERIFICATION_FAILED";
+  return signatureStatus(ctx.receiptSigning?.verifier ?? noSigningProvider, "action-receipt", actionReceiptSubject(v.value), sig);
+}
+
 /** DENY for a task that never produced a receipt (stale base, bad envelope, unavailable capability). */
 export function denyWithoutReceipt(taskId: string, reason: string): GateOutput {
   const rc = malformedInputReceipt(`factory:${reason}`.slice(0, 200), "adapter");
@@ -216,7 +228,7 @@ export function denyWithoutReceipt(taskId: string, reason: string): GateOutput {
     cerberus_receipt_digest: rc.receiptDigest,
     unresolved_high_findings: [] as string[],
   };
-  return { decision: { ...body, decision_digest: digestOf(body) }, cerberus_receipt: rc, adapter_reasons: [], signature_status: { bundle: "UNSIGNED", rastik: "NOT_APPLICABLE" } };
+  return { decision: { ...body, decision_digest: digestOf(body) }, cerberus_receipt: rc, adapter_reasons: [], signature_status: { bundle: "UNSIGNED", rastik: "NOT_APPLICABLE", receipt: "UNSIGNED" } };
 }
 
 export { verifyReceipt };
