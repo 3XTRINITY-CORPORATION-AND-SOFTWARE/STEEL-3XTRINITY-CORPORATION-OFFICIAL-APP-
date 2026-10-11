@@ -9,25 +9,14 @@ import { SteelPipeline } from "@/components/steel-pipeline";
 import { SteelHosts } from "@/components/steel-hosts";
 import { SteelStudio } from "@/components/steel-studio";
 import { useSteel } from "@/lib/steel/store";
-import type { SteelTab } from "@/lib/steel/types";
-
-const tabs: Record<string, SteelTab> = {
-  studio: "studio",
-  aura: "aura",
-  command: "console",
-  kernel: "kernel",
-  audit: "audit",
-  desk: "desk",
-  pipeline: "pipeline",
-  hosts: "hosts",
-};
+import { workspaceTab } from "@/lib/steel/workspace-tabs";
 
 export function isWorkspaceModule(slug: string) {
-  return slug in tabs;
+  return workspaceTab(slug) !== null;
 }
 
 export function TrinityWorkspace({ slug }: { slug: string }) {
-  const requested = tabs[slug];
+  const requested = workspaceTab(slug);
   const tab = useSteel((state) => state.tab);
   const setTab = useSteel((state) => state.setTab);
   useEffect(() => {
