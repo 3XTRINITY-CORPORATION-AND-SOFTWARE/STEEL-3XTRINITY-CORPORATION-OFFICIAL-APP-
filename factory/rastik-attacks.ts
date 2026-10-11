@@ -12,8 +12,8 @@ import { toeparaVerify, type ToeparaCtx } from "./toepara.ts";
 import { decisionReceiptSignatureStatus, signActionReceipt, signDecisionReceipt, signSubject, type ReceiptSigner, type ReceiptSigningPolicy, type ReceiptVerifier, type Signature } from "./signing.ts";
 import { digestJson } from "../cerberus/receipts/decision-receipt.ts";
 import { spawnSync } from "node:child_process";
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { join, sep } from "node:path";
 
 /**
  * RÄSTIK stage against ONE exact action receipt.
@@ -773,12 +773,34 @@ export function runtimeDriftViolations(d: RuntimeDeclarations): string[] {
   return why;
 }
 
+/**
+ * `root/rel` resolved with symlinks followed, or null when it does not exist or resolves OUTSIDE `root` (a committed
+ * symlink to /etc/... or ../.. must read as "absent", never as repository content).
+ */
+function confined(root: string, rel: string): string | null {
+  try {
+    const base = realpathSync(root);
+    const real = realpathSync(join(base, rel));
+    return real === base || real.startsWith(base + sep) ? real : null;
+  } catch {
+    return null;
+  }
+}
+/** As `confined`, for a directory to list: throws (callers treat it as "no such directory") when absent or outside root. */
+function confinedDir(root: string, rel: string): string {
+  const d = confined(root, rel);
+  if (d === null) throw new Error("absent-or-outside-root");
+  return d;
+}
+
 /** Bounded read of the real declarations under `root` (no network, no writes). */
 export function readRuntimeDeclarations(root: string): RuntimeDeclarations {
   const rd = (p: string): string | null => {
     try {
-      const st = statSync(join(root, p));
-      return st.isFile() && st.size <= 262_144 ? readFileSync(join(root, p), "utf8") : null;
+      const real = confined(root, p);
+      if (real === null) return null;
+      const st = statSync(real);
+      return st.isFile() && st.size <= 262_144 ? readFileSync(real, "utf8") : null;
     } catch {
       return null;
     }
@@ -801,7 +823,7 @@ export function readRuntimeDeclarations(root: string): RuntimeDeclarations {
   })();
   const ci: string[] = [];
   try {
-    for (const f of readdirSync(join(root, ".github/workflows")).sort().slice(0, 50)) {
+    for (const f of readdirSync(confinedDir(root, ".github/workflows")).sort().slice(0, 50)) {
       if (!/\.ya?ml$/.test(f)) continue;
       for (const m of (rd(`.github/workflows/${f}`) ?? "").matchAll(/^\s*node-version:\s*["']?([^"'\s#]*)["']?/gm)) if (ci.length < 100) ci.push(m[1] ?? "");
     }
@@ -1100,7 +1122,8 @@ export function configCollisionViolations(d: ConfigDeclarations): string[] {
 export function readConfigDeclarations(root: string): ConfigDeclarations {
   const read = (rel: string): string | null => {
     try {
-      const p = join(root, rel);
+      const p = confined(root, rel);
+      if (p === null) return null;
       return statSync(p).size > 4_000_000 ? null : readFileSync(p, "utf8");
     } catch {
       return null;
@@ -1108,7 +1131,7 @@ export function readConfigDeclarations(root: string): ConfigDeclarations {
   };
   const workflows: { name: string; text: string }[] = [];
   try {
-    for (const f of readdirSync(join(root, ".github/workflows")).sort()) {
+    for (const f of readdirSync(confinedDir(root, ".github/workflows")).sort()) {
       if (!/\.ya?ml$/.test(f)) continue;
       const t = read(`.github/workflows/${f}`);
       if (t !== null) workflows.push({ name: f, text: t });
@@ -1121,7 +1144,7 @@ export function readConfigDeclarations(root: string): ConfigDeclarations {
   for (const dir of ["factory/tests", "cerberus/tests", "kratt/tests", "rastik/tests"]) {
     let names: string[] = [];
     try {
-      names = readdirSync(join(root, dir)).sort();
+      names = readdirSync(confinedDir(root, dir)).sort();
     } catch {
       continue;
     }

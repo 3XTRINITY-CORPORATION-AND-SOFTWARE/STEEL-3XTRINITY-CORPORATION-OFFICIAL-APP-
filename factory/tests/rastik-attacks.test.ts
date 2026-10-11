@@ -619,4 +619,75 @@ test("RÄSTIK decision-receipt signatures: stripped, tampered+resealed, flipped,
   const lenient = { name: signer.name, verify: async () => true };
   const w = await runDecisionReceiptSignatureAttacks(d, signer, attacker, lenient);
   assert.deepEqual(w.records.filter((x) => x.outcome === "SUCCEEDED").map((x) => x.case_id), ["decision-key-substitution"], "binding (purpose/subject) holds even with a lenient verifier; only the key check is the verifier's");
+import { decideWithAdaptersAsync, stubAdapter } from "../../cerberus/integrations/verdict-adapters.ts";
+import { sha256Hex } from "../../cerberus/artifact-trust/artifact-trust.ts";
+import { ASYNC_GATE_TIMEOUT_MS, asyncGateCaseCount, cerberusAsyncTarget, factoryResolveTarget, runAsyncTrustGateAttacks, type AsyncGateTarget } from "../rastik-async-gate.ts";
+
+const REQUIRED_ASYNC_GATE_CASES = ["hang-forever", "sync-throw", "async-reject", "slow-authorized-after-deadline", "malformed-object-verdict", "malformed-null", "malformed-padded"];
+
+for (const [name, target] of [["cerberus core decideWithAdaptersAsync", cerberusAsyncTarget], ["factory resolveTrustGate", factoryResolveTarget]] as const) {
+  test(`RÄSTIK async Trust Gate (${name}): hang / throw / reject / slow-AUTHORIZED-after-deadline / malformed all FAIL_CLOSED within the deadline; the prompt AUTHORIZED control PROCEEDs`, async () => {
+    const r = await runAsyncTrustGateAttacks(target, { targetName: name });
+    assert.equal(r.control_proceeds, true, "control must PROCEED, otherwise the battery is vacuous");
+    assert.equal(r.records.length, asyncGateCaseCount());
+    for (const id of REQUIRED_ASYNC_GATE_CASES) assert.ok(r.records.some((x) => x.case_id === id), `case ${id} present`);
+    assert.deepEqual(r.findings.map((f) => f.finding_id), []);
+    for (const x of r.records) {
+      assert.equal(x.outcome, "REPELLED", x.case_id);
+      assert.notEqual(x.decision, "PROCEED", x.case_id);
+      assert.ok(x.elapsed_ms < 900, `${x.case_id} decided in ${x.elapsed_ms} ms (deadline ${ASYNC_GATE_TIMEOUT_MS})`);
+    }
+  });
+}
+
+test("RÄSTIK async Trust Gate non-vacuity: a gate wrapper with NO deadline is caught (slow AUTHORIZED => CONFIRMED PROCEED, hang => HUNG); a lenient malformed check is caught; a broken control reports nothing", async () => {
+  const noDeadline: AsyncGateTarget = async (g) => ((await g.verdict({} as never, new AbortController().signal)) === "AUTHORIZED" ? "PROCEED" : "FAIL_CLOSED");
+  const slow = await runAsyncTrustGateAttacks(noDeadline, { only: "slow-authorized-after-deadline" });
+  assert.equal(slow.control_proceeds, true);
+  assert.equal(slow.records[0]?.outcome, "SUCCEEDED");
+  assert.equal(slow.findings[0]?.status, "CONFIRMED");
+  assert.equal(slow.findings[0]?.severity, "critical");
+  const sv = validateRastikFinding(slow.findings[0]);
+  assert.ok(sv.ok, sv.ok ? "" : sv.reason);
+  const hang = await runAsyncTrustGateAttacks(noDeadline, { only: "hang-forever" });
+  assert.equal(hang.records[0]?.outcome, "HUNG");
+  assert.equal(hang.findings.length, 1);
+  // a target with a correct deadline but a LENIENT verdict check (unwraps / trims / upper-cases the answer)
+  const lenient: AsyncGateTarget = (g, ms) => cerberusAsyncTarget({ name: "lenient", verdict: async (e, s) => {
+    const v = await g.verdict(e, s);
+    return String(Array.isArray(v) ? v[0] : (v as { verdict?: unknown } | null)?.verdict ?? v).trim().toUpperCase();
+  } }, ms);
+  const malformed = await runAsyncTrustGateAttacks(lenient);
+  assert.deepEqual(malformed.findings.map((f) => f.finding_id).sort(), ["RASTIK-ASYNC-GATE-malformed-array", "RASTIK-ASYNC-GATE-malformed-boxed-string", "RASTIK-ASYNC-GATE-malformed-lowercase", "RASTIK-ASYNC-GATE-malformed-object-verdict", "RASTIK-ASYNC-GATE-malformed-padded"]);
+  const throwsOut: AsyncGateTarget = async (g) => String(await g.verdict({} as never, new AbortController().signal)) === "AUTHORIZED" ? "PROCEED" : "FAIL_CLOSED";
+  assert.ok((await runAsyncTrustGateAttacks(throwsOut, { only: "sync-throw" })).findings.length === 1, "a target that lets the gate's throw escape is reported");
+  const broken = await runAsyncTrustGateAttacks(async () => "FAIL_CLOSED");
+  assert.equal(broken.control_proceeds, false);
+  assert.deepEqual([broken.records.length, broken.findings.length], [0, 0]);
+});
+
+test("cerberus async adapter seam (direct): invalid timeouts deny without calling the gate, a missing gate denies, a timed-out gate is aborted, no deadline timer outlives the call", async () => {
+  const content = "seam";
+  const input = { action: "detect", toepara: "ADMITTED", trustGate: "AUTHORIZED", artifact: { name: "s.json", content, sha256: sha256Hex(content) } };
+  const toepara = stubAdapter("toepara", "ADMITTED");
+  let calls = 0;
+  const counting = { name: "count", verdict: () => { calls += 1; return "AUTHORIZED"; } };
+  for (const t of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 60_001, "50" as unknown as number]) {
+    const r = await decideWithAdaptersAsync(input, { toepara, trustGate: counting }, { timeoutMs: t });
+    assert.equal(r.receipt.decision, "FAIL_CLOSED", `timeoutMs=${String(t)}`);
+    assert.deepEqual(r.outcomes, { toepara: "invalid-timeout", trustGate: "invalid-timeout" });
+  }
+  assert.equal(calls, 0, "no adapter is consulted under an invalid timeout");
+  assert.equal((await decideWithAdaptersAsync(input, { toepara, trustGate: counting }, { timeoutMs: 60_000 })).receipt.decision, "PROCEED", "the upper bound itself is valid");
+  const missing = await decideWithAdaptersAsync(input, { toepara } as never);
+  assert.equal(missing.receipt.decision, "FAIL_CLOSED");
+  assert.equal(missing.outcomes.trustGate, "missing");
+  let seen: AbortSignal | null = null;
+  const hung = await decideWithAdaptersAsync(input, { toepara, trustGate: { name: "hang", verdict: (_e: unknown, s: AbortSignal) => { seen = s; return new Promise(() => {}); } } }, { timeoutMs: 20 });
+  assert.equal(hung.outcomes.trustGate, "timeout");
+  assert.equal((seen as AbortSignal | null)?.aborted, true, "the gate is told to stop at the deadline");
+  const timers = (): number => process.getActiveResourcesInfo().filter((x) => x === "Timeout").length;
+  const before = timers();
+  for (let i = 0; i < 5; i++) await decideWithAdaptersAsync(input, { toepara, trustGate: counting }); // default 2000 ms deadline, prompt answer
+  assert.equal(timers(), before, "every deadline timer is cleared once the gate answers");
 });
