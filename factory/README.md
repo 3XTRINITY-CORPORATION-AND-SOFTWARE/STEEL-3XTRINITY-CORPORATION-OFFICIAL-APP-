@@ -17,7 +17,7 @@ Two edges beyond the brief keep the machine closed: `DONE -> SLEEP` and `VERIFY 
 | Metric | Value | Notes |
 |---|---|---|
 | DEFINED | 150 | FORGE 50 / SERPENT 50 / CITADEL 50 |
-| AVAILABLE | **20** | 20 workers (23 capability tokens) with handler code registered; the other **130 are DEFINED only** |
+| AVAILABLE | **20** | 20 workers (25 capability tokens) with handler code registered; the other **130 are DEFINED only** |
 | ACTIVE / SLEEPING / BLOCKED | 0 / 150 / 0 | every worker is at rest |
 | EXECUTED_TASKS | **24** | all from the two committed closed loops (`factory-receipts.json`: 2 loops, both ADMIT); 24 queue tasks DONE, 0 failed |
 | Executed by the 9 handler workers | 0 | handlers exist and are tested, but no handler task has been run and recorded in the registry yet |
@@ -28,7 +28,7 @@ AVAILABLE means handler code plus a capability, not "has done work". It comes fr
 
 | Worker | Capabilities |
 |---|---|
-| FORGE-026 KRATT Engineer | `kratt:hash-files`, `kratt:validate-manifest`, `kratt:run-test` |
+| FORGE-026 KRATT Engineer | `kratt:hash-files`, `kratt:validate-manifest`, `kratt:run-test`, `kratt:verify-runtime`, `kratt:diff-scope-check` |
 | SERPENT-051 RÄSTIK Commander | `rastik:run-probes` |
 | SERPENT-052 Input Fuzzer | `rastik:attack:invalid-input` |
 | SERPENT-053 Boundary Tester | `rastik:attack:boundary` |
@@ -88,3 +88,14 @@ AURA does ship a tested journal contract (`FrequencyPatternJournal`, `packages/a
 ## GOLIATH
 
 No GOLIATH control-plane specification exists in STEEL, STEEL-AURA-ULTIMA or goliathOS-2. This directory therefore defines **no** GOLIATH service; `GOLIATH-STAND-IN` code (when present) is a typed in-process caller and is not the real GOLIATH.
+
+## KRATT bounded handlers: verify-runtime, diff-scope-check
+
+Both run on FORGE-026 (the KRATT producer the trust gate already authorises), so AVAILABLE stays 20; the capability tokens go 23 -> 25 and the KRATT actions 3 -> 5. No empty handler is registered: every `kratt:*` token has an `executeTask` case, tests, RÄSTIK challenges and a TÖEPÄRA recomputation (`factory/tests/kratt-bounded-handlers.test.ts`).
+
+| Action | Task (closed schema) | Allowed | Forbidden | Receipt | TÖEPÄRA re-verification |
+|---|---|---|---|---|---|
+| `verify-runtime` | `{taskId, action}`; envelope scope must be exactly `["package.json"]` | in-process `verifyRuntime()` of `scripts/runtime-verify.mjs` (the same rules as `npm run runtime:verify`), reading only `fsSource(root)` (no absolute paths, no `..`, symlinks must resolve inside the root) | spawning anything (no npm, no shell), network, writes | artifact = package.json digest; stdoutSha256/outputBytes = the rendered report; checks = agreeing / drifting sources; failure `runtime-drift:<sources>` | re-runs the rules on **git objects at base_sha** (`runtimeSourceAt`, only runtime declaration files readable) and requires the same report digest, length and counts; an uncommitted "fix" in the working tree is therefore REJECTED |
+| `diff-scope-check` | `{taskId, action, commit: 40-hex, allowed: 1..64 unique repo-relative paths}`; from the envelope: commit = base_sha, allowed = scope | read-only `git cat-file / rev-parse / diff --no-ext-diff --no-textconv --no-renames --name-status -z <c>^1 <c>` (fixed argv, shell:false, minimal env, `core.fsmonitor=false`, 30 s timeout, 4 MB cap) | any change outside the allowed prefixes, dot-paths (never in scope), sibling prefixes (`src2` is not `src`), root commits, empty commits, deletion-only changes | artifacts = in-scope changed files hashed from the commit's blobs (<= 128); checks = in-scope / out-of-scope changes; failure `out-of-scope:<n>:<first path>` etc. | recomputes the change set with its own algorithm (`ls-tree -r` of commit and first parent compared in JS, not `git diff`) and requires the same artifact set, counts and outcome |
+
+RÄSTIK handler challenges (`ACTION_CASES` in `rastik-attacks.ts`, class tampered-evidence, run only against receipts of their own action, so the generic counts are unchanged): forged report digest, forged report length, inflated source count (verify-runtime); unchanged in-scope file listed as a change, inflated in-scope count, receipt replayed on a narrower lease (diff-scope-check). All are REPELLED by the real TÖEPÄRA + CERBERUS and all succeed against an accept-everything target.

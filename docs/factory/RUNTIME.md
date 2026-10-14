@@ -35,6 +35,10 @@ Exit code 0 for `RUNTIME_OK`, 1 for `RUNTIME_DRIFT`. Every mismatch names its ex
 ## Changing the Node major
 Update all sources in one change, then the contract constant `EXPECTED_MAJOR` in `scripts/runtime-verify.mjs` (and `scripts/node-pin.test.mjs` which pins `engines.node` to `<major>.x`). The verifier then proves nothing was left behind.
 
+## Factory use (KRATT `verify-runtime`)
+
+KRATT runs the same `verifyRuntime()` in-process as the bounded action `verify-runtime` (no npm, no shell). `fsSource(root)` confines reads to the repo (no absolute paths, no `..`, symlinks must resolve inside the root). TÖEPÄRA re-runs the rules on git objects at the receipt's base_sha through an injected source (`verifyRuntime({ source })`), so a working tree that differs from the commit cannot produce a VERIFIED result. See `factory/README.md`.
+
 ## Tests
 `scripts/runtime-verify.test.mjs` (covered by the `scripts/**/*.test.mjs` glob in `npm test`) uses temp-directory fixtures to prove that each mismatch kind is detected and named (local, `.nvmrc`, engines too wide / too narrow / wrong / missing, workflow wrong / matrix / expression / missing version / second workflow / none, `node-version-file`, devcontainer feature / image / build arg / unparseable, Dockerfile tag / unpinned / ARG / nested), that several mismatches are reported at once, that the real repository passes, that the CLI exits 1 on a drifted copy, and that the source contains no write, spawn or network API. Each detector was also mutation-checked by hand (removing the check makes a test fail).
 

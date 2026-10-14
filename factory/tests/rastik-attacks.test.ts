@@ -124,21 +124,8 @@ import { SCOPE, setup } from "./helpers.ts";
  * the `openDefect` flag of that case in factory/rastik-attacks.ts (the case then joins the default
  * battery and guards the fix) and the id below.
  */
-const OPEN_RECEIPT_DEFECTS = [
-  "boundary/timestamp-impossible-calendar-date",
-  "replay/replay-reordered-retimestamped",
-  "replay/replay-retimestamped",
-  "unauthorized-action/forged-role-cerberus-commander-produces-kratt-receipt",
-  "unauthorized-action/forged-role-rastik-commander-produces-kratt-receipt",
-  "unauthorized-action/forged-role-toepara-commander-produces-kratt-receipt",
-];
-const OPEN_FINAL_DEFECTS = [
-  "final-receipt/action-receipt-swapped-after-verification",
-  "final-receipt/decision-body-tampered-decision-digest-stale",
-  "final-receipt/decision-bound-to-other-toepara-evidence",
-  "final-receipt/rastik-report-tampered-evidence-digest-stale",
-  "final-receipt/toepara-bundle-body-tampered",
-];
+const OPEN_RECEIPT_DEFECTS: string[] = []; // all fixed (impossible timestamp, replay key, producer role); the cases now run in the default battery
+const OPEN_FINAL_DEFECTS: string[] = []; // all fixed (selfCheckFinalReceipt recomputes inner digests and cross-links)
 
 test("RÄSTIK v2: default battery (malformed, prototype pollution, confusables, traversal, substitution, forged trust, replay) is REPELLED by the real verifier, with >= 90 cases and no pollution", async () => {
   const { env, receipt } = await genuine();
@@ -176,9 +163,14 @@ test("RÄSTIK v2: real bypasses are CONFIRMED against the current verifier and m
   }
 });
 
-test("RÄSTIK v2: the generated regression test for a confirmed finding really fails today (only + includeOpenDefects reproduces the bypass)", async () => {
+test("RÄSTIK v2: the generated regression test for the (now fixed) replay finding is REPELLED by the real verifier and still reproduces against a verifier with no replay protection", async () => {
   const { env, receipt } = await genuine();
-  const r = await runAttackClass("replay", receipt, env, { target: real(), includeOpenDefects: true, only: "replay-retimestamped" });
+  const fixed = await runAttackClass("replay", receipt, env, { target: real(), includeOpenDefects: true, only: "replay-retimestamped" });
+  assert.equal(fixed.control_admitted, true);
+  assert.deepEqual(fixed.records.map((x) => `${x.case_id}:${x.outcome}`), ["replay-retimestamped:REPELLED"]);
+  assert.deepEqual(fixed.findings, []);
+  const weak: AttackTarget = async () => true;
+  const r = await runAttackClass("replay", receipt, env, { target: weak, includeOpenDefects: true, only: "replay-retimestamped" });
   assert.equal(r.control_admitted, true);
   assert.deepEqual(r.findings.map((f) => f.finding_id), ["RASTIK-RCPT-replay-replay-retimestamped"]);
   assert.match(r.findings[0]?.reproduction ?? "", /on two independent runs/);
@@ -406,14 +398,14 @@ test("RÄSTIK config collision: jsonDuplicateKeys finds duplicates at every dept
   assert.equal(jsonDuplicateKeys("[".repeat(100) + "]".repeat(100)), null, "depth bound");
 });
 
-test("RÄSTIK config collision: the real repo configuration is clean and every collision (17 cases) is REPELLED with a specific reason", () => {
+test("RÄSTIK config collision: the real repo configuration is clean and every collision (22 cases) is REPELLED with a specific reason", () => {
   const decl = readConfigDeclarations(ROOT);
   assert.deepEqual(configCollisionViolations(decl), [], "package.json must hold ONE test script that names/imports every test file; no gate bypass");
   assert.ok(decl.test_files.length >= 18 && decl.workflows.length >= 1);
   const r = runConfigCollisionAttacks(decl);
   assert.equal(r.control_clean, true);
   assert.equal(r.records.length, configCaseCount());
-  assert.equal(configCaseCount(), 17);
+  assert.equal(configCaseCount(), 22);
   assert.deepEqual(r.records.filter((x) => x.outcome !== "REPELLED").map((x) => `${x.case_id}:${x.outcome}`), []);
   assert.deepEqual(r.findings, []);
   const reason = (id: string) => r.records.find((x) => x.case_id === id)?.detail ?? "";
@@ -428,9 +420,24 @@ test("RÄSTIK config collision: the real repo configuration is clean and every c
   assert.match(reason("test-script-or-true"), /test-script-gate-bypass/);
   assert.match(reason("test-script-semicolon-true"), /test-script-gate-bypass/);
   assert.match(reason("test-script-drops-a-registered-test"), /unregistered-test:factory\/tests\/trust-gate\.test\.ts/);
+  assert.match(reason("test-runner-deleted"), /test-runner-missing/);
+  assert.match(reason("test-runner-excludes-a-security-test"), /unregistered-test:factory\/tests\/trust-gate\.test\.ts/);
+  assert.match(reason("test-runner-skips-the-factory-dir"), /unregistered-test:factory\/tests\/trust-gate\.test\.ts/);
+  assert.match(reason("test-runner-drops-the-exit-code"), /test-runner-exit-code-dropped/);
+  assert.match(reason("test-runner-narrows-the-test-pattern"), /test-runner-test-pattern-changed/);
   assert.match(reason("new-test-file-registered-nowhere"), /unregistered-test:factory\/tests\/new-security\.test\.ts/);
   assert.match(reason("workflow-continue-on-error"), /workflow-continue-on-error:/);
   assert.match(reason("workflow-run-or-true"), /workflow-run-gate-bypass:/);
+});
+
+test("RÄSTIK config collision: under the discovery runner a NEW test file is registered by discovery (no list to forget), but a missing/skipping/excluding runner is not", () => {
+  const decl = readConfigDeclarations(ROOT);
+  assert.match(decl.package_json as string, /"test": "node scripts\/run-tests\.mjs"/);
+  assert.ok(decl.runner !== null);
+  const withNew = { ...decl, test_files: [...decl.test_files, "factory/tests/brand-new.test.ts"], test_imports: { ...decl.test_imports, "factory/tests/brand-new.test.ts": [] } };
+  assert.deepEqual(configCollisionViolations(withNew), []);
+  assert.deepEqual(configCollisionViolations({ ...decl, runner: null }), ["test-runner-missing"]);
+  assert.deepEqual(configCollisionViolations({ ...decl, runner: `${decl.runner}\n<<<<<<< HEAD\n` }), ["test-runner-conflict-marker"]);
 });
 
 test("RÄSTIK config collision: not vacuous - an accept-all checker and a JSON.parse-only checker (what `npm` effectively does: last key wins) are attacked successfully, each finding CONFIRMED + schema-valid", () => {
@@ -524,9 +531,163 @@ test("RÄSTIK config collision (direct rules): an empty test script is test-scri
     workflows: [],
     test_files: files,
     test_imports: imports,
+    runner: null,
   });
   assert.deepEqual(configCollisionViolations(mk("", [], {})), ["test-script-missing"], "empty script, nothing else to blame");
+  assert.deepEqual(configCollisionViolations(mk("node scripts/run-tests.mjs", ["factory/tests/a.test.ts"], {})), ["test-runner-missing"], "the runner command registers nothing when the runner file is absent");
+  assert.deepEqual(configCollisionViolations(mk("node scripts/run-tests.mjs || true", [], {})), ["test-script-gate-bypass"], "a bypassed runner command is not the runner command, so it is judged as a named list");
   assert.deepEqual(configCollisionViolations(mk("   ", [], {})), ["test-script-missing"]);
   assert.deepEqual(configCollisionViolations(mk("node --test factory/tests/a.test.ts", ["factory/tests/a.test.ts", "factory/tests/b.test.ts", "factory/tests/c.test.ts"], { "factory/tests/a.test.ts": ["factory/tests/b.test.ts"], "factory/tests/b.test.ts": ["factory/tests/c.test.ts"], "factory/tests/c.test.ts": [] })), [], "a -> b -> c");
   assert.deepEqual(configCollisionViolations(mk("node --test factory/tests/a.test.ts", ["factory/tests/a.test.ts", "factory/tests/b.test.ts"], { "factory/tests/a.test.ts": [], "factory/tests/b.test.ts": [] })), ["unregistered-test:factory/tests/b.test.ts"]);
+});
+
+// ---------------------------------------------------------------------------------------------
+// P2: receipt-signature attacks (signature stripping, key substitution, tamper after signing, re-timestamped replay)
+// ---------------------------------------------------------------------------------------------
+import { realSignedReceiptTarget, runDecisionReceiptSignatureAttacks, runReceiptSignatureAttacks, signatureCaseCount, type SignedReceiptTarget } from "../rastik-attacks.ts";
+import { toeparaVerify as toeparaVerifySig } from "../toepara.ts";
+import { ephemeralEd25519 } from "./ephemeral-provider.ts";
+import { buildDecisionReceipt, digestJson as digestJsonSig } from "../../cerberus/receipts/decision-receipt.ts";
+
+const sigCtx = () => ({ root: ROOT, repository: REPO, rerun: new Map() });
+
+test("RÄSTIK receipt signatures: with the real TÖEPÄRA + a required Ed25519 policy every case (14) is REPELLED for the signature reason; control signed receipt VERIFIED", async () => {
+  const { env, receipt } = await genuine();
+  const signer = ephemeralEd25519();
+  const attacker = ephemeralEd25519(signer.name);
+  const policy = { verifier: signer, key_configured: true };
+  const r = await runReceiptSignatureAttacks(receipt, signer, attacker, realSignedReceiptTarget(env, sigCtx(), policy));
+  assert.equal(r.control_verified, true);
+  assert.equal(r.records.length, signatureCaseCount());
+  assert.equal(signatureCaseCount(), 14);
+  assert.deepEqual(r.records.filter((x) => x.outcome !== "REPELLED").map((x) => x.case_id), []);
+  assert.deepEqual(r.findings, []);
+  const detail = (id: string) => r.records.find((x) => x.case_id === id)?.detail ?? "";
+  assert.match(detail("signature-stripped"), /^INSUFFICIENT_EVIDENCE:receipt-signature-missing$/);
+  assert.match(detail("signature-stripped-and-retimestamped"), /^INSUFFICIENT_EVIDENCE:receipt-signature-missing$/);
+  for (const x of r.records.filter((y) => !y.case_id.startsWith("signature-stripped"))) assert.match(x.detail, /^REJECTED:.*receipt-signature-invalid/, x.case_id);
+});
+
+test("RÄSTIK receipt signatures: not vacuous - a target that ignores signatures and a presence/key-id-only checker are attacked successfully (CONFIRMED, schema-valid findings)", async () => {
+  const { env, receipt } = await genuine();
+  const signer = ephemeralEd25519();
+  const attacker = ephemeralEd25519(signer.name);
+  const ignoring: SignedReceiptTarget = async (rc) => {
+    const t = await toeparaVerifySig(env, rc, null, sigCtx());
+    return { verdict: t.verdict.verdict, reasons: t.verdict.reasons };
+  };
+  const a = await runReceiptSignatureAttacks(receipt, signer, attacker, ignoring);
+  const won = a.findings.map((f) => f.finding_id);
+  for (const id of ["signature-stripped", "signature-stripped-and-retimestamped", "key-substitution-attacker-key", "key-substitution-claims-trusted-key-id", "replay-signed-receipt-new-timestamp", "signature-from-other-receipt", "purpose-confusion-evidence-bundle", "signature-value-bit-flipped"]) assert.ok(won.includes(`RASTIK-SIG-${id}`), id);
+  for (const f of a.findings) {
+    assert.equal(f.status, "CONFIRMED");
+    assert.ok(validateRastikFinding(f).ok, f.finding_id);
+  }
+  const presenceOnly: SignedReceiptTarget = async (rc, s) => {
+    const sig = s as { key_id?: unknown } | null | undefined;
+    if (!sig || sig.key_id !== (await signer.sign("x"))?.key_id) return { verdict: "REJECTED", reasons: ["no-sig"] };
+    return ignoring(rc, s);
+  };
+  const b = await runReceiptSignatureAttacks(receipt, signer, attacker, presenceOnly);
+  const won2 = b.findings.map((f) => f.finding_id);
+  for (const id of ["key-substitution-claims-trusted-key-id", "replay-signed-receipt-new-timestamp", "signature-value-bit-flipped"]) assert.ok(won2.includes(`RASTIK-SIG-${id}`), id);
+  assert.ok(!won2.includes("RASTIK-SIG-signature-stripped"));
+  // a throwing target is fail-closed (control not verified => nothing claimed)
+  const t = await runReceiptSignatureAttacks(receipt, signer, attacker, async () => { throw new Error("x"); });
+  assert.equal(t.control_verified, false);
+  assert.deepEqual(t.findings, []);
+});
+
+test("RÄSTIK decision-receipt signatures: stripped, tampered+resealed, flipped, key substitution, purpose confusion are all REPELLED; an accept-all verifier loses key substitution (not vacuous)", async () => {
+  const ref = (s: string) => ({ state: "PRESENT" as const, digest: digestJsonSig(s) });
+  const d = buildDecisionReceipt({
+    task_id: "t-1",
+    proposed: "DENY",
+    reasons: ["policy-action-denied"],
+    evidence: { envelope: ref("e"), action_receipt: ref("a"), toepara_evidence: ref("t"), evidence_bundle: ref("b"), rastik_report: { state: "NOT_APPLICABLE" }, cerberus_receipt: ref("c") },
+    toepara_verdict: "VERIFIED",
+    cerberus_decision: "PROCEED",
+    stages: { input: "PASS", policy: "PASS", toepara: "PASS", trustGate: "PASS", artifactTrust: "PASS" },
+  } as never);
+  const signer = ephemeralEd25519();
+  const attacker = ephemeralEd25519(signer.name);
+  const r = await runDecisionReceiptSignatureAttacks(d, signer, attacker, signer);
+  assert.equal(r.control_signed, true);
+  assert.equal(r.records.length, 5);
+  assert.deepEqual(r.records.filter((x) => x.outcome !== "REPELLED").map((x) => x.case_id), []);
+  assert.equal(r.records.find((x) => x.case_id === "decision-signature-stripped")?.detail, "UNSIGNED");
+  const lenient = { name: signer.name, verify: async () => true };
+  const w = await runDecisionReceiptSignatureAttacks(d, signer, attacker, lenient);
+  assert.deepEqual(w.records.filter((x) => x.outcome === "SUCCEEDED").map((x) => x.case_id), ["decision-key-substitution"], "binding (purpose/subject) holds even with a lenient verifier; only the key check is the verifier's");
+import { decideWithAdaptersAsync, stubAdapter } from "../../cerberus/integrations/verdict-adapters.ts";
+import { sha256Hex } from "../../cerberus/artifact-trust/artifact-trust.ts";
+import { ASYNC_GATE_TIMEOUT_MS, asyncGateCaseCount, cerberusAsyncTarget, factoryResolveTarget, runAsyncTrustGateAttacks, type AsyncGateTarget } from "../rastik-async-gate.ts";
+
+const REQUIRED_ASYNC_GATE_CASES = ["hang-forever", "sync-throw", "async-reject", "slow-authorized-after-deadline", "malformed-object-verdict", "malformed-null", "malformed-padded"];
+
+for (const [name, target] of [["cerberus core decideWithAdaptersAsync", cerberusAsyncTarget], ["factory resolveTrustGate", factoryResolveTarget]] as const) {
+  test(`RÄSTIK async Trust Gate (${name}): hang / throw / reject / slow-AUTHORIZED-after-deadline / malformed all FAIL_CLOSED within the deadline; the prompt AUTHORIZED control PROCEEDs`, async () => {
+    const r = await runAsyncTrustGateAttacks(target, { targetName: name });
+    assert.equal(r.control_proceeds, true, "control must PROCEED, otherwise the battery is vacuous");
+    assert.equal(r.records.length, asyncGateCaseCount());
+    for (const id of REQUIRED_ASYNC_GATE_CASES) assert.ok(r.records.some((x) => x.case_id === id), `case ${id} present`);
+    assert.deepEqual(r.findings.map((f) => f.finding_id), []);
+    for (const x of r.records) {
+      assert.equal(x.outcome, "REPELLED", x.case_id);
+      assert.notEqual(x.decision, "PROCEED", x.case_id);
+      assert.ok(x.elapsed_ms < 900, `${x.case_id} decided in ${x.elapsed_ms} ms (deadline ${ASYNC_GATE_TIMEOUT_MS})`);
+    }
+  });
+}
+
+test("RÄSTIK async Trust Gate non-vacuity: a gate wrapper with NO deadline is caught (slow AUTHORIZED => CONFIRMED PROCEED, hang => HUNG); a lenient malformed check is caught; a broken control reports nothing", async () => {
+  const noDeadline: AsyncGateTarget = async (g) => ((await g.verdict({} as never, new AbortController().signal)) === "AUTHORIZED" ? "PROCEED" : "FAIL_CLOSED");
+  const slow = await runAsyncTrustGateAttacks(noDeadline, { only: "slow-authorized-after-deadline" });
+  assert.equal(slow.control_proceeds, true);
+  assert.equal(slow.records[0]?.outcome, "SUCCEEDED");
+  assert.equal(slow.findings[0]?.status, "CONFIRMED");
+  assert.equal(slow.findings[0]?.severity, "critical");
+  const sv = validateRastikFinding(slow.findings[0]);
+  assert.ok(sv.ok, sv.ok ? "" : sv.reason);
+  const hang = await runAsyncTrustGateAttacks(noDeadline, { only: "hang-forever" });
+  assert.equal(hang.records[0]?.outcome, "HUNG");
+  assert.equal(hang.findings.length, 1);
+  // a target with a correct deadline but a LENIENT verdict check (unwraps / trims / upper-cases the answer)
+  const lenient: AsyncGateTarget = (g, ms) => cerberusAsyncTarget({ name: "lenient", verdict: async (e, s) => {
+    const v = await g.verdict(e, s);
+    return String(Array.isArray(v) ? v[0] : (v as { verdict?: unknown } | null)?.verdict ?? v).trim().toUpperCase();
+  } }, ms);
+  const malformed = await runAsyncTrustGateAttacks(lenient);
+  assert.deepEqual(malformed.findings.map((f) => f.finding_id).sort(), ["RASTIK-ASYNC-GATE-malformed-array", "RASTIK-ASYNC-GATE-malformed-boxed-string", "RASTIK-ASYNC-GATE-malformed-lowercase", "RASTIK-ASYNC-GATE-malformed-object-verdict", "RASTIK-ASYNC-GATE-malformed-padded"]);
+  const throwsOut: AsyncGateTarget = async (g) => String(await g.verdict({} as never, new AbortController().signal)) === "AUTHORIZED" ? "PROCEED" : "FAIL_CLOSED";
+  assert.ok((await runAsyncTrustGateAttacks(throwsOut, { only: "sync-throw" })).findings.length === 1, "a target that lets the gate's throw escape is reported");
+  const broken = await runAsyncTrustGateAttacks(async () => "FAIL_CLOSED");
+  assert.equal(broken.control_proceeds, false);
+  assert.deepEqual([broken.records.length, broken.findings.length], [0, 0]);
+});
+
+test("cerberus async adapter seam (direct): invalid timeouts deny without calling the gate, a missing gate denies, a timed-out gate is aborted, no deadline timer outlives the call", async () => {
+  const content = "seam";
+  const input = { action: "detect", toepara: "ADMITTED", trustGate: "AUTHORIZED", artifact: { name: "s.json", content, sha256: sha256Hex(content) } };
+  const toepara = stubAdapter("toepara", "ADMITTED");
+  let calls = 0;
+  const counting = { name: "count", verdict: () => { calls += 1; return "AUTHORIZED"; } };
+  for (const t of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 60_001, "50" as unknown as number]) {
+    const r = await decideWithAdaptersAsync(input, { toepara, trustGate: counting }, { timeoutMs: t });
+    assert.equal(r.receipt.decision, "FAIL_CLOSED", `timeoutMs=${String(t)}`);
+    assert.deepEqual(r.outcomes, { toepara: "invalid-timeout", trustGate: "invalid-timeout" });
+  }
+  assert.equal(calls, 0, "no adapter is consulted under an invalid timeout");
+  assert.equal((await decideWithAdaptersAsync(input, { toepara, trustGate: counting }, { timeoutMs: 60_000 })).receipt.decision, "PROCEED", "the upper bound itself is valid");
+  const missing = await decideWithAdaptersAsync(input, { toepara } as never);
+  assert.equal(missing.receipt.decision, "FAIL_CLOSED");
+  assert.equal(missing.outcomes.trustGate, "missing");
+  let seen: AbortSignal | null = null;
+  const hung = await decideWithAdaptersAsync(input, { toepara, trustGate: { name: "hang", verdict: (_e: unknown, s: AbortSignal) => { seen = s; return new Promise(() => {}); } } }, { timeoutMs: 20 });
+  assert.equal(hung.outcomes.trustGate, "timeout");
+  assert.equal((seen as AbortSignal | null)?.aborted, true, "the gate is told to stop at the deadline");
+  const timers = (): number => process.getActiveResourcesInfo().filter((x) => x === "Timeout").length;
+  const before = timers();
+  for (let i = 0; i < 5; i++) await decideWithAdaptersAsync(input, { toepara, trustGate: counting }); // default 2000 ms deadline, prompt answer
+  assert.equal(timers(), before, "every deadline timer is cleared once the gate answers");
 });

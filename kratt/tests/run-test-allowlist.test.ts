@@ -241,7 +241,6 @@ describe("file-identity rules", () => {
 describe("run-test executes a pinned private snapshot, never a re-resolvable path (audit TOCTOU)", () => {
   const GOOD_SLOW = `import { test } from "node:test"; test("good", async () => { await new Promise((r) => setTimeout(r, 300)); });`;
   const EVIL = `import { test } from "node:test"; test("evil", async () => { throw new Error("EVIL_RAN"); });`;
-  const snapDirs = () => readdirSync(tmpdir()).filter((n) => n.startsWith("kratt-snap-")).sort();
 
   it("content swapped in the repo right after the run starts is NOT what executes: the child runs the validated bytes (exit 0), the swap is reported as tampering", async () => {
     const root = fixture({ "kratt/tests/t.test.mjs": GOOD_SLOW });
@@ -310,14 +309,33 @@ test("imports", () => { assert.equal(VALUE, 42); assert.equal(readFileSync("data
   });
 
   it("the snapshot is private and removed: no kratt-snap-* directory is left behind after pass, fail, timeout or refusal", async () => {
-    const before = snapDirs();
-    const root = fixture({ "kratt/tests/p.test.mjs": PASS, "kratt/tests/f.test.mjs": `import { test } from "node:test"; test("f", () => { throw new Error("x"); });`, "kratt/tests/h.test.mjs": `setInterval(() => {}, 1000);`, "scripts/n.test.mjs": PASS });
-    await run(root, "kratt/tests/p.test.mjs");
-    await run(root, "kratt/tests/f.test.mjs");
-    const t = valid("kratt/tests/h.test.mjs");
-    await executeTask(root, { ...t, timeoutMs: 300 });
-    await run(root, "scripts/n.test.mjs");
-    assert.deepEqual(snapDirs(), before);
+    // Isolation: os.tmpdir() honours TMPDIR at call time, so the snapshots of THIS test go to a private directory that no
+    // other process writes to. Listing the shared /tmp raced with concurrent test runs on the same host (flaky).
+    const privateTmp = realpathSync(mkdtempSync(join(tmpdir(), "kratt-snaptest-")));
+    const savedTmp = process.env.TMPDIR;
+    process.env.TMPDIR = privateTmp;
+    const seen = new Set<string>();
+    const poll = setInterval(() => {
+      for (const n of readdirSync(privateTmp)) if (n.startsWith("kratt-snap-")) seen.add(n);
+    }, 10);
+    try {
+      assert.equal(tmpdir(), privateTmp, "the code under test resolves its temp root through os.tmpdir()");
+      const root = fixture({ "kratt/tests/p.test.mjs": PASS, "kratt/tests/f.test.mjs": `import { test } from "node:test"; test("f", () => { throw new Error("x"); });`, "kratt/tests/h.test.mjs": `setInterval(() => {}, 1000);`, "scripts/n.test.mjs": PASS });
+      await run(root, "kratt/tests/p.test.mjs");
+      await run(root, "kratt/tests/f.test.mjs");
+      const t = valid("kratt/tests/h.test.mjs");
+      await executeTask(root, { ...t, timeoutMs: 300 });
+      await run(root, "scripts/n.test.mjs");
+      // not vacuous: snapshots really were created in the private dir (the 300 ms timeout run is long enough to observe one)
+      assert.ok(seen.size >= 1, "no snapshot was ever observed in the private temp dir");
+      // the assertion itself is unchanged in strength: the private dir must end up with NO kratt-snap-* entry at all
+      assert.deepEqual(readdirSync(privateTmp).filter((n) => n.startsWith("kratt-snap-")), []);
+    } finally {
+      clearInterval(poll);
+      if (savedTmp === undefined) delete process.env.TMPDIR;
+      else process.env.TMPDIR = savedTmp;
+      rmSync(privateTmp, { recursive: true, force: true });
+    }
   });
 
   it("the snapshot cannot be written by the test itself (permission model: no writes) and is not the repo file", async () => {

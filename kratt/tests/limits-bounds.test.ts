@@ -37,7 +37,7 @@ const reason = (t: unknown) => {
 
 describe("declared limits are the documented ones", () => {
   it("LIMITS constants and exported byte caps", () => {
-    assert.deepEqual({ ...LIMITS }, { maxFiles: 64, minTimeoutMs: 100, maxTimeoutMs: 60_000, minOutputBytes: 1024, maxOutputBytes: 1_048_576 });
+    assert.deepEqual({ ...LIMITS }, { maxFiles: 64, minTimeoutMs: 100, maxTimeoutMs: 60_000, minOutputBytes: 1024, maxOutputBytes: 1_048_576, maxAllowed: 64 });
     assert.equal(MAX_FILE_BYTES, 8 * MiB);
     assert.equal(MAX_MANIFEST_BYTES, 256 * 1024);
   });
@@ -51,6 +51,14 @@ describe("schema bounds: last-accepted / first-rejected", () => {
     assert.equal(reason({ taskId: "t", action: "hash-files", files: mk(63) }), "ok");
     assert.equal(reason({ taskId: "t", action: "hash-files", files: mk(64) }), "ok");
     assert.equal(reason({ taskId: "t", action: "hash-files", files: mk(65) }), "files-count-invalid");
+  });
+
+  it("diff-scope-check allowed count: 0 rejected, 1 and 64 accepted, 65 rejected", () => {
+    const mk = (n: number) => ({ taskId: "t", action: "diff-scope-check", commit: "a".repeat(40), allowed: Array.from({ length: n }, (_, i) => `d${i}`) });
+    assert.equal(reason(mk(0)), "allowed-count-invalid");
+    assert.equal(reason(mk(1)), "ok");
+    assert.equal(reason(mk(64)), "ok");
+    assert.equal(reason(mk(65)), "allowed-count-invalid");
   });
 
   it("run-test timeoutMs: 99 rejected, 100 accepted, 60000 accepted, 60001 rejected", () => {

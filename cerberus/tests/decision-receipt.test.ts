@@ -111,6 +111,9 @@ test("DECISION RECEIPT (tamper): flipping DENY->ADMIT, rewriting a stage/verdict
   const v = verifyDecisionReceipt(forged);
   assert.equal(v.ok, false);
   assert.ok(v.problems.some((p) => p.startsWith("proceed-invariant:toepara-verdict-not-verified")), v.problems.join(","));
+  // evidence changed but the binding digest left stale, receipt_digest re-sealed: the binding digest itself is checked
+  const stale = mut(admit, (c) => { c.evidence.rastik_report = { state: "NOT_APPLICABLE", digest: null }; const { receipt_digest: _d, ...b } = c; void _d; c.receipt_digest = digestJson(b); });
+  assert.ok(verifyDecisionReceipt(stale).problems.includes("evidence-binding-digest"), verifyDecisionReceipt(stale).problems.join(","));
   for (const junk of [null, undefined, 5, "x", [], {}]) assert.equal(verifyDecisionReceipt(junk).ok, false);
 });
 

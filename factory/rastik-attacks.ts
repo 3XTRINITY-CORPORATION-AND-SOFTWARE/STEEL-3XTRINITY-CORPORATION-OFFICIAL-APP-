@@ -9,9 +9,11 @@ import { blobDigest, commitExists } from "./git.ts";
 import { digestOf, type ActionReceipt, type RastikFinding, type Severity, type TaskEnvelope } from "./protocol/types.ts";
 import { rastikEvidenceDigest, type AttackRecord, type ProbeSummary, type RastikRun } from "./rastik-types.ts";
 import { toeparaVerify, type ToeparaCtx } from "./toepara.ts";
+import { decisionReceiptSignatureStatus, signActionReceipt, signDecisionReceipt, signSubject, type ReceiptSigner, type ReceiptSigningPolicy, type ReceiptVerifier, type Signature } from "./signing.ts";
+import { digestJson } from "../cerberus/receipts/decision-receipt.ts";
 import { spawnSync } from "node:child_process";
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { join, sep } from "node:path";
 
 /**
  * RÄSTIK stage against ONE exact action receipt.
@@ -36,6 +38,11 @@ interface Case {
    * the fix. They are NEVER skipped by weakening a gate; the verifier still evaluates them.
    */
   openDefect?: { component: string };
+  /**
+   * Action-specific challenge: only run against receipts of this KRATT action (never counted by caseCount() without an
+   * action, so the generic battery's pinned counts are unchanged).
+   */
+  action?: (typeof KRATT_ACTIONS)[number];
   /** Candidate sequence; acceptance of the LAST one is the hypothesis. */
   build: (g: ActionReceipt, e: TaskEnvelope) => { seq: unknown[]; envelope?: unknown } | null;
 }
@@ -249,7 +256,6 @@ const V2: Record<AttackClass, Case[]> = {
       id: "timestamp-impossible-calendar-date",
       hypothesis: "timestamp 2026-13-45T99:99:99Z (matches the ISO regex, is not a date) is admitted",
       fix: "After the ISO_UTC regex, also require !Number.isNaN(Date.parse(v)) and a round-trip toISOString() check in the ActionReceipt timestamp spec.",
-      openDefect: { component: "factory/protocol/types.ts (ActionReceipt.timestamp = ISO_UTC regex only)" },
       build: (g) => one(g, (c) => { c.timestamp = "2026-13-45T99:99:99Z"; }),
     },
     { id: "scope-0-entries", hypothesis: "an empty scope is admitted", fix: "scope minItems 1.", build: (g, e) => both(g, e, (r, env) => { r.scope = []; env.scope = []; }) },
@@ -295,9 +301,12 @@ const V2: Record<AttackClass, Case[]> = {
       hypothesis: "evidence whose first artifact is a different file with its REAL digest (not in scope; digest re-sealed) is admitted",
       fix: "Artifacts must equal the envelope scope exactly.",
       build: (g) => {
-        const d = blobDigest(parentRoot, g.base_sha, "package.json");
-        if (d === null) return null;
-        return one(g, (c) => { c.evidence.artifacts[0] = { name: "package.json", sha256: d.sha256, bytes: d.bytes }; c.evidence.artifacts.sort((x: Any, y: Any) => (x.name < y.name ? -1 : x.name > y.name ? 1 : 0)); reseal(c.evidence); });
+        // the foreign file must differ from the first artifact, else the "substitution" is a no-op (verify-runtime's only artifact IS package.json)
+        const first = (g as Any).evidence?.artifacts?.[0]?.name;
+        const foreign = ["package.json", "tsconfig.json"].find((n) => n !== first);
+        const d = foreign === undefined ? null : blobDigest(parentRoot, g.base_sha, foreign);
+        if (d === null || foreign === undefined) return null;
+        return one(g, (c) => { c.evidence.artifacts[0] = { name: foreign, sha256: d.sha256, bytes: d.bytes }; c.evidence.artifacts.sort((x: Any, y: Any) => (x.name < y.name ? -1 : x.name > y.name ? 1 : 0)); reseal(c.evidence); });
       },
     },
     {
@@ -330,21 +339,18 @@ const V2: Record<AttackClass, Case[]> = {
       id: "forged-role-toepara-commander-produces-kratt-receipt",
       hypothesis: "a KRATT action receipt/envelope issued to CITADEL-101 (the TÖEPÄRA commander) is admitted: the verifier certifies work that its own role produced",
       fix: "In localPolicyTrustGate (and TÖEPÄRA identity checks) require agent_id to hold the capability `kratt:<action>` per CAPABILITIES (FORGE-026 only) and reject CITADEL-1xx as producer of a KRATT receipt.",
-      openDefect: { component: "factory/cerberus-gate.ts localPolicyTrustGate + factory/toepara.ts identity checks (no producer-capability / separation-of-duty check)" },
       build: (g, e) => both(g, e, (r, env) => { r.agent_id = env.agent_id = "CITADEL-101"; env.factory = "CITADEL"; }),
     },
     {
       id: "forged-role-cerberus-commander-produces-kratt-receipt",
       hypothesis: "a KRATT action receipt/envelope issued to CITADEL-111 (the CERBERUS commander) is admitted by CERBERUS itself",
       fix: "Same as forged-role-toepara-commander: producer must hold `kratt:<action>`; the deciding role may not be the producing role.",
-      openDefect: { component: "factory/cerberus-gate.ts localPolicyTrustGate (no producer-capability / separation-of-duty check)" },
       build: (g, e) => both(g, e, (r, env) => { r.agent_id = env.agent_id = "CITADEL-111"; env.factory = "CITADEL"; }),
     },
     {
       id: "forged-role-rastik-commander-produces-kratt-receipt",
       hypothesis: "a KRATT action receipt/envelope issued to SERPENT-051 (the RÄSTIK commander, the attacker) is admitted",
       fix: "Producer must hold `kratt:<action>`; an attacker role may not produce the evidence it attacks.",
-      openDefect: { component: "factory/cerberus-gate.ts localPolicyTrustGate (no producer-capability check)" },
       build: (g, e) => both(g, e, (r, env) => { r.agent_id = env.agent_id = "SERPENT-051"; env.factory = "SERPENT"; }),
     },
     { id: "envelope-factory-prefix-mismatch", hypothesis: "an envelope whose factory (SERPENT) does not match its agent_id prefix (FORGE) is admitted", fix: "validateEnvelope: agent_id must start with `${factory}-`.", build: (g, e) => both(g, e, (_r, env) => { env.factory = "SERPENT"; }) },
@@ -377,14 +383,12 @@ const V2: Record<AttackClass, Case[]> = {
       id: "replay-retimestamped",
       hypothesis: "the identical receipt with only its timestamp changed is admitted a second time (replay guard keyed on a digest that covers the timestamp)",
       fix: "Key the replay guard on the stable identity of the work, e.g. digestOf({task_id, action, base_sha, kratt_evidence_digest}), not on bundle_digest (which covers receipt.timestamp); or reject non-monotonic/duplicate task_id.",
-      openDefect: { component: "factory/cerberus-gate.ts replay guard (ctx.guard.consume(freshBundle.bundle_digest)); bundle_digest covers receipt.timestamp" },
       build: (g) => ({ seq: [clone(g), retimestamp(g, "2030-01-01T00:00:00.000Z")] }),
     },
     {
       id: "replay-reordered-retimestamped",
       hypothesis: "a re-timestamped copy, then the original, then another re-timestamped copy are all admitted (reordered replay; last one decides)",
       fix: "Same as replay-retimestamped: replay guard must be independent of receipt.timestamp.",
-      openDefect: { component: "factory/cerberus-gate.ts replay guard (ctx.guard.consume(freshBundle.bundle_digest)); bundle_digest covers receipt.timestamp" },
       build: (g) => ({ seq: [retimestamp(g, "2029-01-01T00:00:00Z"), clone(g), retimestamp(g, "2031-01-01T00:00:00Z")] }),
     },
     { id: "replay-against-other-task-envelope", hypothesis: "a valid receipt replayed against the envelope of a different task is admitted", fix: "receipt.task_id must equal envelope.task_id.", build: (g, e) => ({ seq: [clone(g)], envelope: { ...clone(e), task_id: `${e.task_id}-b`.slice(0, 64) } }) },
@@ -392,6 +396,89 @@ const V2: Record<AttackClass, Case[]> = {
   ],
 };
 for (const cls of Object.keys(V2) as AttackClass[]) CASES[cls].push(...V2[cls]);
+
+// ---------------------------------------------------------------------------------------------
+// Handler challenges (verify-runtime, diff-scope-check): self-consistent forgeries of exactly the
+// claim each handler makes. Every one must be caught by TÖEPÄRA's own recomputation from git objects.
+// ---------------------------------------------------------------------------------------------
+/** A committed file inside the envelope scope that the receipt does NOT list (i.e. one the commit did not change). */
+const unchangedInScopeFile = (g: ActionReceipt): string | null => {
+  if (parentRoot === "" || !/^[0-9a-f]{40}$/.test(g.base_sha) || !Array.isArray(g.scope) || g.scope.length === 0) return null;
+  const r = spawnSync("git", ["ls-tree", "-r", "-z", "--name-only", "--full-tree", g.base_sha, "--", ...g.scope], { cwd: parentRoot, shell: false, encoding: "utf8", timeout: 30_000, maxBuffer: 4 * 1024 * 1024 });
+  if (r.status !== 0 || typeof r.stdout !== "string") return null;
+  const listed = new Set<string>(((g.evidence as Any)?.artifacts ?? []).map((a: Any) => a.name));
+  return r.stdout.split("\0").filter((p) => p !== "" && !listed.has(p) && !p.split("/").some((seg) => seg.startsWith("."))).sort()[0] ?? null;
+};
+const ACTION_CASES: Partial<Record<AttackClass, Case[]>> = {
+  "tampered-evidence": [
+    {
+      id: "verify-runtime-forged-report-digest",
+      action: "verify-runtime",
+      hypothesis: "a verify-runtime receipt whose report digest (stdoutSha256) is not the report the committed sources produce (digest re-sealed) is admitted",
+      fix: "TÖEPÄRA re-runs the verifier on git objects at base_sha and compares the rendered report digest (runtime-report-recomputed-from-git).",
+      build: (g) => one(g, (c) => { c.evidence.stdoutSha256 = flip(c.evidence.stdoutSha256); reseal(c.evidence); }),
+    },
+    {
+      id: "verify-runtime-forged-report-length",
+      action: "verify-runtime",
+      hypothesis: "a verify-runtime receipt claiming a different report length (re-sealed) is admitted",
+      fix: "Report byte length is recomputed from git objects (runtime-report-recomputed-from-git).",
+      build: (g) => one(g, (c) => { c.evidence.outputBytes += 1; reseal(c.evidence); }),
+    },
+    {
+      id: "verify-runtime-inflated-source-count",
+      action: "verify-runtime",
+      hypothesis: "a verify-runtime receipt claiming one more agreeing source than exist (self-consistent counts) is admitted",
+      fix: "Source counts are recomputed (runtime-counts-recomputed).",
+      build: (g) => one(g, (c) => { forgeChecks(c, c.result.checks.pass + 1, 0); }),
+    },
+    {
+      id: "diff-scope-unchanged-file-listed-as-change",
+      action: "diff-scope-check",
+      hypothesis: "a diff-scope-check receipt listing an in-scope file the commit did NOT change (real digest, self-consistent counts) is admitted",
+      fix: "TÖEPÄRA recomputes the changed set from both trees (diff-scope-artifacts-recomputed, diff-scope-counts-recomputed).",
+      build: (g) => {
+        const name = unchangedInScopeFile(g);
+        const d = name === null ? null : blobDigest(parentRoot, g.base_sha, name);
+        if (name === null || d === null) return null;
+        return one(g, (c) => {
+          c.evidence.artifacts.push({ name, sha256: d.sha256, bytes: d.bytes });
+          c.evidence.artifacts.sort((x: Any, y: Any) => (x.name < y.name ? -1 : x.name > y.name ? 1 : 0));
+          forgeChecks(c, c.result.checks.pass + 1, 0);
+        });
+      },
+    },
+    {
+      id: "diff-scope-inflated-in-scope-count",
+      action: "diff-scope-check",
+      hypothesis: "a diff-scope-check receipt claiming one more in-scope change than the commit has (self-consistent counts) is admitted",
+      fix: "In-scope change count is recomputed from both trees (diff-scope-counts-recomputed).",
+      build: (g) => one(g, (c) => { forgeChecks(c, c.result.checks.pass + 1, 0); }),
+    },
+    {
+      id: "diff-scope-replayed-on-narrower-lease",
+      action: "diff-scope-check",
+      hypothesis: "a genuine diff-scope-check receipt re-labelled with a narrower allowed scope (receipt and envelope agree, digests re-sealed) is admitted although the commit changed files outside it",
+      fix: "TÖEPÄRA recomputes the in/out split for the envelope's scope (diff-scope-out-of-scope-recomputed via counts/outcome) and the artifact set.",
+      build: (g, e) => {
+        const names: string[] = ((g.evidence as Any)?.artifacts ?? []).map((a: Any) => a.name);
+        if (names.length < 2) return null;
+        const keep = [names[0] as string];
+        return both(g, e, (r, env) => {
+          r.scope = keep;
+          env.scope = keep;
+          r.evidence.artifacts = r.evidence.artifacts.filter((a: Any) => a.name === keep[0]);
+          forgeChecks(r, 1, 0);
+        });
+      },
+    },
+  ],
+};
+for (const cls of Object.keys(ACTION_CASES) as AttackClass[]) CASES[cls].push(...(ACTION_CASES[cls] ?? []));
+/** Ids of the action-specific handler challenges, per KRATT action. */
+export function actionChallengeIds(action: string): string[] {
+  return ATTACK_CLASSES_LIST.flatMap((cls) => CASES[cls].filter((c) => c.action === action).map((c) => `${cls}/${c.id}`));
+}
 
 let parentCache: Map<string, string | null> = new Map();
 let parentRoot = "";
@@ -464,7 +551,7 @@ export async function runAttackClass(
   // Control: the unmutated receipt must be admitted, otherwise "everything was repelled" proves nothing.
   const control_admitted = await attempt([clone(good)], clone(envelope));
   if (!control_admitted) return { records, findings, control_admitted };
-  for (const c of selectCases(cls, deps)) {
+  for (const c of selectCases(cls, { ...deps, action: good?.action })) {
     const built = c.build(clone(good), clone(envelope));
     if (built === null) continue; // case not applicable (e.g. no parent commit in a shallow clone): not counted
     const env = built.envelope ?? clone(envelope);
@@ -510,7 +597,7 @@ export function realAttackTarget(base: ToeparaCtx): AttackTarget {
 export function describeCases(good: ActionReceipt, envelope: TaskEnvelope, o: { includeOpenDefects?: boolean } = {}): { attack_id: string; applicable: boolean; changed: boolean }[] {
   const out: { attack_id: string; applicable: boolean; changed: boolean }[] = [];
   for (const cls of ATTACK_CLASSES_LIST)
-    for (const c of selectCases(cls, o)) {
+    for (const c of selectCases(cls, { ...o, action: good?.action })) {
       const built = c.build(clone(good), clone(envelope));
       if (built === null) {
         out.push({ attack_id: `${cls}/${c.id}`, applicable: false, changed: false });
@@ -543,8 +630,8 @@ export function openDefectCases(): { attack_id: string; component: string }[] {
   return ATTACK_CLASSES_LIST.flatMap((cls) => CASES[cls].filter((c) => c.openDefect).map((c) => ({ attack_id: `${cls}/${c.id}`, component: c.openDefect?.component ?? "" })));
 }
 
-function selectCases(cls: AttackClass, o: { includeOpenDefects?: boolean; only?: string }): Case[] {
-  return CASES[cls].filter((c) => (o.includeOpenDefects === true || !c.openDefect) && (o.only === undefined || c.id === o.only));
+function selectCases(cls: AttackClass, o: { includeOpenDefects?: boolean; only?: string; action?: unknown }): Case[] {
+  return CASES[cls].filter((c) => (o.includeOpenDefects === true || !c.openDefect) && (o.only === undefined || c.id === o.only) && (c.action === undefined || c.action === o.action));
 }
 
 /** Existing RÄSTIK probes selected by the receipt's scope (real code, real cases). */
@@ -606,7 +693,6 @@ interface FinalCase {
   noReseal?: boolean;
 }
 
-const LOOP_SELF_CHECK = "factory/loop.ts selfCheckFinalReceipt (checks final_digest + 4 flags only; inner digests and cross-links are not recomputed)";
 const FINAL_FIX =
   "In selfCheckFinalReceipt also: validateCerberusDecision + recompute decision_digest = digestOf(decision minus decision_digest); decision.toepara_evidence_digest === toepara.verdict.evidence_digest; validateEvidenceBundle + recompute bundle_digest; bundle.action_receipt_digest === digestOf(action_receipt); rastikEvidenceDigest recompute.";
 
@@ -623,35 +709,30 @@ const FINAL_CASES: FinalCase[] = [
     id: "decision-body-tampered-decision-digest-stale",
     hypothesis: "a CERBERUS decision whose reasons were edited (decision_digest left stale, final_digest re-sealed) passes the self-check",
     fix: FINAL_FIX,
-    openDefect: { component: LOOP_SELF_CHECK },
     mutate: (r) => { r.cerberus.decision.reasons = [...r.cerberus.decision.reasons, "attacker-edited"]; },
   },
   {
     id: "decision-bound-to-other-toepara-evidence",
     hypothesis: "a CERBERUS decision pointing at a different TÖEPÄRA evidence digest (evidence substitution between tasks; re-sealed) passes the self-check",
     fix: FINAL_FIX,
-    openDefect: { component: LOOP_SELF_CHECK },
     mutate: (r) => { r.cerberus.decision.toepara_evidence_digest = flip(r.cerberus.decision.toepara_evidence_digest); },
   },
   {
     id: "toepara-bundle-body-tampered",
     hypothesis: "a TÖEPÄRA bundle whose source digest was swapped (bundle_digest left stale, re-sealed) passes the self-check",
     fix: FINAL_FIX,
-    openDefect: { component: LOOP_SELF_CHECK },
     mutate: (r) => { r.toepara.bundle.source_digests[0].sha256 = flip(r.toepara.bundle.source_digests[0].sha256); },
   },
   {
     id: "action-receipt-swapped-after-verification",
     hypothesis: "an action receipt edited after TÖEPÄRA verified it (bundle.action_receipt_digest no longer matches; re-sealed) passes the self-check",
     fix: FINAL_FIX,
-    openDefect: { component: LOOP_SELF_CHECK },
     mutate: (r) => { r.action_receipt.agent_id = "CITADEL-111"; },
   },
   {
     id: "rastik-report-tampered-evidence-digest-stale",
     hypothesis: "a RÄSTIK report whose findings/cases were edited (evidence_digest stale; re-sealed) passes the self-check",
     fix: FINAL_FIX,
-    openDefect: { component: LOOP_SELF_CHECK },
     mutate: (r) => { r.rastik.cases_executed += 1; },
   },
 ];
@@ -783,12 +864,34 @@ export function runtimeDriftViolations(d: RuntimeDeclarations): string[] {
   return why;
 }
 
+/**
+ * `root/rel` resolved with symlinks followed, or null when it does not exist or resolves OUTSIDE `root` (a committed
+ * symlink to /etc/... or ../.. must read as "absent", never as repository content).
+ */
+function confined(root: string, rel: string): string | null {
+  try {
+    const base = realpathSync(root);
+    const real = realpathSync(join(base, rel));
+    return real === base || real.startsWith(base + sep) ? real : null;
+  } catch {
+    return null;
+  }
+}
+/** As `confined`, for a directory to list: throws (callers treat it as "no such directory") when absent or outside root. */
+function confinedDir(root: string, rel: string): string {
+  const d = confined(root, rel);
+  if (d === null) throw new Error("absent-or-outside-root");
+  return d;
+}
+
 /** Bounded read of the real declarations under `root` (no network, no writes). */
 export function readRuntimeDeclarations(root: string): RuntimeDeclarations {
   const rd = (p: string): string | null => {
     try {
-      const st = statSync(join(root, p));
-      return st.isFile() && st.size <= 262_144 ? readFileSync(join(root, p), "utf8") : null;
+      const real = confined(root, p);
+      if (real === null) return null;
+      const st = statSync(real);
+      return st.isFile() && st.size <= 262_144 ? readFileSync(real, "utf8") : null;
     } catch {
       return null;
     }
@@ -811,7 +914,7 @@ export function readRuntimeDeclarations(root: string): RuntimeDeclarations {
   })();
   const ci: string[] = [];
   try {
-    for (const f of readdirSync(join(root, ".github/workflows")).sort().slice(0, 50)) {
+    for (const f of readdirSync(confinedDir(root, ".github/workflows")).sort().slice(0, 50)) {
       if (!/\.ya?ml$/.test(f)) continue;
       for (const m of (rd(`.github/workflows/${f}`) ?? "").matchAll(/^\s*node-version:\s*["']?([^"'\s#]*)["']?/gm)) if (ci.length < 100) ci.push(m[1] ?? "");
     }
@@ -943,6 +1046,35 @@ export interface ConfigDeclarations {
   test_files: string[];
   /** For each of those, the sibling test files it pulls in with a side-effect `import "./x.test.ts";`. */
   test_imports: Record<string, string[]>;
+  /** Raw text of scripts/run-tests.mjs (the deterministic test runner), or null when absent. */
+  runner: string | null;
+}
+
+/** The only `test` script that registers tests by discovery instead of by naming them. */
+export const TEST_RUNNER_CMD = "node scripts/run-tests.mjs";
+
+/**
+ * Reasons the discovery runner would NOT run every test file the checker knows about. Text-level and fail-closed:
+ * a missing runner, a dropped exit code, a skipped directory that holds tests, or an EXCLUDE entry naming a test.
+ */
+function runnerViolations(d: ConfigDeclarations): string[] {
+  const v: string[] = [];
+  const r = d.runner;
+  if (r === null) return ["test-runner-missing"];
+  if (CONFLICT_MARKER.test(r)) v.push("test-runner-conflict-marker");
+  if (!/^\s*process\.exitCode\s*=\s*main\(/m.test(r)) v.push("test-runner-exit-code-dropped");
+  if (!r.includes('export const TEST_FILE = /\\.(test|spec)\\.(mjs|cjs|js|mts|cts|ts|tsx|jsx)$/;')) v.push("test-runner-test-pattern-changed");
+  const skip = /^export const SKIP_DIRS = new Set\(\[([^\]]*)\]\);$/m.exec(r);
+  const skipped = skip === null ? null : [...(skip[1] as string).matchAll(/"([^"]*)"/g)].map((m) => m[1] as string);
+  if (skipped === null) v.push("test-runner-skip-dirs-unparseable");
+  const exc = /^export const EXCLUDE = Object\.freeze\(\{([\s\S]*?)\}\);$/m.exec(r);
+  const excluded = exc === null ? null : [...(exc[1] as string).matchAll(/"([^"]+)"\s*:/g)].map((m) => m[1] as string);
+  if (excluded === null) v.push("test-runner-exclude-unparseable");
+  for (const f of [...d.test_files].sort()) {
+    if (skipped !== null && f.split("/").slice(0, -1).some((seg) => skipped.includes(seg))) v.push(`unregistered-test:${f}`);
+    else if (excluded !== null && excluded.includes(f)) v.push(`unregistered-test:${f}`);
+  }
+  return v;
 }
 
 /** Duplicate keys (path of the object + key) in a JSON text, or null when the text is not valid JSON. Bounded, no eval. */
@@ -1054,16 +1186,21 @@ export function configCollisionViolations(d: ConfigDeclarations): string[] {
   if (typeof test !== "string" || test.trim() === "") v.push("test-script-missing");
   else {
     if (GATE_BYPASS.test(test)) v.push("test-script-gate-bypass");
-    // a test file is registered when the test script names it, or a registered file side-effect-imports it
-    const registered = new Set<string>();
-    const queue = d.test_files.filter((f) => test.includes(f));
-    while (queue.length > 0) {
-      const f = queue.pop() as string;
-      if (registered.has(f)) continue;
-      registered.add(f);
-      queue.push(...(d.test_imports[f] ?? []));
+    if (test.trim() === TEST_RUNNER_CMD) {
+      // registration by discovery: the runner must exist and must not skip/exclude any known test file
+      v.push(...runnerViolations(d));
+    } else {
+      // a test file is registered when the test script names it, or a registered file side-effect-imports it
+      const registered = new Set<string>();
+      const queue = d.test_files.filter((f) => test.includes(f));
+      while (queue.length > 0) {
+        const f = queue.pop() as string;
+        if (registered.has(f)) continue;
+        registered.add(f);
+        queue.push(...(d.test_imports[f] ?? []));
+      }
+      for (const f of [...d.test_files].sort()) if (!registered.has(f)) v.push(`unregistered-test:${f}`);
     }
-    for (const f of [...d.test_files].sort()) if (!registered.has(f)) v.push(`unregistered-test:${f}`);
   }
   for (const w of d.workflows) {
     if (CONFLICT_MARKER.test(w.text)) v.push(`workflow-conflict-marker:${w.name}`);
@@ -1076,7 +1213,8 @@ export function configCollisionViolations(d: ConfigDeclarations): string[] {
 export function readConfigDeclarations(root: string): ConfigDeclarations {
   const read = (rel: string): string | null => {
     try {
-      const p = join(root, rel);
+      const p = confined(root, rel);
+      if (p === null) return null;
       return statSync(p).size > 4_000_000 ? null : readFileSync(p, "utf8");
     } catch {
       return null;
@@ -1084,7 +1222,7 @@ export function readConfigDeclarations(root: string): ConfigDeclarations {
   };
   const workflows: { name: string; text: string }[] = [];
   try {
-    for (const f of readdirSync(join(root, ".github/workflows")).sort()) {
+    for (const f of readdirSync(confinedDir(root, ".github/workflows")).sort()) {
       if (!/\.ya?ml$/.test(f)) continue;
       const t = read(`.github/workflows/${f}`);
       if (t !== null) workflows.push({ name: f, text: t });
@@ -1097,7 +1235,7 @@ export function readConfigDeclarations(root: string): ConfigDeclarations {
   for (const dir of ["factory/tests", "cerberus/tests", "kratt/tests", "rastik/tests"]) {
     let names: string[] = [];
     try {
-      names = readdirSync(join(root, dir)).sort();
+      names = readdirSync(confinedDir(root, dir)).sort();
     } catch {
       continue;
     }
@@ -1109,7 +1247,7 @@ export function readConfigDeclarations(root: string): ConfigDeclarations {
       test_imports[rel] = [...src.matchAll(/^import "\.\/([^"/]+\.test\.ts)";/gm)].map((m) => `${dir}/${m[1]}`);
     }
   }
-  return { package_json: read("package.json"), workflows, test_files, test_imports };
+  return { package_json: read("package.json"), workflows, test_files, test_imports, runner: read("scripts/run-tests.mjs") };
 }
 
 const CONFIG_FIX = "Reject the configuration in a repository check (and CI): package.json parsed with a duplicate-key-aware reader (configCollisionViolations), no conflict markers, one `test` script that names every test file, no `|| true` / continue-on-error on a gate.";
@@ -1141,8 +1279,18 @@ const CONFIG_CASES: ConfigCase[] = [
   { id: "test-script-empty", hypothesis: "an empty `test` script is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(/^([ \t]*"test": ).*$/m, '$1"",'); } },
   { id: "test-script-or-true", hypothesis: "a `test` script that ends in `|| true` (never red) is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(/^([ \t]*"test": ".*?)(",?)$/m, "$1 || true$2"); } },
   { id: "test-script-semicolon-true", hypothesis: "a `test` script that ends in `; true` is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(/^([ \t]*"test": ".*?)(",?)$/m, "$1; true$2"); } },
-  { id: "test-script-drops-a-registered-test", hypothesis: "a `test` script that silently stops running a factory test file (not imported by another registered file) is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.replace(" factory/tests/trust-gate.test.ts", ""); } },
-  { id: "new-test-file-registered-nowhere", hypothesis: "a new security test file named in no script and imported by nothing (so it never runs) is accepted", mutate: (d) => { d.test_files.push("factory/tests/new-security.test.ts"); d.test_imports["factory/tests/new-security.test.ts"] = []; } },
+  { id: "test-script-drops-a-registered-test", hypothesis: "a `test` script that silently stops running a factory test file (not imported by another registered file) is accepted", mutate: (d) => { if (d.package_json !== null) d.package_json = d.package_json.includes(" factory/tests/trust-gate.test.ts") ? d.package_json.replace(" factory/tests/trust-gate.test.ts", "") : d.package_json.replace(`"test": "${TEST_RUNNER_CMD}"`, '"test": "node --test scripts/run-tests.test.mjs"'); } },
+  { id: "test-runner-deleted", hypothesis: "a `test` script that calls a discovery runner which no longer exists is accepted", mutate: (d) => { d.runner = null; } },
+  { id: "test-runner-excludes-a-security-test", hypothesis: "a discovery runner whose EXCLUDE list silently drops a factory test file is accepted", mutate: (d) => { if (d.runner !== null) d.runner = d.runner.replace("export const EXCLUDE = Object.freeze({});", 'export const EXCLUDE = Object.freeze({ "factory/tests/trust-gate.test.ts": "flaky" });'); } },
+  { id: "test-runner-skips-the-factory-dir", hypothesis: "a discovery runner whose SKIP_DIRS contains a directory that holds tests is accepted", mutate: (d) => { if (d.runner !== null) d.runner = d.runner.replace('new Set(["node_modules",', 'new Set(["factory", "node_modules",'); } },
+  { id: "test-runner-drops-the-exit-code", hypothesis: "a discovery runner that no longer propagates the exit code (always green) is accepted", mutate: (d) => { if (d.runner !== null) d.runner = d.runner.replace(/^(\s*)process\.exitCode = main\(/m, "$1void main("); } },
+  { id: "test-runner-narrows-the-test-pattern", hypothesis: "a discovery runner whose test-file pattern stops matching .ts tests is accepted", mutate: (d) => { if (d.runner !== null) d.runner = d.runner.replace("mjs|cjs|js|mts|cts|ts|tsx|jsx", "mjs|cjs|js"); } },
+  { id: "new-test-file-registered-nowhere", hypothesis: "a new security test file named in no script and imported by nothing (so it never runs) is accepted", mutate: (d) => {
+    // under the discovery runner a new file IS run, so the attack reverts to a hand-written file list (the pre-runner design) that misses it
+    if (d.package_json !== null) d.package_json = d.package_json.replace(`"test": "${TEST_RUNNER_CMD}"`, `"test": "node --experimental-strip-types --test ${d.test_files.join(" ")}"`);
+    d.test_files.push("factory/tests/new-security.test.ts");
+    d.test_imports["factory/tests/new-security.test.ts"] = [];
+  } },
   { id: "workflow-continue-on-error", hypothesis: "`continue-on-error: true` on a CI step is accepted", mutate: (d) => { const w = d.workflows[0]; if (w) w.text += "\n      - run: npm test\n        continue-on-error: true\n"; } },
   { id: "workflow-run-or-true", hypothesis: "a CI `run: npm test || true` step is accepted", mutate: (d) => { const w = d.workflows[0]; if (w) w.text += "\n      - run: npm test || true\n"; } },
 ];
@@ -1217,4 +1365,163 @@ export function runConfigCollisionAttacks(
     });
   }
   return { control_clean, control_violations, records, findings };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Receipt-signature attacks (P2 evidence authentication). Hypothesis per case: "this signature /
+// receipt combination is VERIFIED (action receipt) or SIGNED (decision receipt)". A genuine signed
+// control must pass first, otherwise "all repelled" proves nothing. The target is injectable.
+// ---------------------------------------------------------------------------------------------
+export type SignedReceiptTarget = (receipt: unknown, signature: unknown) => Promise<{ verdict: string; reasons: string[] }>;
+
+/** The real TÖEPÄRA recomputation with the given receipt-signing policy. */
+export function realSignedReceiptTarget(envelope: TaskEnvelope, base: ToeparaCtx, policy: ReceiptSigningPolicy): SignedReceiptTarget {
+  return async (receipt, signature) => {
+    const t = await toeparaVerify(envelope, receipt, null, { ...base, rerun: base.rerun ?? new Map(), receiptSigning: policy }, signature);
+    return { verdict: t.verdict.verdict, reasons: t.verdict.reasons };
+  };
+}
+
+interface SigCtx {
+  receipt: ActionReceipt;
+  sig: Signature;
+  signer: ReceiptSigner;
+  attacker: ReceiptSigner;
+}
+interface SigCase {
+  id: string;
+  hypothesis: string;
+  build: (c: SigCtx) => Promise<{ receipt: unknown; signature: unknown }>;
+}
+const restamp = (r: ActionReceipt): ActionReceipt => ({ ...r, timestamp: r.timestamp.startsWith("2031") ? "2032-02-02T00:00:00Z" : "2031-01-01T00:00:00Z" });
+const resealEvidence = (r: ActionReceipt): ActionReceipt => {
+  const c = structuredClone(r) as ActionReceipt & { evidence: Record<string, unknown> };
+  const ev = c.evidence as { artifacts?: { sha256: string }[]; evidenceDigest?: string };
+  if (Array.isArray(ev.artifacts) && ev.artifacts[0]) ev.artifacts[0].sha256 = flip(ev.artifacts[0].sha256);
+  const { evidenceDigest: _d, ...body } = ev;
+  void _d;
+  ev.evidenceDigest = digestOf(body);
+  return c;
+};
+const SIG_FIX = "TÖEPÄRA verifies the detached action-receipt signature over digestOf(validated receipt) with the configured verifier; missing => INSUFFICIENT_EVIDENCE when required, anything else => REJECTED.";
+
+const SIG_CASES: SigCase[] = [
+  { id: "signature-stripped", hypothesis: "a signed receipt presented WITHOUT its signature is verified", build: async (c) => ({ receipt: c.receipt, signature: null }) },
+  { id: "signature-stripped-and-retimestamped", hypothesis: "a re-timestamped copy presented without a signature is verified", build: async (c) => ({ receipt: restamp(c.receipt), signature: undefined }) },
+  { id: "key-substitution-attacker-key", hypothesis: "a signature by an attacker key (its own key id) is verified", build: async (c) => ({ receipt: c.receipt, signature: await signActionReceipt(c.attacker, c.receipt) }) },
+  { id: "key-substitution-claims-trusted-key-id", hypothesis: "an attacker-key signature relabelled with the trusted key id is verified", build: async (c) => ({ receipt: c.receipt, signature: { ...(await signActionReceipt(c.attacker, c.receipt)), key_id: c.sig.key_id } }) },
+  { id: "key-substitution-claims-trusted-provider", hypothesis: "an attacker-key signature relabelled with the trusted provider name and key id is verified", build: async (c) => ({ receipt: c.receipt, signature: { ...(await signActionReceipt(c.attacker, c.receipt)), key_id: c.sig.key_id, provider: c.sig.provider } }) },
+  { id: "payload-tamper-after-signing", hypothesis: "a receipt whose evidence was altered (and re-sealed) after signing still verifies with the original signature", build: async (c) => ({ receipt: resealEvidence(c.receipt), signature: c.sig }) },
+  { id: "payload-tamper-scope-after-signing", hypothesis: "a receipt whose agent_id was changed after signing still verifies", build: async (c) => ({ receipt: { ...c.receipt, agent_id: "FORGE-027" }, signature: c.sig }) },
+  { id: "replay-signed-receipt-new-timestamp", hypothesis: "a signed receipt replayed with a new timestamp (signature kept) is verified", build: async (c) => ({ receipt: restamp(c.receipt), signature: c.sig }) },
+  { id: "signature-from-other-receipt", hypothesis: "a genuine signature over ANOTHER receipt (same task, other timestamp) is accepted", build: async (c) => ({ receipt: c.receipt, signature: await signActionReceipt(c.signer, restamp(c.receipt)) }) },
+  { id: "purpose-confusion-evidence-bundle", hypothesis: "a trusted-key signature over the same digest for purpose evidence-bundle is accepted as a receipt signature", build: async (c) => ({ receipt: c.receipt, signature: await signSubject(c.signer, "evidence-bundle", c.sig.subject_digest) }) },
+  { id: "purpose-relabelled", hypothesis: "a trusted-key decision-receipt signature relabelled as action-receipt is accepted", build: async (c) => ({ receipt: c.receipt, signature: { ...(await signSubject(c.signer, "decision-receipt", c.sig.subject_digest)), purpose: "action-receipt" } }) },
+  { id: "signature-value-bit-flipped", hypothesis: "a signature with one flipped byte verifies", build: async (c) => ({ receipt: c.receipt, signature: { ...c.sig, value: Buffer.from(Buffer.from(c.sig.value, "base64").map((b, i) => (i === 0 ? b ^ 1 : b))).toString("base64") } }) },
+  { id: "signature-value-truncated", hypothesis: "a truncated signature verifies", build: async (c) => ({ receipt: c.receipt, signature: { ...c.sig, value: c.sig.value.slice(0, 20) } }) },
+  { id: "signature-extra-field", hypothesis: "a signature object with an extra 'verified: true' field is accepted", build: async (c) => ({ receipt: c.receipt, signature: { ...c.sig, verified: true } }) },
+];
+
+export function signatureCaseCount(): number {
+  return SIG_CASES.length;
+}
+
+export interface SignatureAttackRecord {
+  attack_id: string;
+  case_id: string;
+  hypothesis: string;
+  outcome: "REPELLED" | "SUCCEEDED";
+  reproduced: boolean | null;
+  detail: string;
+}
+
+export async function runReceiptSignatureAttacks(
+  receipt: ActionReceipt,
+  signer: ReceiptSigner,
+  attacker: ReceiptSigner,
+  target: SignedReceiptTarget,
+  o: { only?: string } = {},
+): Promise<{ control_verified: boolean; records: SignatureAttackRecord[]; findings: RastikFinding[] }> {
+  const records: SignatureAttackRecord[] = [];
+  const findings: RastikFinding[] = [];
+  const safe = async (r: unknown, s: unknown) => {
+    try {
+      return await target(r, s);
+    } catch {
+      return { verdict: "THREW", reasons: ["target-threw"] }; // fail-closed: a throwing verifier is not a bypass
+    }
+  };
+  const sig = await signActionReceipt(signer, receipt);
+  const control_verified = (await safe(receipt, sig)).verdict === "VERIFIED";
+  if (!control_verified) return { control_verified, records, findings };
+  const c: SigCtx = { receipt, sig, signer, attacker };
+  for (const k of SIG_CASES) {
+    if (o.only !== undefined && k.id !== o.only) continue;
+    const attack_id = `receipt-signature/${k.id}`;
+    const first = await k.build(c);
+    const r1 = await safe(first.receipt, first.signature);
+    if (r1.verdict !== "VERIFIED") {
+      records.push({ attack_id, case_id: k.id, hypothesis: k.hypothesis, outcome: "REPELLED", reproduced: null, detail: `${r1.verdict}:${r1.reasons.join(",")}`.slice(0, 500) });
+      continue;
+    }
+    const again = await k.build(c);
+    const reproduced = (await safe(again.receipt, again.signature)).verdict === "VERIFIED";
+    records.push({ attack_id, case_id: k.id, hypothesis: k.hypothesis, outcome: "SUCCEEDED", reproduced, detail: "VERIFIED" });
+    findings.push({
+      finding_id: `RASTIK-SIG-${k.id}`,
+      target: "TÖEPÄRA action-receipt signature verification (factory/toepara.ts, factory/signing.ts)",
+      hypothesis: k.hypothesis,
+      reproduction: `Sign the genuine receipt (digest ${digestOf(receipt)}) with the trusted signer, apply case "${k.id}" (factory/rastik-attacks.ts SIG_CASES), verify with the receipt-signing policy: VERIFIED${reproduced ? " on two independent runs" : " once, not on the re-run"}.`,
+      severity: "critical",
+      status: reproduced ? "CONFIRMED" : "UNCONFIRMED",
+      evidence: { attack_id, receipt_digest: digestOf(receipt), verified_on_rerun: reproduced },
+      regression_test: [
+        `test(${JSON.stringify(`RASTIK receipt-signature/${k.id} must be repelled`)}, async () => {`,
+        `  // hypothesis: ${k.hypothesis}`,
+        `  const r = await runReceiptSignatureAttacks(receipt, signer, attacker, realSignedReceiptTarget(env, ctx, policy), { only: ${JSON.stringify(k.id)} });`,
+        `  assert.equal(r.control_verified, true);`,
+        `  assert.deepEqual(r.findings.map((f) => f.finding_id), []);`,
+        `});`,
+      ].join("\n"),
+      proposed_smallest_fix: SIG_FIX,
+    });
+  }
+  return { control_verified, records, findings };
+}
+
+/** Decision-receipt signature attacks: hypothesis "the forged combination reports SIGNED". */
+export async function runDecisionReceiptSignatureAttacks(
+  receipt: unknown,
+  signer: ReceiptSigner,
+  attacker: ReceiptSigner,
+  verifier: ReceiptVerifier,
+): Promise<{ control_signed: boolean; records: SignatureAttackRecord[] }> {
+  const records: SignatureAttackRecord[] = [];
+  const sig = await signDecisionReceipt(signer, receipt);
+  const status = async (d: unknown, s: unknown) => {
+    try {
+      return await decisionReceiptSignatureStatus(verifier, d, s);
+    } catch {
+      return "THREW";
+    }
+  };
+  const control_signed = (await status(receipt, sig)) === "SIGNED";
+  if (!control_signed) return { control_signed, records };
+  const r = receipt as Record<string, unknown> & { reasons: string[]; receipt_digest: string };
+  const { receipt_digest: _x, ...body } = r;
+  void _x;
+  const reseal = (b: Record<string, unknown>) => ({ ...b, receipt_digest: digestJson(b) });
+  const cases: [string, string, () => Promise<[unknown, unknown]>][] = [
+    ["decision-signature-stripped", "a decision receipt without its signature reports SIGNED", async () => [receipt, null]],
+    ["decision-tampered-resealed", "a decision receipt whose reasons were edited and digest re-sealed still verifies with the original signature", async () => [reseal({ ...body, reasons: [...r.reasons, "edited"] }), sig]],
+    ["decision-flipped-stale-digest", "a decision flipped after signing (digest stale) reports SIGNED", async () => [{ ...r, decision: r.decision === "DENY" ? "ADMIT" : "DENY" }, sig]],
+    ["decision-key-substitution", "an attacker-key signature (trusted key id claimed) reports SIGNED", async () => [receipt, { ...(await signDecisionReceipt(attacker, receipt)), key_id: sig.key_id, provider: sig.provider }]],
+    ["decision-purpose-confusion", "a trusted-key action-receipt signature over the same digest reports SIGNED", async () => [receipt, await signSubject(signer, "action-receipt", r.receipt_digest)]],
+  ];
+  for (const [id, hypothesis, build] of cases) {
+    const [d, s] = await build();
+    const st = await status(d, s);
+    records.push({ attack_id: `decision-receipt-signature/${id}`, case_id: id, hypothesis, outcome: st === "SIGNED" ? "SUCCEEDED" : "REPELLED", reproduced: null, detail: st });
+  }
+  return { control_signed, records };
 }

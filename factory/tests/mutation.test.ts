@@ -141,7 +141,7 @@ t("engine on the REAL factory sources (git workspace): the baseline is green and
   assert.ok(g01);
   const rep = await runMutation({
     sourceRoot: ROOT,
-    copyPaths: ["cerberus", "kratt", "rastik", "factory", "package.json"],
+    copyPaths: ["cerberus", "kratt", "rastik", "factory", "package.json", "scripts/runtime-verify.mjs", "scripts/runtime-verify.d.mts"],
     testFiles: ["factory/tests/cerberus-gate.test.ts", "factory/tests/loop.test.ts"],
     mutants: [g01],
     git: true,

@@ -1,4 +1,5 @@
 import { KRATT_ACTIONS } from "../kratt/task.ts";
+import { LOOP_CAPABILITIES } from "./capabilities.ts";
 import type { TaskEnvelope } from "./protocol/types.ts";
 
 /**
@@ -17,6 +18,8 @@ export interface TrustGateRequest {
   readonly task_id: string;
   readonly repository: string;
   readonly action: string | null;
+  /** agent_id the ACTION RECEIPT claims produced it (null when there is no readable receipt). */
+  readonly producer_agent_id?: string | null;
   readonly envelope: Readonly<TaskEnvelope>;
   /** The host-configured repository the installation verifies for. */
   readonly host_repository: string;
@@ -57,13 +60,26 @@ export async function resolveTrustGate(gate: AsyncTrustGate, req: TrustGateReque
   }
 }
 
+/**
+ * A receipt for KRATT action `a` may only be produced by a worker that holds capability `kratt:<a>`
+ * (factory/capabilities.ts LOOP_CAPABILITIES). Before this check any in-protocol agent id (e.g. a SERPENT attacker, or
+ * a CITADEL gate) could sign a hash-files receipt as long as the envelope named it.
+ */
+export function producerMayRunAction(agentId: unknown, action: unknown): boolean {
+  if (typeof agentId !== "string" || typeof action !== "string") return false;
+  if (!Object.prototype.hasOwnProperty.call(LOOP_CAPABILITIES, agentId)) return false;
+  return (LOOP_CAPABILITIES[agentId] as readonly string[]).includes(`kratt:${action}`);
+}
+
 /** Local policy shared by the stub (and by the sync adapter in cerberus-gate). Returns the reasons it would DENY for. */
-export function policyViolations(envelope: Readonly<TaskEnvelope>, action: unknown, hostRepository: string): string[] {
+export function policyViolations(envelope: Readonly<TaskEnvelope>, action: unknown, hostRepository: string, producerAgentId?: unknown): string[] {
   const why: string[] = [];
   if (envelope.repository !== hostRepository) why.push("policy:repository-mismatch");
   if (!envelope.allowed_actions.every((a) => (KRATT_ACTIONS as readonly string[]).includes(a))) why.push("policy:non-kratt-action-allowed");
   for (const must of ["merge", "deploy"]) if (!envelope.forbidden_actions.includes(must)) why.push(`policy:${must}-not-forbidden`);
   if (typeof action !== "string" || !envelope.allowed_actions.includes(action)) why.push("policy:receipt-action-not-allowed");
+  // `undefined` = the caller has no receipt-producer to check (envelope-only policy evaluation); anything else is judged.
+  if (producerAgentId !== undefined && typeof action === "string" && !producerMayRunAction(producerAgentId, action)) why.push(`policy:producer-lacks-capability:kratt:${action.slice(0, 64)}`); // a non-string action is already policy:receipt-action-not-allowed
   return why;
 }
 
@@ -71,6 +87,6 @@ export function policyViolations(envelope: Readonly<TaskEnvelope>, action: unkno
 export const stubPolicyTrustGate: AsyncTrustGate = {
   name: "stub-policy-trust-gate(NOT the real Trust Gate)",
   async evaluate(req) {
-    return policyViolations(req.envelope, req.action, req.host_repository).length === 0 ? "AUTHORIZED" : "DENIED";
+    return policyViolations(req.envelope, req.action, req.host_repository, req.producer_agent_id).length === 0 ? "AUTHORIZED" : "DENIED";
   },
 };

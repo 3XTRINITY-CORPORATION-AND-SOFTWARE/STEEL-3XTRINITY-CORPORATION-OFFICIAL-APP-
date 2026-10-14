@@ -3,7 +3,8 @@ import { resolve } from "node:path";
 import { formatMarkdown, reportProblems, runMutation, validateCatalog } from "./engine.ts";
 import { MUTANTS } from "./mutants.ts";
 import { availableParallelism } from "node:os";
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 
 /**
  * node --experimental-strip-types factory/mutation/run.ts [--only T01,G01] [--json out.json] [--md out.md] [--concurrency N] [--timeout-ms N]
@@ -26,10 +27,21 @@ const testFiles = readdirSync(resolve(root, "factory/tests"))
   .filter((f) => f.endsWith(".test.ts") && f !== "mutation.test.ts")
   .sort()
   .map((f) => `factory/tests/${f}`);
+// The whole TRACKED project (top-level entries of `git ls-files`): repo-level guards (config/test-coverage, runtime drift)
+// read scripts/, src/, workflows etc., so a partial copy turns the baseline red for reasons unrelated to any mutant.
+const copyPaths = [
+  ...new Set(
+    execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" })
+      .split("\0")
+      .filter(Boolean)
+      .map((f) => f.split("/")[0] as string),
+  ),
+].filter((p) => existsSync(resolve(root, p))).sort();
 const only = opt("--only")?.split(",").filter(Boolean);
 const report = await runMutation({
   sourceRoot: root,
-  copyPaths: ["cerberus", "kratt", "rastik", "factory", "package.json", ".nvmrc", ".devcontainer", ".github"],
+  copyPaths: ["cerberus", "kratt", "rastik", "factory", "package.json", "scripts/runtime-verify.mjs", "scripts/runtime-verify.d.mts", ".nvmrc", ".devcontainer", ".github"],
+  copyPaths,
   testFiles,
   mutants: MUTANTS,
   git: true,

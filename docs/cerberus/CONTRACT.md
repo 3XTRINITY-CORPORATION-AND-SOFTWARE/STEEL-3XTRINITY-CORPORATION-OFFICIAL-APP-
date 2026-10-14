@@ -17,6 +17,6 @@ Code: `cerberus/core/normalize.ts` (INPUT), `cerberus/policy/policy.ts`,
 
 ## What this is NOT
 - `decide(input)` trusts caller-supplied TÖEPÄRA / Trust Gate strings. Cerberus cannot verify their origin.
-- `decideWithAdapters` fixes the interface a real client must meet (adapter failure => deny; caller verdict fields ignored) but only stub adapters exist. No real TÖEPÄRA / Trust Gate client, no signature verification, no async/timeout handling yet.
+- `decideWithAdapters` fixes the interface a real client must meet (adapter failure => deny; caller verdict fields ignored) but only stub adapters exist. No real TÖEPÄRA / Trust Gate client, no signature verification, async/timeout handling exists only as the `decideWithAdaptersAsync` seam (per-adapter deadline, default 2000 ms; timeout / rejection / throw / non-string / missing adapter / invalid timeout => FAIL_CLOSED, late answers ignored), exercised with STUB adapters only.
 - `receiptDigest` is an integrity hash, not a signature: anyone can recompute it. It proves nothing about who produced the receipt.
 - The artifact digest check proves content matches a *declared* digest, not that the declaration is trustworthy.

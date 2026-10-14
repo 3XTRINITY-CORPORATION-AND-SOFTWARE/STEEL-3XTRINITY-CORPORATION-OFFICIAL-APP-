@@ -7,7 +7,7 @@ import type { SigningProvider } from "../signing.ts";
  * Every call yields a NEW random key, so no key can be committed or shared between runs.
  * Do not import from production code.
  */
-export function ephemeralEd25519(name = "test-ephemeral-ed25519"): SigningProvider & { readonly key_id: string; cannotSign(): SigningProvider } {
+export function ephemeralEd25519(name = "test-ephemeral-ed25519"): SigningProvider & { readonly key_id: string; cannotSign(): SigningProvider; publicKeyPem(): string } {
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
   const key_id = `ephemeral-${randomBytes(4).toString("hex")}`;
   const pub = publicKey;
@@ -26,5 +26,6 @@ export function ephemeralEd25519(name = "test-ephemeral-ed25519"): SigningProvid
       }
     },
   };
-  return { ...provider, key_id, cannotSign: () => ({ name, sign: async () => null, verify: provider.verify }) };
+  // Only the PUBLIC half can leave the closure (SPKI PEM), so production verifiers can be tested against real signatures.
+  return { ...provider, key_id, cannotSign: () => ({ name, sign: async () => null, verify: provider.verify }), publicKeyPem: () => pub.export({ type: "spki", format: "pem" }).toString() };
 }

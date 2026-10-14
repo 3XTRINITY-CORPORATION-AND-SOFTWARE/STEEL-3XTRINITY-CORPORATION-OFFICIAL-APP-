@@ -104,8 +104,8 @@ export const SPECS = [
     claim: "the CLI fails with exit 1 and a 'staged file is missing' message when nothing was staged" },
 
   // ---- preview (35-49)
-  { slot: 35, target: PRV, fn: "parsePreviewArgs", input: [["stop"]], expected: { action: "stop" }, claim: "'stop' is an accepted action" },
-  { slot: 36, target: PRV, fn: "parsePreviewArgs", input: [["restart"]], expected: { action: "restart" }, claim: "'restart' is an accepted action" },
+  { slot: 35, target: PRV, fn: "parsePreviewArgs", input: [["stop"]], expected: { action: "stop" }, claim: "'stop' alone is an accepted action and is returned as-is" },
+  { slot: 36, target: PRV, fn: "parsePreviewArgs", input: [["restart", "--now"]], expected: { error: "unexpected argument: --now" }, claim: "a trailing argument after a valid action is rejected by name rather than silently ignored" },
   { slot: 37, target: PRV, fn: "parsePreviewArgs", input: [["bogus"]], expected: { error: "unknown action: bogus (expected stop or restart)" }, claim: "an unknown action is rejected naming the offender" },
   { slot: 38, target: PRV, fn: "parsePreviewArgs", input: [[]], expected: { error: "usage: node scripts/preview.mjs stop|restart" }, claim: "no action prints the usage line" },
   { slot: 39, target: PRV, fn: "parsePid", input: ["  4242\n"], expected: 4242, claim: "a pidfile with surrounding whitespace parses to its integer pid" },

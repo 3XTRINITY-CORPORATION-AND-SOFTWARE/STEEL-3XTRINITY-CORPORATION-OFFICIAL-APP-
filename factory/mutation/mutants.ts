@@ -26,8 +26,29 @@ const TG = "factory/trust-gate.ts";
 const RS = "factory/replay-store.ts";
 const SG = "factory/signing.ts";
 const GT = "factory/git.ts";
+const CG = "factory/cerberus-gate.ts";
+const LP = "factory/loop.ts";
 
 const RAW: Mutant[] = [
+  // ---- CERBERUS async adapter seam (F-P1-TG-002): killed by the RÄSTIK async Trust Gate battery + seam test ----------
+  m("AT01", VA, "async seam: deadline race removed (a hanging gate is awaited forever)", `return await Promise.race([settled, deadline]);`, `return await settled;`),
+  m("AT02", VA, "async seam: a timed-out gate counts as AUTHORIZED", `res({ verdict: null, outcome: "timeout" });`, `res({ verdict: "AUTHORIZED", outcome: "timeout" });`),
+  m("AT03", VA, "async seam: non-string answers coerced with String() instead of malformed", `typeof v === "string" ? { verdict: v, outcome: "ok" } : { verdict: null, outcome: "malformed" }`, `{ verdict: String(v), outcome: "ok" }`),
+  m("AT04", VA, "async seam: a rejected gate promise counts as AUTHORIZED", `({ verdict: null, outcome: "rejected" })`, `({ verdict: "AUTHORIZED", outcome: "rejected" })`),
+  m("AT05", VA, "async seam: a synchronously throwing gate counts as AUTHORIZED", `answer = adapter.verdict(evidence, controller.signal);
+    } catch {
+      return { verdict: null, outcome: "threw" };`, `answer = adapter.verdict(evidence, controller.signal);
+    } catch {
+      return { verdict: "AUTHORIZED", outcome: "threw" };`),
+  m("AT06", VA, "async seam: invalid timeout no longer rejected up front", `if (!validTimeout(timeoutMs)) {`, `if (false) {`),
+  m("AT07", VA, "async seam: timeout upper bound dropped", `t >= 1 && t <= MAX_ADAPTER_TIMEOUT_MS`, `t >= 1`),
+  m("AT08", VA, "async seam: a missing gate counts as AUTHORIZED", `typeof adapter.verdict !== "function") return { verdict: null, outcome: "missing" };`, `typeof adapter.verdict !== "function") return { verdict: "AUTHORIZED", outcome: "missing" };`),
+  m("AT09", VA, "async seam: deadline timer never cleared", `if (timer !== undefined) clearTimeout(timer);`, ``),
+  m("AT10", VA, "async seam: gate not aborted at the deadline", `controller.abort();`, ``),
+  m("AT11", VA, "async seam: caller-typed verdict fields reach the adapter (not blanked)", `Object.freeze({ ...n.value, toepara: null, trustGate: null });
+    if (!validTimeout`, `Object.freeze({ ...n.value });
+    if (!validTimeout`),
+  m("AT12", VA, "async seam: integer check on the timeout dropped", `typeof t === "number" && Number.isInteger(t) && t >= 1`, `typeof t === "number" && t >= 1`),
   // ---- TÖEPÄRA: independent verification ------------------------------------------------------
   m("T01", T, "TÖEPÄRA: receipt/envelope task_id comparison disabled", `r.task_id === env.task_id, "receipt-task-id-mismatch"`, `true, "receipt-task-id-mismatch"`),
   m("T02", T, "TÖEPÄRA: receipt/envelope agent_id comparison disabled", `r.agent_id === env.agent_id, "receipt-agent-mismatch"`, `true, "receipt-agent-mismatch"`),
@@ -55,7 +76,7 @@ const RAW: Mutant[] = [
   m("T24", T, "TÖEPÄRA: INSUFFICIENT_EVIDENCE no longer blocks VERIFIED", `if (reject.length > 0 || insufficient.length > 0 || kev === null)`, `if (reject.length > 0 || kev === null)`),
 
   // ---- CERBERUS gate ---------------------------------------------------------------------------
-  m("G01", G, "CERBERUS: replay guard result ignored (bundle may be presented again)", `if (!ctx.guard.consume(freshBundle.bundle_digest)) return reject("replayed-bundle");`, `void ctx.guard.consume(freshBundle.bundle_digest);`),
+  m("G01", G, "CERBERUS: replay guard result ignored (bundle may be presented again)", `if (!ctx.guard.consume(replayKey(freshBundle))) return reject("replayed-bundle");`, `void ctx.guard.consume(replayKey(freshBundle));`),
   m("G02", G, "CERBERUS: byte-equality of presented bundle with recomputed bundle disabled", `if (canonicalize(freshBundle) !== a.content) return reject("bundle-differs-from-recomputed");`, ``),
   m("G03", G, "CERBERUS: presented bundle_digest vs recomputed bundle_digest comparison disabled", `if (b.value.bundle_digest !== freshBundle?.bundle_digest) return reject("bundle-digest-differs-from-recomputed");`, ``),
   m("G04", G, "CERBERUS: recomputed TÖEPÄRA verdict must be VERIFIED: check reduced to 'bundle exists'", `fresh.verdict.verdict !== "VERIFIED" || freshBundle === null`, `freshBundle === null`),
@@ -71,9 +92,9 @@ const RAW: Mutant[] = [
 
   // ---- closed loop / final receipt -------------------------------------------------------------
   m("L01", L, "loop: final_digest recomputation disabled in selfCheckFinalReceipt", `if (digestOf(body) !== final_digest) v.push("final_digest-mismatch");`, ``),
-  m("L02", L, "loop: cerberus receipt digest verification disabled in selfCheckFinalReceipt", `if (!verifyReceipt(r.cerberus.cerberus_receipt)) v.push("cerberus-receipt-digest-invalid");`, ``),
-  m("L03", L, "loop: caller.real_goliath claim check disabled", `if (r.caller.real_goliath !== false) v.push("caller-claims-real-goliath");`, ``),
-  m("L04", L, "loop: final_decision == CERBERUS decision check disabled", `if (r.final_decision !== r.cerberus.decision.decision) v.push("final-decision-differs-from-cerberus");`, ``),
+  m("L02", L, "loop: cerberus receipt digest verification disabled in selfCheckFinalReceipt", `if (!verifyReceipt(c.cerberus_receipt as RecoveryReceipt)) v.push("cerberus-receipt-digest-invalid");`, `if (false) v.push("cerberus-receipt-digest-invalid");`),
+  m("L03", L, "loop: caller.real_goliath claim check disabled", `if (r.caller?.real_goliath !== false) v.push("caller-claims-real-goliath");`, ``),
+  m("L04", L, "loop: final_decision == CERBERUS decision check disabled", `else if (r.final_decision !== (decision as CerberusDecision).decision) v.push("final-decision-differs-from-cerberus");`, ``),
   m("L05", L, "loop: ADMIT without UNVERIFIED producer receipt no longer flagged", `r.toepara?.verdict.verdict !== "VERIFIED" || r.action_receipt?.verification_state !== "UNVERIFIED"`, `r.toepara?.verdict.verdict !== "VERIFIED"`),
   m("L06", L, "loop: ADMIT without VERIFIED TÖEPÄRA verdict no longer flagged", `r.toepara?.verdict.verdict !== "VERIFIED" || r.action_receipt?.verification_state`, `r.action_receipt?.verification_state`),
   m("L07", L, "loop: stale base_sha preflight disabled", `if (head === null || head !== env.base_sha) return { ok: false, evidence: null, note: "stale-base-sha" };`, ``),
@@ -157,6 +178,24 @@ const RAW: Mutant[] = [
   m("R07", RA, "RÄSTIK real target: TÖEPÄRA verdict must be VERIFIED check removed (CERBERUS recomputes it)", `if (t.verdict.verdict !== "VERIFIED") return false;`, ``),
   m("R08", RA, "RÄSTIK: final-receipt control (genuine receipt must pass self-check) removed", `if (!control_clean) return { control_clean, records, findings };`, ``),
   m("R09", RA, "RÄSTIK: final-receipt attacks that throw are treated as accepted", `return { accepted: false, detail: \`threw:\${e instanceof Error ? e.name : "unknown"}\` }; // fail-closed`, `return { accepted: true, detail: "threw" };`),
+  // ---- P2 receipt authentication (signing.ts / toepara.ts / cerberus-gate.ts / loop.ts) ---------------------------
+  m("AS01", T, "TÖEPÄRA: a presented receipt signature is only checked when signing is required", `if (sigPresented || receiptSigningRequired(ctx.receiptSigning)) {`, `if (receiptSigningRequired(ctx.receiptSigning)) {`),
+  m("AS02", T, "TÖEPÄRA: a missing receipt signature passes when required", `if (st === "UNSIGNED") note("receipt-signature", false, "receipt-signature-missing", "insufficient");`, `if (st === "UNSIGNED") checks.push({ name: "receipt-signature", ok: true });`),
+  m("AS03", T, "TÖEPÄRA: an invalid receipt signature is accepted", `else note("receipt-signature", st === "SIGNED", "receipt-signature-invalid");`, `else note("receipt-signature", true, "receipt-signature-invalid");`),
+  m("AS04", T, "TÖEPÄRA: a missing receipt signature is REJECTED instead of INSUFFICIENT_EVIDENCE", `"receipt-signature-missing", "insufficient");`, `"receipt-signature-missing");`),
+  m("AS05", SG, "signing policy: default no longer requires signing when a key is configured", `return p.require ?? p.key_configured;`, `return p.require ?? false;`),
+  m("AS06", SG, "signing policy: explicit require/opt-out ignored", `return p.require ?? p.key_configured;`, `return p.key_configured;`),
+  m("AS07", SG, "ed25519Verifier: key id not compared", `if (sig.alg !== "ed25519" || sig.key_id !== keyId) return false;`, `if (sig.alg !== "ed25519") return false;`),
+  m("AS08", SG, "ed25519Verifier: alg not compared", `if (sig.alg !== "ed25519" || sig.key_id !== keyId) return false;`, `if (sig.key_id !== keyId) return false;`),
+  m("AS09", SG, "ed25519Verifier: cryptographic verification result ignored", `return cryptoVerify(null, Buffer.from(payload, "utf8"), key, raw) === true;`, `return true;`),
+  m("AS10", SG, "signing config: a symlinked key file is accepted", `if (!st.isFile()) return unavailable(`, `if (st.isDirectory()) return unavailable(`),
+  m("AS11", SG, "signing config: private-key material is accepted (public key derived from it)", `if (/PRIVATE/.test(publicKeyPem)) throw`, `if (false) throw`),
+  m("AS12", SG, "signing config: a non-Ed25519 key is accepted", `if (key.asymmetricKeyType !== "ed25519") throw`, `if (false) throw`),
+  m("AS13", SG, "decision receipt: signature subject taken from the receipt without re-deriving it", `if (!verifyDecisionReceipt(d).ok) return null;`, ``),
+  m("AS14", CG, "CERBERUS: required receipt signature failure no longer named in the DENY reasons", `if (receiptSigningRequired(ctx.receiptSigning) && signature_status.receipt !== "SIGNED") adapterReasons.push(`, `if (false) adapterReasons.push(`),
+  m("AS15", LP, "loop: required receipt signing without a signer continues unsigned instead of SIGNING_KEY_UNAVAILABLE", `if (receiptSigningRequired(deps.receiptSigning)) return refusal(env.task_id, SIGNING_KEY_UNAVAILABLE, stages, env);`, ``),
+  m("AS16", CG, "CERBERUS: the receipt signature is not passed to the TÖEPÄRA recomputation", `const fresh = await toeparaVerify(input.envelope, input.receipt, input.rastik, ctx, input.signatures?.receipt);`, `const fresh = await toeparaVerify(input.envelope, input.receipt, input.rastik, ctx);`),
+
 ];
 
 /**

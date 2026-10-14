@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { closeSync, existsSync, fsyncSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, unlinkSync, writeSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { verifyDecisionReceipt, digestJson, type DecisionReceipt } from "../cerberus/receipts/decision-receipt.ts";
-import { cerberusDecide, type CerberusCtx, type GateInput } from "./cerberus-gate.ts";
+import { cerberusDecide, type CerberusCtx, type GateInput, type GateOutput } from "./cerberus-gate.ts";
 import { FileReplayGuard } from "./replay-store.ts";
 import { digestOf, validateCerberusDecision, type CerberusDecision } from "./protocol/types.ts";
 import { decisionReceiptForGate, denyDecisionReceipt } from "./trust-gate-receipt.ts";
@@ -165,6 +165,8 @@ export interface IdempotentResult {
   receipt: DecisionReceipt;
   /** true when this call returned a stored record instead of evaluating. Not part of the receipt. */
   idempotent_replay: boolean;
+  /** The full gate output (CERBERUS pipeline receipt, signature status) when THIS call evaluated the request; null for a stored record or a fail-closed DENY. Not part of the receipt. */
+  gate: GateOutput | null;
 }
 
 export interface IdempotentOptions {
@@ -186,7 +188,7 @@ function failClosed(input: GateInput | null, taskId: string, reason: string): Id
     cerberus_receipt_digest: digestOf({ no_cerberus_receipt: reason }),
     unresolved_high_findings: [] as string[],
   };
-  return { decision: { ...body, decision_digest: digestOf(body) }, receipt, idempotent_replay: false };
+  return { decision: { ...body, decision_digest: digestOf(body) }, receipt, idempotent_replay: false, gate: null };
 }
 
 const taskIdOf = (input: GateInput): string => {
@@ -207,7 +209,7 @@ export async function decideIdempotent(input: GateInput, ctx: CerberusCtx, ledge
   const deadline = Date.now() + waitMs;
   for (;;) {
     const r = ledger.read(key);
-    if (r.kind === "ok") return { decision: r.record.decision, receipt: r.record.receipt, idempotent_replay: true };
+    if (r.kind === "ok") return { decision: r.record.decision, receipt: r.record.receipt, idempotent_replay: true, gate: null };
     if (r.kind === "invalid") return failClosed(input, taskId, `ledger-record-invalid:${r.why}`);
     const c = ledger.claim(key);
     if (c === "error") return failClosed(input, taskId, `ledger-unavailable:${ledger.lastError ?? "unknown"}`);
@@ -225,7 +227,7 @@ export async function decideIdempotent(input: GateInput, ctx: CerberusCtx, ledge
                 return { ...body, decision_digest: digestOf(body) } as CerberusDecision;
               })();
         if (!ledger.publish({ request_key: key, decision, receipt })) return failClosed(input, taskId, `ledger-publish-failed:${ledger.lastError ?? "unknown"}`);
-        return { decision, receipt, idempotent_replay: false };
+        return { decision, receipt, idempotent_replay: false, gate: out };
       } catch {
         // Record the failure as a final DENY so the request is idempotent and not left as a dangling claim (best effort).
         const fc = failClosed(input, taskId, "ledger-internal-error");
