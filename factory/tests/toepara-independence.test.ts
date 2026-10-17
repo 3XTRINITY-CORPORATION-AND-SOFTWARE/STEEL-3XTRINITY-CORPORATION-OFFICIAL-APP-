@@ -38,8 +38,7 @@ test("INDEPENDENCE (source boundary): toepara.ts/git.ts never import KRATT's ver
   const gsrc = readFileSync(join(ROOT, "factory/git.ts"), "utf8");
   const imports = [...src.matchAll(/from "([^"]+)"/g)].map((m) => m[1]).sort();
   // ../scripts/runtime-verify.mjs: only the pure rules (verifyRuntime + render), fed a git-object source (runtimeSourceAt), never fsSource
-  assert.deepEqual(imports, ["../cerberus/core/decide.ts", "../kratt/actions.ts", "../kratt/evidence.ts", "../kratt/task.ts", "../scripts/runtime-verify.mjs", "./git.ts", "./kratt-stage.ts", "./protocol/types.ts", "./rastik-types.ts", "./trust-gate.ts"]);
-  assert.deepEqual(imports, ["../cerberus/core/decide.ts", "../kratt/actions.ts", "../kratt/evidence.ts", "../kratt/task.ts", "./git.ts", "./kratt-stage.ts", "./protocol/types.ts", "./rastik-types.ts", "./signing.ts", "./trust-gate.ts"]);
+  assert.deepEqual(imports, ["../cerberus/core/decide.ts", "../kratt/actions.ts", "../kratt/evidence.ts", "../kratt/task.ts", "../scripts/runtime-verify.mjs", "./git.ts", "./kratt-stage.ts", "./protocol/types.ts", "./rastik-types.ts", "./signing.ts", "./trust-gate.ts"]);
   // from signing.ts only the VERIFY side (status + policy helpers), never a signer or the key-file config resolver
   const sgImport = src.match(/import \{([^}]*)\} from "\.\/signing\.ts"/)?.[1].split(",").map((x) => x.trim()).sort();
   assert.deepEqual(sgImport, ["actionReceiptSubject", "noSigningProvider", "receiptSigningRequired", "signatureStatus", "type ReceiptSigningPolicy"].sort());
