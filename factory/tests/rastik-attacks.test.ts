@@ -619,6 +619,7 @@ test("RÄSTIK decision-receipt signatures: stripped, tampered+resealed, flipped,
   const lenient = { name: signer.name, verify: async () => true };
   const w = await runDecisionReceiptSignatureAttacks(d, signer, attacker, lenient);
   assert.deepEqual(w.records.filter((x) => x.outcome === "SUCCEEDED").map((x) => x.case_id), ["decision-key-substitution"], "binding (purpose/subject) holds even with a lenient verifier; only the key check is the verifier's");
+});
 import { decideWithAdaptersAsync, stubAdapter } from "../../cerberus/integrations/verdict-adapters.ts";
 import { sha256Hex } from "../../cerberus/artifact-trust/artifact-trust.ts";
 import { ASYNC_GATE_TIMEOUT_MS, asyncGateCaseCount, cerberusAsyncTarget, factoryResolveTarget, runAsyncTrustGateAttacks, type AsyncGateTarget } from "../rastik-async-gate.ts";

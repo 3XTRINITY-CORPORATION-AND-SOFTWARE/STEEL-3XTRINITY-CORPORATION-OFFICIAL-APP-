@@ -28,6 +28,7 @@ const SG = "factory/signing.ts";
 const GT = "factory/git.ts";
 const CG = "factory/cerberus-gate.ts";
 const LP = "factory/loop.ts";
+const VA = "cerberus/integrations/verdict-adapters.ts";
 
 const RAW: Mutant[] = [
   // ---- CERBERUS async adapter seam (F-P1-TG-002): killed by the RÄSTIK async Trust Gate battery + seam test ----------
