@@ -1,4 +1,13 @@
 import { createHash } from "node:crypto";
+import { artifactTrustFailure, type ArtifactEvidence } from "../artifact-trust/artifact-trust.ts";
+import { isAllowedAction } from "../policy/policy.ts";
+
+/**
+ * Cerberus v0 vertical slice:
+ *   INPUT -> POLICY CHECK -> ARTIFACT TRUST CHECK -> DECISION -> RECOVERY RECEIPT
+ *
+ * Cerberus never produces its own authorization. Upstream TÖEPÄRA and Trust Gate
+ * verdicts are REQUIRED inputs; anything other than the exact admitted values fails closed.
 import { artifactTrustFailure, sha256Hex } from "../artifact-trust/artifact-trust.ts";
 import { isAllowedAction } from "../policy/policy.ts";
 import { normalizeInput, type NormalizedInput } from "./normalize.ts";
@@ -25,6 +34,15 @@ export interface CerberusInput {
   action: string;
   toepara: string; // must be "ADMITTED"
   trustGate: string; // must be "AUTHORIZED"
+  artifact: ArtifactEvidence;
+}
+
+export type Decision = "PROCEED" | "FAIL_CLOSED";
+
+export interface RecoveryReceipt {
+  decision: Decision;
+  reasons: string[];
+  inputDigest: string;
   artifact: { name: string; content: string; /** declared lowercase hex SHA-256 */ sha256: string };
 }
 
@@ -74,6 +92,24 @@ export function canonicalize(value: unknown): string {
 
 const digest = (s: string) => createHash("sha256").update(s, "utf8").digest("hex");
 
+export function decide(input: unknown): RecoveryReceipt {
+  const reasons: string[] = [];
+  const i = (typeof input === "object" && input !== null ? input : {}) as Partial<CerberusInput>;
+
+  // 1. policy
+  if (!isAllowedAction(i.action)) reasons.push("policy-action-denied");
+  // 2. upstream gates (never bypassed)
+  if (i.toepara !== "ADMITTED") reasons.push("toepara-not-admitted");
+  if (i.trustGate !== "AUTHORIZED") reasons.push("trust-gate-not-authorized");
+  // 3. artifact trust
+  const trust = artifactTrustFailure(i.artifact);
+  if (trust) reasons.push(trust);
+
+  const decision: Decision = reasons.length === 0 ? "PROCEED" : "FAIL_CLOSED";
+  const inputDigest = digest(canonicalize(input ?? null));
+  const body = { decision, reasons, inputDigest };
+  return { ...body, receiptDigest: digest(canonicalize(body)) };
+}
 type ReceiptBody = Omit<RecoveryReceipt, "receiptDigest">;
 
 function seal(body: ReceiptBody): RecoveryReceipt {
