@@ -1,0 +1,27 @@
+// BUILD/RUNTIME configuration slots (1-4, 50, 51). Slots 1, 2, 50, 51 drive the repo's real enforcing gates
+// (factory/rastik-attacks.ts, scripts/runtime-verify.mjs) over the real config plus a negative control;
+// slots 3 and 4 remain honest CONFIG_PINNED pins of the config artefacts themselves.
+const lines = (/** @type {any} */ t) => t.split("\n");
+const stepNames = (/** @type {any} */ yml) => lines(yml).map((/** @type {any} */ l) => l.match(/^\s*- name:\s*(.+?)\s*$/)).filter(Boolean).map((/** @type {any} */ m) => m[1]);
+
+/** @type {import("../types.d.ts").Spec[]} */
+export const SPECS = [
+  { slot: 1, target: "factory/rastik-attacks.ts", expected: { realRepo: [], devcontainer20: ["devcontainer-major-differs-from-nvmrc"], devcontainerLts: ["devcontainer-node-not-numeric"] },
+    run: (m) => { const d = m.readRuntimeDeclarations("."); d.actual = "22.0.0"; return { realRepo: m.runtimeDriftViolations(d), devcontainer20: m.runtimeDriftViolations({ ...d, devcontainer_node: "20" }), devcontainerLts: m.runtimeDriftViolations({ ...d, devcontainer_node: "lts" }) }; },
+    claim: "the runtime-drift gate reads this repo's real devcontainer/.nvmrc/engines/CI pins and finds no drift, and the same gate flags a devcontainer node feature of 20 (other major) or 'lts' (floating)" },
+  { slot: 2, target: "factory/rastik-attacks.ts", expected: { realPackageDupKeys: [], testIsDiscoveryRunner: true, dupScripts: ["scripts"], dupNested: ["scripts.test"], invalid: null },
+    run: async (m) => { const { readFileSync } = await import("node:fs"); const pkg = readFileSync("package.json", "utf8"); return { realPackageDupKeys: m.jsonDuplicateKeys(pkg), testIsDiscoveryRunner: JSON.parse(pkg).scripts.test === m.TEST_RUNNER_CMD, dupScripts: m.jsonDuplicateKeys('{"scripts":{},"scripts":{}}'), dupNested: m.jsonDuplicateKeys('{"scripts":{"test":"a","test":"b"}}'), invalid: m.jsonDuplicateKeys('{"a":1,}') }; },
+    claim: "the duplicate-key gate finds no duplicate key in the real package.json whose test script is exactly the discovery runner, and it reports a duplicated top-level or nested key by path and rejects invalid JSON as null" },
+  { slot: 3, target: "package-lock.json", expected: { lockfileVersion: 3, rootNameMatchesPackage: true },
+    run: async (m) => { const { readFileSync } = await import("node:fs"); const lock = JSON.parse(m.text); const pkg = JSON.parse(readFileSync("package.json", "utf8")); return { lockfileVersion: lock.lockfileVersion, rootNameMatchesPackage: lock.packages[""].name === pkg.name }; },
+    claim: "the lockfile is lockfileVersion 3 and its root package is the same package as package.json" },
+  { slot: 4, target: ".github/workflows/ci.yml", expected: { gateOrder: true, usesNpmCi: true, devcontainerFirst: true },
+    run: (m) => { const n = stepNames(m.text); const idx = (/** @type {any} */ s) => n.indexOf(s); const order = ["Validate devcontainer JSON", "Install", "Typecheck", "Build", "Test"].map(idx); return { gateOrder: order.every((i, k) => i >= 0 && (k === 0 || i > order[k - 1])), usesNpmCi: /run:\s*npm ci\b/.test(m.text), devcontainerFirst: n[0] === "Validate devcontainer JSON" }; },
+    claim: "CI runs validate-devcontainer, install, typecheck, build, test in that order, installs with npm ci, and the devcontainer gate is the first step" },
+  { slot: 50, target: "scripts/runtime-verify.mjs", expected: { real: "RUNTIME_OK", nvmrc20: "RUNTIME_DRIFT", driftSource: [".nvmrc"] },
+    run: async (m) => { const { mkdtempSync, writeFileSync, mkdirSync, readFileSync } = await import("node:fs"); const { tmpdir } = await import("node:os"); const { join } = await import("node:path"); const real = m.verifyRuntime({ root: ".", localVersion: "22.0.0" }).status; const r = mkdtempSync(join(tmpdir(), "m50-")); writeFileSync(join(r, ".nvmrc"), "20\n"); writeFileSync(join(r, "package.json"), readFileSync("package.json", "utf8")); mkdirSync(join(r, ".github/workflows"), { recursive: true }); writeFileSync(join(r, ".github/workflows/ci.yml"), readFileSync(".github/workflows/ci.yml", "utf8")); const v = m.verifyRuntime({ root: r, localVersion: "22.0.0" }); return { real, nvmrc20: v.status, driftSource: v.drift.map((/** @type {any} */ s) => s.source) }; },
+    claim: "the runtime verifier reports RUNTIME_OK for this repo's real .nvmrc/engines/CI/devcontainer pins, and RUNTIME_DRIFT naming exactly .nvmrc when only .nvmrc is moved to Node 20" },
+  { slot: 51, target: "factory/rastik-attacks.ts", expected: { realRepo: [], softGate: ["workflow-continue-on-error:ci.yml"], orTrue: ["workflow-run-gate-bypass:ci.yml"] },
+    run: (m) => { const d = m.readConfigDeclarations("."); const ci = d.workflows.find((/** @type {any} */ w) => w.name === "ci.yml"); const others = d.workflows.filter((/** @type {any} */ w) => w.name !== "ci.yml"); const withCi = (/** @type {string} */ text) => m.configCollisionViolations({ ...d, workflows: [...others, { name: "ci.yml", text }] }); return { realRepo: m.configCollisionViolations(d), softGate: withCi(ci.text.replace(/^(\s*)run: npm run test:coverage\s*$/m, "$1run: npm run test:coverage\n$1continue-on-error: true")), orTrue: withCi(ci.text.replace(/^(\s*run: npm run test:coverage)\s*$/m, "$1 || true")) }; },
+    claim: "the config-collision gate finds no weakened gate in the real package.json/runner/workflows, and flags ci.yml when its test step gains continue-on-error: true or an '|| true' bypass" },
+];
